@@ -1,0 +1,954 @@
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  TouchableOpacity,
+  Platform,
+  Animated,
+  Dimensions,
+  ActivityIndicator,
+  RefreshControl,
+  Image,
+  Modal,
+  Switch,
+  TextInput,
+  Pressable,
+  StatusBar
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import * as Localization from 'expo-localization';
+import footballApi from '../services/footballApi';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// THEME & CONSTANTS
+// ═══════════════════════════════════════════════════════════════════════════════
+const COLORS = {
+  bg: '#0f1419',
+  card: '#1c2128',
+  cardHover: '#252d38',
+  border: '#2d3741',
+
+  accent: '#00d4aa',
+  accentDim: 'rgba(0, 212, 170, 0.15)',
+
+  success: '#00d977',
+  warning: '#ff9500',
+  danger: '#ff4757',
+
+  white: '#ffffff',
+  gray50: '#fafafa',
+  gray100: '#f5f5f5',
+  gray400: '#a0a0a0',
+  gray500: '#8b9199',
+  gray600: '#6b7280',
+  gray700: '#4b5563',
+  gray800: '#2d3741',
+  gray900: '#1c2128',
+};
+
+const LOCALE_TO_COUNTRY = {
+  'tr': 'Turkey', 'en': 'England', 'de': 'Germany', 'es': 'Spain', 'fr': 'France',
+  'it': 'Italy', 'pt': 'Portugal', 'nl': 'Netherlands', 'be': 'Belgium',
+};
+
+const POPULAR_LEAGUE_IDS = [39, 140, 135, 78, 61, 203, 2, 3];
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HOME SCREEN
+// ═══════════════════════════════════════════════════════════════════════════════
+const HomeScreen = ({ onMatchPress }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // State
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [matchesByLeague, setMatchesByLeague] = useState({});
+  const [expandedLeagues, setExpandedLeagues] = useState({});
+  const [error, setError] = useState(null);
+  const [searchText, setSearchText] = useState('');
+  const searchInputRef = useRef(null);
+  const [activeFilter, setActiveFilter] = useState('Tümü');
+  const [selectedDateOffset, setSelectedDateOffset] = useState(0);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [userCountry, setUserCountry] = useState(null);
+  const [sortedLeagues, setSortedLeagues] = useState([]);
+  
+  // Advanced Filters
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [hideFinished, setHideFinished] = useState(false);
+  const [onlyNotStarted, setOnlyNotStarted] = useState(false);
+  const [onlyDraws, setOnlyDraws] = useState(false);
+  const [selectedLeagues, setSelectedLeagues] = useState([]);
+
+  const filters = ['Tümü', 'Banko', 'Orta', 'Riskli'];
+  const dateOptions = [-3, -2, -1, 0, 1, 2, 3];
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // HELPERS
+  // ─────────────────────────────────────────────────────────────────────────────
+  
+  const getDateString = (offset = 0) => {
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+    return date.toISOString().split('T')[0];
+  };
+
+  const formatDateLabel = (offset) => {
+    if (offset === -1) return 'Dün';
+    if (offset === 0) return 'Bugün';
+    if (offset === 1) return 'Yarın';
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+    return `${date.getDate()}/${date.getMonth() + 1}`;
+  };
+
+  const formatDateDisplay = (offset) => {
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+    const days = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+    const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+    return `${date.getDate()} ${months[date.getMonth()]}, ${days[date.getDay()]}`;
+  };
+
+  useEffect(() => {
+    try {
+      const rawLocale = Localization.locale || 'tr';
+      const locale = rawLocale.split(/[-_]/)[0].toLowerCase();
+      const country = LOCALE_TO_COUNTRY[locale] || null;
+      setUserCountry(country);
+    } catch (e) {
+      console.log('Locale detection failed:', e);
+    }
+  }, []);
+
+  const fetchData = useCallback(async (dateOffset = selectedDateOffset) => {
+    try {
+      setError(null);
+      setLoading(true);
+      const dateString = getDateString(dateOffset);
+      const fixtures = await footballApi.getFixturesByDate(dateString);
+
+      if (fixtures && fixtures.length > 0) {
+        const formatted = fixtures.map(f => {
+          const match = footballApi.formatFixture(f);
+          match.prediction = Math.floor(Math.random() * 60) + 20;
+          return match;
+        });
+
+        const grouped = {};
+        formatted.forEach(match => {
+          const leagueId = match.league?.id || 'unknown';
+          const leagueKey = `league_${leagueId}`;
+          if (!grouped[leagueKey]) {
+            grouped[leagueKey] = {
+              id: leagueId,
+              name: match.league?.name || 'Bilinmeyen Lig',
+              country: match.league?.country || '',
+              flag: match.league?.flag,
+              logo: match.league?.logo,
+              matches: [],
+            };
+          }
+          grouped[leagueKey].matches.push(match);
+        });
+        setMatchesByLeague(grouped);
+      } else {
+        setMatchesByLeague({});
+        setSortedLeagues([]);
+      }
+    } catch (err) {
+      console.error('Fetch error:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [selectedDateOffset]);
+
+  useEffect(() => {
+    fetchData(selectedDateOffset);
+    Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+  }, [selectedDateOffset]);
+
+  useEffect(() => {
+    if (Object.keys(matchesByLeague).length > 0) {
+      const sorted = Object.entries(matchesByLeague).sort(([, a], [, b]) => {
+        if (userCountry) {
+          const aIsUser = a.country === userCountry;
+          const bIsUser = b.country === userCountry;
+          if (aIsUser && !bIsUser) return -1;
+          if (!aIsUser && bIsUser) return 1;
+        }
+        const aPop = POPULAR_LEAGUE_IDS.indexOf(a.id);
+        const bPop = POPULAR_LEAGUE_IDS.indexOf(b.id);
+        const aIsPop = aPop !== -1;
+        const bIsPop = bPop !== -1;
+        if (aIsPop && !bIsPop) return -1;
+        if (!aIsPop && bIsPop) return 1;
+        if (aIsPop && bIsPop) return aPop - bPop;
+        return (a.country + a.name).localeCompare(b.country + b.name);
+      });
+      setSortedLeagues(sorted);
+      // Auto expand first
+      if (sorted.length > 0 && Object.keys(expandedLeagues).length === 0) {
+        setExpandedLeagues({ [sorted[0][0]]: true });
+      }
+    }
+  }, [matchesByLeague, userCountry]);
+
+  const toggleLeague = (key) => {
+    setExpandedLeagues(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleDateChange = (offset) => {
+    if (offset !== selectedDateOffset) {
+      setSelectedDateOffset(offset);
+      setMatchesByLeague({});
+      setExpandedLeagues({});
+    }
+  };
+
+  const getFilteredMatches = (matches, league) => {
+    let filtered = [...matches];
+    
+    // Advanced Filters
+    if (hideFinished) {
+      filtered = filtered.filter(m => !['FT', 'AET', 'PEN', 'CANC', 'ABD', 'AWD', 'WO'].includes(m.status));
+    }
+    if (onlyNotStarted) {
+      filtered = filtered.filter(m => m.status === 'NS');
+    }
+    if (onlyDraws) {
+      filtered = filtered.filter(m => m.home?.score !== undefined && m.home.score === m.away.score);
+    }
+
+    // Search
+    if (searchText.trim()) {
+      const s = searchText.toLowerCase().trim();
+      const leagueMatches = league && (
+        league.name?.toLowerCase().includes(s) ||
+        league.country?.toLowerCase().includes(s)
+      );
+
+      if (!leagueMatches) {
+        filtered = filtered.filter(m => 
+          m.home?.name?.toLowerCase().includes(s) || 
+          m.away?.name?.toLowerCase().includes(s)
+        );
+      }
+    }
+
+    // Prediction Filter
+    if (activeFilter === 'Banko') return filtered.filter(m => m.prediction >= 70);
+    if (activeFilter === 'Orta') return filtered.filter(m => m.prediction >= 40 && m.prediction < 70);
+    if (activeFilter === 'Riskli') return filtered.filter(m => m.prediction < 40);
+
+    return filtered;
+  };
+
+  const getPredictionColor = (value) => {
+    if (value >= 60) return COLORS.success;
+    if (value >= 40) return COLORS.warning;
+    return COLORS.danger;
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  return (
+    <View style={styles.screen}>
+      {/* OLD HEADER DESIGN */}
+      <View style={styles.bultenHeader}>
+        <View style={styles.bultenHeaderLeft}>
+          <TouchableOpacity style={styles.menuButton}>
+            <Ionicons name="menu" size={24} color={COLORS.white} />
+          </TouchableOpacity>
+          <Text style={styles.bultenTitle}>Bülten</Text>
+        </View>
+        <View style={styles.bultenHeaderRight}>
+          <TouchableOpacity style={styles.headerIconBtn}>
+            <Ionicons name="radio" size={22} color={COLORS.accent} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerIconBtn}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Ionicons name="calendar-outline" size={22} color={COLORS.white} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerIconBtn}
+            onPress={() => setShowFilterPanel(true)}
+          >
+            <Ionicons name="options-outline" size={22} color={COLORS.white} />
+            {(hideFinished || onlyNotStarted || onlyDraws || selectedLeagues.length > 0) && (
+              <View style={[styles.notificationBadge, { backgroundColor: COLORS.accent }]}>
+                <Ionicons name="checkmark" size={10} color={COLORS.white} />
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <Pressable
+          style={styles.searchBar}
+          onPress={() => searchInputRef.current?.focus()}
+        >
+          <Ionicons name="search" size={18} color={COLORS.gray500} style={styles.searchIcon} />
+          <TextInput
+            ref={searchInputRef}
+            style={styles.searchInput}
+            placeholder="Takım veya lig ara..."
+            placeholderTextColor={COLORS.gray500}
+            value={searchText}
+            onChangeText={setSearchText}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            selectionColor={COLORS.accent}
+          />
+          {searchText.length > 0 && (
+            <TouchableOpacity
+              onPress={() => {
+                setSearchText('');
+                searchInputRef.current?.focus();
+              }}
+              style={styles.searchClearBtn}
+            >
+              <Ionicons name="close-circle" size={20} color={COLORS.gray500} />
+            </TouchableOpacity>
+          )}
+        </Pressable>
+      </View>
+
+      {/* Filter Tabs */}
+      <View style={styles.filterContainer}>
+        {filters.map((filter) => (
+          <TouchableOpacity
+            key={filter}
+            style={[
+              styles.filterTab,
+              activeFilter === filter && styles.filterTabActive,
+            ]}
+            onPress={() => setActiveFilter(filter)}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                activeFilter === filter && styles.filterTextActive,
+              ]}
+            >
+              {filter}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.accent} />
+          <Text style={styles.loadingText}>Bülten yükleniyor...</Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.matchesScroll}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => fetchData(selectedDateOffset)}
+              tintColor={COLORS.accent}
+            />
+          }
+        >
+          <Animated.View style={{ opacity: fadeAnim }}>
+            {sortedLeagues.length === 0 ? (
+               <View style={styles.noMatchesBox}>
+               <Ionicons name="football-outline" size={40} color={COLORS.gray700} />
+               <Text style={styles.noMatchesText}>
+                 Bugün maç bulunamadı
+               </Text>
+             </View>
+            ) : (
+              sortedLeagues.map(([leagueKey, league]) => {
+                const filteredMatches = getFilteredMatches(league.matches, league);
+                if (filteredMatches.length === 0) return null;
+
+                return (
+                  <View key={leagueKey} style={styles.leagueSection}>
+                    <TouchableOpacity
+                      style={styles.leagueHeader}
+                      onPress={() => toggleLeague(leagueKey)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.bultenLeagueInfo}>
+                        <View style={styles.bultenFlagContainer}>
+                          {(league.flag || league.logo) ? (
+                            <Image
+                              source={{ uri: league.flag || league.logo }}
+                              style={styles.bultenFlag}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <Ionicons name="football" size={16} color={COLORS.gray500} />
+                          )}
+                        </View>
+                        <Text style={styles.bultenLeagueName} numberOfLines={1}>
+                          {league.country ? `${league.country} - ${league.name}` : league.name}
+                        </Text>
+                      </View>
+                      <View style={styles.leagueRight}>
+                        <Text style={styles.matchCount}>{filteredMatches.length}</Text>
+                        <Ionicons
+                          name={expandedLeagues[leagueKey] ? 'chevron-up' : 'chevron-down'}
+                          size={20}
+                          color={COLORS.gray500}
+                        />
+                      </View>
+                    </TouchableOpacity>
+
+                    {expandedLeagues[leagueKey] && (
+                      <View style={styles.matchesList}>
+                        {filteredMatches.map((match) => (
+                          <TouchableOpacity
+                            key={match.id}
+                            style={styles.matchCard}
+                            activeOpacity={0.7}
+                            onPress={() => onMatchPress && onMatchPress(match)}
+                          >
+                            <View style={styles.matchTimeCol}>
+                              {match.isLive ? (
+                                <View style={styles.liveTimeBadge}>
+                                  <View style={styles.liveDot} />
+                                  <Text style={styles.liveTimeText}>{match.minute}'</Text>
+                                </View>
+                              ) : (
+                                <Text style={styles.matchTimeText}>{match.time}</Text>
+                              )}
+                            </View>
+
+                            <View style={styles.teamsCol}>
+                              <View style={styles.teamRow}>
+                                <View style={styles.teamLogoContainer}>
+                                  {match.home?.logo ? (
+                                    <Image source={{ uri: match.home.logo }} style={styles.teamLogoSmall} resizeMode="contain" />
+                                  ) : (
+                                    <Ionicons name="shirt-outline" size={14} color={COLORS.gray600} />
+                                  )}
+                                </View>
+                                <Text style={styles.teamNameText} numberOfLines={1}>
+                                  {match.home?.name || 'Ev Sahibi'}
+                                </Text>
+                              </View>
+                              <View style={styles.teamRow}>
+                                <View style={styles.teamLogoContainer}>
+                                  {match.away?.logo ? (
+                                    <Image source={{ uri: match.away.logo }} style={styles.teamLogoSmall} resizeMode="contain" />
+                                  ) : (
+                                    <Ionicons name="shirt-outline" size={14} color={COLORS.gray600} />
+                                  )}
+                                </View>
+                                <Text style={styles.teamNameText} numberOfLines={1}>
+                                  {match.away?.name || 'Deplasman'}
+                                </Text>
+                              </View>
+                            </View>
+
+                            <View style={styles.predictionCol}>
+                              <Text style={[styles.predictionPercent, { color: COLORS.gray500 }]}>%</Text>
+                              <Text style={[styles.predictionValue, { color: getPredictionColor(match.prediction) }]}>
+                                {match.prediction}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                );
+              })
+            )}
+            <View style={{ height: 120 }} />
+          </Animated.View>
+        </ScrollView>
+      )}
+
+      {/* OLD DATE PICKER MODAL */}
+      <Modal
+        visible={showDatePicker}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDatePicker(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowDatePicker(false)}
+        >
+          <View style={styles.datePickerModal}>
+            <View style={styles.datePickerHeader}>
+              <Text style={styles.datePickerTitle}>Tarih Seçin</Text>
+              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                <Ionicons name="close" size={24} color={COLORS.gray500} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.datePickerList} showsVerticalScrollIndicator={false}>
+              {dateOptions.map((offset) => (
+                <TouchableOpacity
+                  key={offset}
+                  style={[
+                    styles.datePickerItem,
+                    selectedDateOffset === offset && styles.datePickerItemActive,
+                  ]}
+                  onPress={() => {
+                    handleDateChange(offset);
+                    setShowDatePicker(false);
+                  }}
+                >
+                  <View style={styles.datePickerItemLeft}>
+                    <Text style={[
+                      styles.datePickerItemLabel,
+                      selectedDateOffset === offset && styles.datePickerItemLabelActive,
+                    ]}>
+                      {formatDateLabel(offset)}
+                    </Text>
+                    <Text style={[
+                      styles.datePickerItemDate,
+                      selectedDateOffset === offset && styles.datePickerItemDateActive,
+                    ]}>
+                      {formatDateDisplay(offset)}
+                    </Text>
+                  </View>
+                  {selectedDateOffset === offset && (
+                    <Ionicons name="checkmark-circle" size={22} color={COLORS.accent} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Filter Panel Modal */}
+      <Modal
+        visible={showFilterPanel}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowFilterPanel(false)}
+      >
+        <View style={styles.filterPanelOverlay}>
+          <TouchableOpacity
+            style={styles.filterPanelDismiss}
+            activeOpacity={1}
+            onPress={() => setShowFilterPanel(false)}
+          />
+          <View style={styles.filterPanelContent}>
+             <View style={styles.filterPanelHeader}>
+              <Text style={styles.filterPanelTitle}>Filtreler</Text>
+              <TouchableOpacity onPress={() => setShowFilterPanel(false)}>
+                <Ionicons name="close" size={24} color={COLORS.gray500} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.filterPanelBody}>
+               <View style={styles.filterRow}>
+                  <Text style={styles.filterLabel}>Biten Maçları Gizle</Text>
+                  <Switch
+                    value={hideFinished}
+                    onValueChange={setHideFinished}
+                    trackColor={{ false: COLORS.gray700, true: COLORS.accentDim }}
+                    thumbColor={hideFinished ? COLORS.accent : COLORS.gray500}
+                  />
+                </View>
+                <View style={styles.filterRow}>
+                  <Text style={styles.filterLabel}>Sadece Başlamamış</Text>
+                  <Switch
+                    value={onlyNotStarted}
+                    onValueChange={setOnlyNotStarted}
+                    trackColor={{ false: COLORS.gray700, true: COLORS.accentDim }}
+                    thumbColor={onlyNotStarted ? COLORS.accent : COLORS.gray500}
+                  />
+                </View>
+                <View style={styles.filterRow}>
+                   <Text style={styles.filterLabel}>Sadece Beraberlik</Text>
+                   <Switch
+                    value={onlyDraws}
+                    onValueChange={setOnlyDraws}
+                    trackColor={{ false: COLORS.gray700, true: COLORS.accentDim }}
+                    thumbColor={onlyDraws ? COLORS.accent : COLORS.gray500}
+                  />
+                </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// STYLES (Restored Old Styles + Cleaned)
+// ═══════════════════════════════════════════════════════════════════════════════
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+  },
+  // Header
+  bultenHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? 40 : 16,
+    paddingBottom: 16,
+    backgroundColor: COLORS.bg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  bultenHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  menuButton: {
+    marginRight: 16,
+  },
+  bultenTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  bultenHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  headerIconBtn: {
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Search
+  searchContainer: {
+    padding: 16,
+    paddingBottom: 8,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 40,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: COLORS.white,
+    fontSize: 14,
+    height: '100%',
+  },
+  searchClearBtn: {
+    padding: 4,
+  },
+  // Filter Tabs
+  filterContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    gap: 8,
+  },
+  filterTab: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  filterTabActive: {
+    backgroundColor: COLORS.accentDim,
+    borderColor: COLORS.accent,
+  },
+  filterText: {
+    fontSize: 12,
+    color: COLORS.gray400,
+  },
+  filterTextActive: {
+    color: COLORS.accent,
+    fontWeight: '600',
+  },
+  // Content
+  matchesScroll: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    color: COLORS.gray500,
+  },
+  noMatchesBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  noMatchesText: {
+    marginTop: 12,
+    color: COLORS.gray500,
+  },
+  // League Section
+  leagueSection: {
+    marginBottom: 16,
+  },
+  leagueHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.card,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  bultenLeagueInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  bultenFlagContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    overflow: 'hidden',
+  },
+  bultenFlag: {
+    width: 24,
+    height: 24,
+  },
+  bultenLeagueName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.white,
+    flex: 1,
+  },
+  leagueRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  matchCount: {
+    fontSize: 12,
+    color: COLORS.gray500,
+  },
+  // Match Card
+  matchesList: {
+    gap: 8,
+  },
+  matchCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  matchTimeCol: {
+    width: 45,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRightWidth: 1,
+    borderRightColor: COLORS.border,
+    paddingRight: 8,
+    marginRight: 8,
+  },
+  matchTimeText: {
+    fontSize: 12,
+    color: COLORS.white,
+    fontWeight: '600',
+  },
+  liveTimeBadge: {
+    alignItems: 'center',
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.danger,
+    marginBottom: 2,
+  },
+  liveTimeText: {
+    fontSize: 10,
+    color: COLORS.danger,
+    fontWeight: '700',
+  },
+  teamsCol: {
+    flex: 1,
+    gap: 8,
+  },
+  teamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  teamLogoContainer: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  teamLogoSmall: {
+    width: 18,
+    height: 18,
+  },
+  teamNameText: {
+    fontSize: 13,
+    color: COLORS.gray100,
+  },
+  predictionCol: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingLeft: 8,
+    minWidth: 40,
+  },
+  predictionPercent: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  predictionValue: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  datePickerModal: {
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    maxHeight: '80%',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  datePickerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  datePickerList: {
+    padding: 8,
+  },
+  datePickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 4,
+  },
+  datePickerItemActive: {
+    backgroundColor: COLORS.accentDim,
+  },
+  datePickerItemLeft: {
+    gap: 4,
+  },
+  datePickerItemLabel: {
+    fontSize: 14,
+    color: COLORS.white,
+    fontWeight: '600',
+  },
+  datePickerItemLabelActive: {
+    color: COLORS.accent,
+  },
+  datePickerItemDate: {
+    fontSize: 12,
+    color: COLORS.gray500,
+  },
+  datePickerItemDateActive: {
+    color: COLORS.accent,
+  },
+  // Filter Panel
+  filterPanelOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  filterPanelDismiss: {
+    flex: 1,
+  },
+  filterPanelContent: {
+    backgroundColor: COLORS.card,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 40,
+  },
+  filterPanelHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  filterPanelTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  filterPanelBody: {
+    padding: 16,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  filterLabel: {
+    fontSize: 14,
+    color: COLORS.white,
+  },
+});
+
+export default HomeScreen;
