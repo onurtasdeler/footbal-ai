@@ -21,6 +21,92 @@ const headers = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// COUNTRY TO FLAG MAPPING
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// API-Football country names to ISO 3166-1 alpha-2 codes (lowercase)
+const COUNTRY_TO_ISO = {
+  'Afghanistan': 'af', 'Albania': 'al', 'Algeria': 'dz', 'Andorra': 'ad',
+  'Angola': 'ao', 'Argentina': 'ar', 'Armenia': 'am', 'Australia': 'au',
+  'Austria': 'at', 'Azerbaijan': 'az', 'Bahrain': 'bh', 'Bangladesh': 'bd',
+  'Belarus': 'by', 'Belgium': 'be', 'Benin': 'bj', 'Bolivia': 'bo',
+  'Bosnia': 'ba', 'Bosnia and Herzegovina': 'ba', 'Botswana': 'bw',
+  'Brazil': 'br', 'Bulgaria': 'bg', 'Burkina-Faso': 'bf', 'Burkina Faso': 'bf',
+  'Burundi': 'bi', 'Cambodia': 'kh', 'Cameroon': 'cm', 'Canada': 'ca',
+  'Cape-Verde': 'cv', 'Cape Verde': 'cv', 'Central-African-Republic': 'cf',
+  'Chad': 'td', 'Chile': 'cl', 'China': 'cn', 'Colombia': 'co',
+  'Comoros': 'km', 'Congo': 'cg', 'Congo-DR': 'cd', 'Costa-Rica': 'cr', 'Costa Rica': 'cr',
+  'Croatia': 'hr', 'Cuba': 'cu', 'Cyprus': 'cy', 'Czech-Republic': 'cz', 'Czechia': 'cz',
+  'Denmark': 'dk', 'Djibouti': 'dj', 'Dominican-Republic': 'do',
+  'Ecuador': 'ec', 'Egypt': 'eg', 'El-Salvador': 'sv', 'El Salvador': 'sv',
+  'England': 'gb', 'Equatorial-Guinea': 'gq', 'Eritrea': 'er', 'Estonia': 'ee',
+  'Eswatini': 'sz', 'Ethiopia': 'et', 'Faroe-Islands': 'fo', 'Fiji': 'fj',
+  'Finland': 'fi', 'France': 'fr', 'Gabon': 'ga', 'Gambia': 'gm',
+  'Georgia': 'ge', 'Germany': 'de', 'Ghana': 'gh', 'Gibraltar': 'gi',
+  'Greece': 'gr', 'Guatemala': 'gt', 'Guinea': 'gn', 'Guinea-Bissau': 'gw',
+  'Haiti': 'ht', 'Honduras': 'hn', 'Hong-Kong': 'hk', 'Hong Kong': 'hk',
+  'Hungary': 'hu', 'Iceland': 'is', 'India': 'in', 'Indonesia': 'id',
+  'Iran': 'ir', 'Iraq': 'iq', 'Ireland': 'ie', 'Israel': 'il',
+  'Italy': 'it', 'Ivory-Coast': 'ci', 'Ivory Coast': 'ci', 'Jamaica': 'jm',
+  'Japan': 'jp', 'Jordan': 'jo', 'Kazakhstan': 'kz', 'Kenya': 'ke',
+  'Kosovo': 'xk', 'Kuwait': 'kw', 'Kyrgyzstan': 'kg', 'Laos': 'la',
+  'Latvia': 'lv', 'Lebanon': 'lb', 'Lesotho': 'ls', 'Liberia': 'lr',
+  'Libya': 'ly', 'Liechtenstein': 'li', 'Lithuania': 'lt', 'Luxembourg': 'lu',
+  'Macao': 'mo', 'Macau': 'mo', 'Madagascar': 'mg', 'Malawi': 'mw',
+  'Malaysia': 'my', 'Maldives': 'mv', 'Mali': 'ml', 'Malta': 'mt',
+  'Mauritania': 'mr', 'Mauritius': 'mu', 'Mexico': 'mx', 'Moldova': 'md',
+  'Monaco': 'mc', 'Mongolia': 'mn', 'Montenegro': 'me', 'Morocco': 'ma',
+  'Mozambique': 'mz', 'Myanmar': 'mm', 'Namibia': 'na', 'Nepal': 'np',
+  'Netherlands': 'nl', 'New-Zealand': 'nz', 'New Zealand': 'nz',
+  'Nicaragua': 'ni', 'Niger': 'ne', 'Nigeria': 'ng', 'North-Macedonia': 'mk',
+  'Northern-Ireland': 'gb', 'Norway': 'no', 'Oman': 'om',
+  'Pakistan': 'pk', 'Palestine': 'ps', 'Panama': 'pa', 'Paraguay': 'py',
+  'Peru': 'pe', 'Philippines': 'ph', 'Poland': 'pl', 'Portugal': 'pt',
+  'Qatar': 'qa', 'Romania': 'ro', 'Russia': 'ru', 'Rwanda': 'rw',
+  'San-Marino': 'sm', 'San Marino': 'sm', 'Saudi-Arabia': 'sa', 'Saudi Arabia': 'sa',
+  'Scotland': 'gb', 'Senegal': 'sn', 'Serbia': 'rs', 'Sierra-Leone': 'sl',
+  'Singapore': 'sg', 'Slovakia': 'sk', 'Slovenia': 'si', 'Somalia': 'so',
+  'South-Africa': 'za', 'South Africa': 'za', 'South-Korea': 'kr', 'South Korea': 'kr',
+  'South-Sudan': 'ss', 'Spain': 'es', 'Sri-Lanka': 'lk', 'Sudan': 'sd',
+  'Suriname': 'sr', 'Sweden': 'se', 'Switzerland': 'ch', 'Syria': 'sy',
+  'Taiwan': 'tw', 'Tajikistan': 'tj', 'Tanzania': 'tz', 'Thailand': 'th',
+  'Togo': 'tg', 'Trinidad-And-Tobago': 'tt', 'Tunisia': 'tn', 'Turkey': 'tr',
+  'Turkmenistan': 'tm', 'Türkiye': 'tr', 'Uganda': 'ug', 'Ukraine': 'ua',
+  'United-Arab-Emirates': 'ae', 'UAE': 'ae', 'USA': 'us', 'United-States': 'us',
+  'Uruguay': 'uy', 'Uzbekistan': 'uz', 'Venezuela': 've', 'Vietnam': 'vn',
+  'Wales': 'gb', 'Yemen': 'ye', 'Zambia': 'zm', 'Zimbabwe': 'zw',
+  // Caribbean & Special regions
+  'Antigua-And-Barbuda': 'ag', 'Antigua And Barbuda': 'ag',
+  'Aruba': 'aw', 'Barbados': 'bb', 'Bermuda': 'bm', 'Curacao': 'cw',
+  'Guadeloupe': 'gp', 'Martinique': 'mq', 'Puerto-Rico': 'pr', 'Puerto Rico': 'pr',
+  // Asia Pacific
+  'Chinese-Taipei': 'tw', 'Chinese Taipei': 'tw',
+  'Guam': 'gu', 'New-Caledonia': 'nc', 'Tahiti': 'pf',
+  // Europe Special
+  'Macedonia': 'mk', 'FYR Macedonia': 'mk',
+  // International competitions - use World flag
+  'World': 'un', 'Europe': 'eu',
+};
+
+// Get flag URL from country name
+export const getCountryFlagUrl = (countryName) => {
+  if (!countryName) return null;
+
+  const isoCode = COUNTRY_TO_ISO[countryName];
+  if (isoCode) {
+    // Use flagcdn.com for PNG flags (reliable CDN)
+    // Format: https://flagcdn.com/48x36/{code}.png
+    return `https://flagcdn.com/48x36/${isoCode}.png`;
+  }
+
+  // Log unmapped countries for debugging
+  if (__DEV__) {
+    console.log('[FLAG] Unmapped country:', countryName);
+  }
+  return null;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // API CALL HELPER (with rate limiting)
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -643,6 +729,8 @@ export const formatFixture = (fixture) => {
       name: league?.name || 'Unknown',
       country: league?.country,
       logo: league?.logo,
+      // API fixtures endpoint'inde flag yok, country name'den generate ediyoruz
+      flag: getCountryFlagUrl(league?.country) || league?.logo,
     },
     home: {
       id: teams?.home?.id,
@@ -761,6 +849,7 @@ export default {
   formatFixture,
   formatPrediction,
   getStatusText,
+  getCountryFlagUrl,
   // Cache utilities
   getApiCacheStats,
 };

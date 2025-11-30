@@ -65,8 +65,8 @@ const HomeScreen = ({ onMatchPress }) => {
   const [favoriteMatchIds, setFavoriteMatchIds] = useState([]);
   const [analyzedMatchIds, setAnalyzedMatchIds] = useState([]);
 
-  const filters = ['Tümü', 'Favoriler', 'Analizler'];
-  const dateOptions = [-3, -2, -1, 0, 1, 2, 3];
+  const filters = ['Tümü', 'Canlı', 'Favoriler', 'Analizler'];
+  const dateOptions = [-1, 0, 1]; // Sadece Dün, Bugün, Yarın
 
   // ─────────────────────────────────────────────────────────────────────────────
   // HELPERS
@@ -93,6 +93,13 @@ const HomeScreen = ({ onMatchPress }) => {
     const days = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
     const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
     return `${date.getDate()} ${months[date.getMonth()]}, ${days[date.getDay()]}`;
+  };
+
+  const formatShortDate = (offset) => {
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+    const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+    return `${date.getDate()} ${months[date.getMonth()]}`;
   };
 
   useEffect(() => {
@@ -127,6 +134,26 @@ const HomeScreen = ({ onMatchPress }) => {
   useEffect(() => {
     loadFavoritesAndAnalyzed();
   }, [loadFavoritesAndAnalyzed]);
+
+  // Favori toggle fonksiyonu
+  const toggleFavorite = async (match) => {
+    try {
+      const favoritesJson = await AsyncStorage.getItem('@favorite_matches');
+      let favorites = favoritesJson ? JSON.parse(favoritesJson) : [];
+
+      const index = favorites.findIndex(f => f.id === match.id);
+      if (index > -1) {
+        favorites.splice(index, 1);
+      } else {
+        favorites.push({ id: match.id, home: match.home, away: match.away, league: match.league });
+      }
+
+      await AsyncStorage.setItem('@favorite_matches', JSON.stringify(favorites));
+      setFavoriteMatchIds(favorites.map(f => f.id));
+    } catch (error) {
+      console.error('Toggle favorite error:', error);
+    }
+  };
 
   const fetchData = useCallback(async (dateOffset = selectedDateOffset) => {
     try {
@@ -250,6 +277,9 @@ const HomeScreen = ({ onMatchPress }) => {
     }
 
     // Tab Filters
+    if (activeFilter === 'Canlı') {
+      return filtered.filter(m => m.isLive === true);
+    }
     if (activeFilter === 'Favoriler') {
       return filtered.filter(m => favoriteMatchIds.includes(m.id));
     }
@@ -274,21 +304,17 @@ const HomeScreen = ({ onMatchPress }) => {
     <View style={styles.screen}>
       {/* HEADER */}
       <View style={styles.bultenHeader}>
-        <View style={styles.bultenHeaderLeft}>
-          <TouchableOpacity
-            style={styles.headerIconBtn}
-            onPress={() => setShowDatePicker(true)}
-          >
-            <Ionicons name="calendar-outline" size={20} color={COLORS.white} />
-          </TouchableOpacity>
-          <Text style={styles.bultenTitle}>Bülten</Text>
-        </View>
-        <View style={styles.bultenHeaderRight}>
-          <TouchableOpacity style={styles.proBadge}>
-            <Ionicons name="trophy" size={16} color="#F4B43A" />
-            <Text style={styles.proText}>PRO</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={styles.headerIconBtn}
+          onPress={() => setShowDatePicker(true)}
+        >
+          <Ionicons name="calendar-outline" size={20} color={COLORS.white} />
+        </TouchableOpacity>
+        <Text style={styles.appTitle}>Goalwise</Text>
+        <TouchableOpacity style={styles.proBadge}>
+          <Ionicons name="trophy" size={16} color="#F4B43A" />
+          <Text style={styles.proText}>PRO</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
@@ -332,13 +358,23 @@ const HomeScreen = ({ onMatchPress }) => {
             style={[
               styles.filterTab,
               activeFilter === filter && styles.filterTabActive,
+              filter === 'Canlı' && styles.filterTabLive,
+              filter === 'Canlı' && activeFilter === filter && styles.filterTabLiveActive,
             ]}
             onPress={() => setActiveFilter(filter)}
           >
+            {filter === 'Canlı' && (
+              <View style={[
+                styles.liveIndicator,
+                activeFilter === filter && styles.liveIndicatorActive,
+              ]} />
+            )}
             <Text
               style={[
                 styles.filterText,
                 activeFilter === filter && styles.filterTextActive,
+                filter === 'Canlı' && styles.filterTextLive,
+                filter === 'Canlı' && activeFilter === filter && styles.filterTextLiveActive,
               ]}
             >
               {filter}
@@ -350,7 +386,7 @@ const HomeScreen = ({ onMatchPress }) => {
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.accent} />
-          <Text style={styles.loadingText}>Bülten yükleniyor...</Text>
+          <Text style={styles.loadingText}>Yükleniyor...</Text>
         </View>
       ) : (
         <ScrollView
@@ -391,6 +427,7 @@ const HomeScreen = ({ onMatchPress }) => {
                               source={{ uri: league.flag || league.logo }}
                               style={styles.bultenFlag}
                               resizeMode="cover"
+                              onError={(e) => console.log('[IMG ERROR]', league.country, league.flag, e.nativeEvent.error)}
                             />
                           ) : (
                             <Ionicons name="football" size={16} color={COLORS.gray500} />
@@ -419,11 +456,14 @@ const HomeScreen = ({ onMatchPress }) => {
                             activeOpacity={0.7}
                             onPress={() => onMatchPress && onMatchPress(match)}
                           >
-                            <View style={styles.matchTimeCol}>
+                            <View style={[styles.matchTimeCol, match.isLive && styles.matchTimeColLive]}>
                               {match.isLive ? (
                                 <View style={styles.liveTimeBadge}>
-                                  <View style={styles.liveDot} />
-                                  <Text style={styles.liveTimeText}>{match.minute}'</Text>
+                                  <View style={styles.liveBadgeTop}>
+                                    <View style={styles.liveDotPulse} />
+                                    <Text style={styles.liveLabel}>CANLI</Text>
+                                  </View>
+                                  <Text style={styles.liveMinuteText}>{match.minute}'</Text>
                                 </View>
                               ) : (
                                 <Text style={styles.matchTimeText}>{match.time}</Text>
@@ -465,6 +505,20 @@ const HomeScreen = ({ onMatchPress }) => {
                                 </Text>
                               </View>
                             )}
+
+                            <TouchableOpacity
+                              style={styles.favoriteBtn}
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                toggleFavorite(match);
+                              }}
+                            >
+                              <Ionicons
+                                name={favoriteMatchIds.includes(match.id) ? "heart" : "heart-outline"}
+                                size={20}
+                                color={favoriteMatchIds.includes(match.id) ? COLORS.danger : COLORS.gray500}
+                              />
+                            </TouchableOpacity>
                           </TouchableOpacity>
                         ))}
                       </View>
@@ -478,61 +532,56 @@ const HomeScreen = ({ onMatchPress }) => {
         </ScrollView>
       )}
 
-      {/* OLD DATE PICKER MODAL */}
+      {/* DATE PICKER BOTTOM SHEET */}
       <Modal
         visible={showDatePicker}
         transparent={true}
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setShowDatePicker(false)}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowDatePicker(false)}
-        >
-          <View style={styles.datePickerModal}>
-            <View style={styles.datePickerHeader}>
-              <Text style={styles.datePickerTitle}>Tarih Seçin</Text>
-              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                <Ionicons name="close" size={24} color={COLORS.gray500} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.datePickerList} showsVerticalScrollIndicator={false}>
+        <View style={styles.bottomSheetOverlay}>
+          <Pressable
+            style={styles.bottomSheetDismiss}
+            onPress={() => setShowDatePicker(false)}
+          />
+          <View style={styles.bottomSheetContent}>
+            <View style={styles.bottomSheetHandle} />
+            <Text style={styles.bottomSheetTitle}>Tarih Seçin</Text>
+            <View style={styles.dateCardsRow}>
               {dateOptions.map((offset) => (
                 <TouchableOpacity
                   key={offset}
                   style={[
-                    styles.datePickerItem,
-                    selectedDateOffset === offset && styles.datePickerItemActive,
+                    styles.dateCard,
+                    selectedDateOffset === offset && styles.dateCardActive,
                   ]}
                   onPress={() => {
                     handleDateChange(offset);
                     setShowDatePicker(false);
                   }}
                 >
-                  <View style={styles.datePickerItemLeft}>
-                    <Text style={[
-                      styles.datePickerItemLabel,
-                      selectedDateOffset === offset && styles.datePickerItemLabelActive,
-                    ]}>
-                      {formatDateLabel(offset)}
-                    </Text>
-                    <Text style={[
-                      styles.datePickerItemDate,
-                      selectedDateOffset === offset && styles.datePickerItemDateActive,
-                    ]}>
-                      {formatDateDisplay(offset)}
-                    </Text>
-                  </View>
+                  <Text style={[
+                    styles.dateCardLabel,
+                    selectedDateOffset === offset && styles.dateCardLabelActive,
+                  ]}>
+                    {formatDateLabel(offset)}
+                  </Text>
+                  <Text style={[
+                    styles.dateCardDate,
+                    selectedDateOffset === offset && styles.dateCardDateActive,
+                  ]}>
+                    {formatShortDate(offset)}
+                  </Text>
                   {selectedDateOffset === offset && (
-                    <Ionicons name="checkmark-circle" size={22} color={COLORS.accent} />
+                    <View style={styles.dateCardCheck}>
+                      <Ionicons name="checkmark-circle" size={20} color={COLORS.accent} />
+                    </View>
                   )}
                 </TouchableOpacity>
               ))}
-            </ScrollView>
+            </View>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
 
     </View>
@@ -559,23 +608,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
-  bultenHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  menuButton: {
-    marginRight: 16,
-  },
-  bultenTitle: {
-    fontSize: 20,
+  appTitle: {
+    fontSize: 22,
     fontWeight: '700',
     color: COLORS.white,
-  },
-  bultenHeaderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
+    letterSpacing: 0.5,
   },
   headerIconBtn: {
     position: 'relative',
@@ -658,6 +695,33 @@ const styles = StyleSheet.create({
   filterTextActive: {
     color: COLORS.accent,
     fontWeight: '600',
+  },
+  // Live Tab Styles
+  filterTabLive: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderColor: 'rgba(255, 59, 48, 0.3)',
+  },
+  filterTabLiveActive: {
+    backgroundColor: 'rgba(255, 59, 48, 0.15)',
+    borderColor: COLORS.liveRed,
+  },
+  filterTextLive: {
+    color: COLORS.liveRed,
+  },
+  filterTextLiveActive: {
+    color: COLORS.liveRed,
+    fontWeight: '600',
+  },
+  liveIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.liveRed,
+  },
+  liveIndicatorActive: {
+    backgroundColor: COLORS.liveRed,
   },
   // Content
   matchesScroll: {
@@ -743,13 +807,17 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   matchTimeCol: {
-    width: 45,
+    width: 50,
     alignItems: 'center',
     justifyContent: 'center',
     borderRightWidth: 1,
     borderRightColor: COLORS.border,
     paddingRight: 8,
     marginRight: 8,
+  },
+  matchTimeColLive: {
+    width: 55,
+    borderRightColor: 'rgba(255, 59, 48, 0.3)',
   },
   matchTimeText: {
     fontSize: 12,
@@ -758,17 +826,32 @@ const styles = StyleSheet.create({
   },
   liveTimeBadge: {
     alignItems: 'center',
+    gap: 4,
   },
-  liveDot: {
+  liveBadgeTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 59, 48, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    gap: 4,
+  },
+  liveDotPulse: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: COLORS.danger,
-    marginBottom: 2,
+    backgroundColor: COLORS.liveRed,
   },
-  liveTimeText: {
-    fontSize: 10,
-    color: COLORS.danger,
+  liveLabel: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: COLORS.liveRed,
+    letterSpacing: 0.5,
+  },
+  liveMinuteText: {
+    fontSize: 14,
+    color: COLORS.liveRed,
     fontWeight: '700',
   },
   teamsCol: {
@@ -809,64 +892,78 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    justifyContent: 'center',
-    padding: 20,
+  // Favorite Button
+  favoriteBtn: {
+    padding: 8,
+    marginLeft: 4,
   },
-  datePickerModal: {
+  // Bottom Sheet Modal
+  bottomSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  bottomSheetDismiss: {
+    flex: 1,
+  },
+  bottomSheetContent: {
+    height: '50%',
     backgroundColor: COLORS.card,
-    borderRadius: 12,
-    maxHeight: '80%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    alignItems: 'center',
+  },
+  bottomSheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: COLORS.gray600,
+    borderRadius: 2,
+    marginBottom: 20,
+  },
+  bottomSheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginBottom: 32,
+  },
+  dateCardsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  dateCard: {
+    width: 100,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    backgroundColor: COLORS.bg,
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  datePickerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+  dateCardActive: {
+    backgroundColor: COLORS.accentDim,
+    borderColor: COLORS.accent,
   },
-  datePickerTitle: {
+  dateCardLabel: {
     fontSize: 16,
     fontWeight: '700',
     color: COLORS.white,
+    marginBottom: 8,
   },
-  datePickerList: {
-    padding: 8,
-  },
-  datePickerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 4,
-  },
-  datePickerItemActive: {
-    backgroundColor: COLORS.accentDim,
-  },
-  datePickerItemLeft: {
-    gap: 4,
-  },
-  datePickerItemLabel: {
-    fontSize: 14,
-    color: COLORS.white,
-    fontWeight: '600',
-  },
-  datePickerItemLabelActive: {
+  dateCardLabelActive: {
     color: COLORS.accent,
   },
-  datePickerItemDate: {
-    fontSize: 12,
+  dateCardDate: {
+    fontSize: 13,
     color: COLORS.gray500,
   },
-  datePickerItemDateActive: {
+  dateCardDateActive: {
     color: COLORS.accent,
+  },
+  dateCardCheck: {
+    marginTop: 12,
   },
   // Filter Panel
   filterPanelOverlay: {

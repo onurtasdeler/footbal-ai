@@ -3,7 +3,8 @@
     "allow": [
       "Bash(find:*)",
       "WebFetch(domain:ls.nesine.com)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

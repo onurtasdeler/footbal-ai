@@ -46,6 +46,7 @@ import claudeAi from './src/services/claudeAi';
 import * as profileService from './src/services/profileService';
 import HomeScreen from './src/screens/HomeScreen';
 import MatchAnalysisScreen from './src/screens/MatchAnalysisScreen';
+import PredictionsScreen from './src/screens/PredictionsScreen';
 import { COLORS } from './src/theme/colors';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -536,8 +537,8 @@ const LiveScreen = ({ onMatchPress, onLiveMatchPress }) => {
         {/* Header */}
         <View style={premiumStyles.heroHeader}>
           <View style={premiumStyles.heroLeague}>
-            {match.league?.logo && (
-              <Image source={{ uri: match.league.logo }} style={premiumStyles.heroLeagueLogo} />
+            {(match.league?.flag || match.league?.logo) && (
+              <Image source={{ uri: match.league.flag || match.league.logo }} style={premiumStyles.heroLeagueLogo} />
             )}
             <Text style={premiumStyles.heroLeagueName} numberOfLines={1}>
               {match.league?.name}
@@ -1344,7 +1345,7 @@ const MatchDetailScreen = ({ match, onBack }) => {
   const homeScore = isApiData ? match.home?.score : match.homeScore;
   const awayScore = isApiData ? match.away?.score : match.awayScore;
   const leagueName = isApiData ? match.league?.name : match.league;
-  const leagueLogo = isApiData ? match.league?.logo : null;
+  const leagueLogo = isApiData ? (match.league?.flag || match.league?.logo) : null;
   const homeTeamId = isApiData ? match.home?.id : null;
   const awayTeamId = isApiData ? match.away?.id : null;
   const fixtureId = match.id;
@@ -3184,7 +3185,7 @@ const LiveMatchDetailScreen = ({ match, onBack }) => {
   const homeLogo = isApiData ? match.home?.logo : null;
   const awayLogo = isApiData ? match.away?.logo : null;
   const leagueName = isApiData ? match.league?.name : match.league;
-  const leagueLogo = isApiData ? match.league?.logo : null;
+  const leagueLogo = isApiData ? (match.league?.flag || match.league?.logo) : null;
   const homeTeamId = isApiData ? match.home?.id : null;
   const awayTeamId = isApiData ? match.away?.id : null;
   const fixtureId = match.id;
@@ -4737,7 +4738,7 @@ const BottomTabBar = ({ activeTab, onTabPress }) => {
   const tabs = [
     { id: 'home', icon: 'football-outline', activeIcon: 'football', label: 'Ana' },
     { id: 'live', icon: 'radio-outline', activeIcon: 'radio', label: 'Canlı' },
-    { id: 'widgets', icon: 'apps-outline', activeIcon: 'apps', label: 'Panellerim' },
+    { id: 'predictions', icon: 'analytics-outline', activeIcon: 'analytics', label: 'Tahmin' },
     { id: 'profile', icon: 'person-outline', activeIcon: 'person', label: 'Profil' },
   ];
 
@@ -5610,8 +5611,8 @@ export default function App() {
         return <HomeScreen onMatchPress={handleMatchPress} />;
       case 'live':
         return <LiveScreen onMatchPress={handleMatchPress} onLiveMatchPress={handleLiveMatchPress} />;
-      case 'widgets':
-        return <WidgetsScreen />;
+      case 'predictions':
+        return <PredictionsScreen />;
       case 'profile':
         return <ProfileScreen />;
       default:
