@@ -4755,13 +4755,10 @@ const BottomTabBar = ({ activeTab, onTabPress }) => {
             <View style={[styles.tabIconContainer, isActive && styles.tabIconActive]}>
               <Ionicons
                 name={isActive ? tab.activeIcon : tab.icon}
-                size={22}
+                size={28}
                 color={isActive ? COLORS.accent : COLORS.gray600}
               />
             </View>
-            <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
-              {tab.label}
-            </Text>
           </TouchableOpacity>
         );
       })}
