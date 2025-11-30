@@ -279,13 +279,14 @@ const HomeScreen = ({ onMatchPress }) => {
             style={styles.headerIconBtn}
             onPress={() => setShowDatePicker(true)}
           >
-            <Ionicons name="calendar-outline" size={22} color={COLORS.white} />
+            <Ionicons name="calendar-outline" size={20} color={COLORS.white} />
           </TouchableOpacity>
           <Text style={styles.bultenTitle}>Bülten</Text>
         </View>
         <View style={styles.bultenHeaderRight}>
-          <TouchableOpacity style={styles.headerIconBtn}>
-            <Ionicons name="trophy" size={22} color="#F4B43A" />
+          <TouchableOpacity style={styles.proBadge}>
+            <Ionicons name="trophy" size={16} color="#F4B43A" />
+            <Text style={styles.proText}>PRO</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -321,6 +322,29 @@ const HomeScreen = ({ onMatchPress }) => {
             </TouchableOpacity>
           )}
         </Pressable>
+      </View>
+
+      {/* Filter Tabs */}
+      <View style={styles.filterContainer}>
+        {filters.map((filter) => (
+          <TouchableOpacity
+            key={filter}
+            style={[
+              styles.filterTab,
+              activeFilter === filter && styles.filterTabActive,
+            ]}
+            onPress={() => setActiveFilter(filter)}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                activeFilter === filter && styles.filterTextActive,
+              ]}
+            >
+              {filter}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {loading ? (
@@ -538,6 +562,7 @@ const styles = StyleSheet.create({
   bultenHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
   },
   menuButton: {
     marginRight: 16,
@@ -554,6 +579,21 @@ const styles = StyleSheet.create({
   },
   headerIconBtn: {
     position: 'relative',
+  },
+  proBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(244, 180, 58, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    gap: 4,
+  },
+  proText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#F4B43A',
+    letterSpacing: 0.5,
   },
   notificationBadge: {
     position: 'absolute',
