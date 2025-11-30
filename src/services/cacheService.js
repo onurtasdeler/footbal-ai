@@ -101,14 +101,8 @@ export const getFromCache = async (key, maxAge = CACHE_DURATIONS.TODAY_FIXTURES)
     cacheStats.hits++;
     cacheStats.apiCallsSaved += requestCount;
 
-    // Debug log (production'da kaldırılabilir)
-    if (__DEV__) {
-      console.log(`[Cache HIT] ${key} (age: ${Math.round(age / 1000)}s, saved: ${requestCount} API calls)`);
-    }
-
     return data;
   } catch (error) {
-    console.error('[Cache] Read error:', error);
     return null;
   }
 };
@@ -136,13 +130,8 @@ export const saveToCache = async (key, data, requestCount = 1) => {
     await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
     cacheStats.saves++;
 
-    if (__DEV__) {
-      console.log(`[Cache SAVE] ${key}`);
-    }
-
     return true;
   } catch (error) {
-    console.error('[Cache] Write error:', error);
     return false;
   }
 };
@@ -170,7 +159,6 @@ export const fetchWithCache = async (key, fetchFn, maxAge, requestCount = 1) => 
     }
     return freshData;
   } catch (error) {
-    console.error('[Cache] Fetch error:', error);
     throw error;
   }
 };
@@ -183,11 +171,8 @@ export const clearCache = async (key) => {
   try {
     const cacheKey = API_CACHE_PREFIX + key;
     await AsyncStorage.removeItem(cacheKey);
-    if (__DEV__) {
-      console.log(`[Cache CLEAR] ${key}`);
-    }
   } catch (error) {
-    console.error('[Cache] Clear error:', error);
+    // Silent fail
   }
 };
 
@@ -204,12 +189,9 @@ export const clearCacheByPattern = async (pattern) => {
 
     if (matchingKeys.length > 0) {
       await AsyncStorage.multiRemove(matchingKeys);
-      if (__DEV__) {
-        console.log(`[Cache] Cleared ${matchingKeys.length} items matching "${pattern}"`);
-      }
     }
   } catch (error) {
-    console.error('[Cache] Clear by pattern error:', error);
+    // Silent fail
   }
 };
 
@@ -225,10 +207,8 @@ export const clearAllApiCache = async () => {
       await AsyncStorage.multiRemove(cacheKeys);
     }
 
-    console.log(`[Cache] Cleared ${cacheKeys.length} API cache items`);
     return cacheKeys.length;
   } catch (error) {
-    console.error('[Cache] Clear all error:', error);
     return 0;
   }
 };
@@ -326,10 +306,8 @@ export const cleanupOldCache = async (maxAge = 7 * 24 * 60 * 60 * 1000) => {
       }
     }
 
-    console.log(`[Cache] Cleaned ${cleaned} old items`);
     return cleaned;
   } catch (error) {
-    console.error('[Cache] Cleanup error:', error);
     return 0;
   }
 };
@@ -354,7 +332,6 @@ export const getAnalyzedFixtureIds = async () => {
 
     return fixtureIds;
   } catch (error) {
-    console.error('getAnalyzedFixtureIds error:', error);
     return [];
   }
 };
@@ -376,7 +353,6 @@ const aiCacheService = {
 
       return data.analysisData;
     } catch (error) {
-      console.error('Cache getAnalysis error:', error);
       return null;
     }
   },
@@ -396,7 +372,6 @@ const aiCacheService = {
       await AsyncStorage.setItem(key, JSON.stringify(cacheData));
       return true;
     } catch (error) {
-      console.error('Cache saveAnalysis error:', error);
       return false;
     }
   },
@@ -419,7 +394,6 @@ const aiCacheService = {
       await AsyncStorage.setItem(key, JSON.stringify(data));
       return true;
     } catch (error) {
-      console.error('Cache updateMatchStatus error:', error);
       return false;
     }
   },
@@ -430,7 +404,6 @@ const aiCacheService = {
       await AsyncStorage.removeItem(key);
       return true;
     } catch (error) {
-      console.error('Cache removeAnalysis error:', error);
       return false;
     }
   },
@@ -457,7 +430,6 @@ const aiCacheService = {
 
       return true;
     } catch (error) {
-      console.error('Cache clearExpired error:', error);
       return false;
     }
   },
@@ -473,7 +445,6 @@ const aiCacheService = {
 
       return true;
     } catch (error) {
-      console.error('Cache clearAll error:', error);
       return false;
     }
   },
@@ -505,7 +476,6 @@ const aiCacheService = {
         analyses,
       };
     } catch (error) {
-      console.error('Cache getStats error:', error);
       return { count: 0, totalSizeKB: '0', analyses: [] };
     }
   },

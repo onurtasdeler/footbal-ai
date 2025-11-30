@@ -22,6 +22,7 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Localization from 'expo-localization';
 import footballApi from '../services/footballApi';
 import { getBettingPredictions, getCachedMatchIds, cleanOldPredictionCache } from '../services/bettingPredictions';
@@ -282,6 +283,9 @@ const StatListItem = ({ label, value, percentage, count }) => (
 );
 
 const PredictionDetailPage = ({ visible, match, predictions, loading, onClose }) => {
+  // Safe area insets for proper header positioning
+  const insets = useSafeAreaInsets();
+
   const slideAnim = useRef(new Animated.Value(SCREEN_WIDTH)).current;
   const [activeTab, setActiveTab] = useState('tahminler');
   const [showInfoModal, setShowInfoModal] = useState(false);
@@ -326,7 +330,6 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
           const lineupResponse = await footballApi.getFixtureLineups(match.id);
           // API-Football returns data in response array
           const lineupData = lineupResponse?.response || lineupResponse || [];
-          console.log('[Lineups] Fetched lineups:', lineupData?.length || 0, 'teams');
           setLineups(lineupData);
           break;
         case 'h2h':
@@ -350,14 +353,13 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
               const teamId = injury.team?.id;
               return teamId === match.home?.id || teamId === match.away?.id;
             });
-            console.log(`[Injuries] Found ${filteredInjuries.length} injuries for match teams (from ${injuryList.length} total)`);
             setInjuries(filteredInjuries);
           }
           break;
       }
       setTabDataLoaded(prev => ({ ...prev, [tabId]: true }));
     } catch (error) {
-      console.error(`Error fetching ${tabId} data:`, error);
+      // Silent fail
     } finally {
       setTabLoading(prev => ({ ...prev, [tabId]: false }));
     }
@@ -407,7 +409,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
       { transform: [{ translateX: slideAnim }] }
     ]}>
       {/* Header with Back Button */}
-      <View style={styles.detailHeader}>
+      <View style={[styles.detailHeader, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={onClose} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={COLORS.white} />
         </TouchableOpacity>
@@ -1055,6 +1057,9 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
 // MAIN PREDICTIONS SCREEN
 // ═══════════════════════════════════════════════════════════════════════════════
 const PredictionsScreen = () => {
+  // Safe area insets for proper header positioning
+  const insets = useSafeAreaInsets();
+
   // PRO subscription check - hooks must be called unconditionally
   const { isPro } = useSubscription();
 
@@ -1110,7 +1115,7 @@ const PredictionsScreen = () => {
       const country = LOCALE_TO_COUNTRY[locale] || null;
       setUserCountry(country);
     } catch (e) {
-      console.log('Locale detection failed:', e);
+      // Silent fail
     }
   }, []);
 
@@ -1166,7 +1171,7 @@ const PredictionsScreen = () => {
         setMatchesByLeague({});
       }
     } catch (err) {
-      console.error('Fetch error:', err);
+      // Silent fail
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -1266,7 +1271,6 @@ const PredictionsScreen = () => {
       // 4. Cache güncelle
       await refreshCachedMatchIds();
     } catch (error) {
-      console.error('Prediction error:', error);
       setCurrentPredictions(null);
     } finally {
       setPredictionLoading(false);
@@ -1301,7 +1305,7 @@ const PredictionsScreen = () => {
   return (
     <View style={styles.screen}>
       {/* HEADER */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Text style={styles.headerTitle}>Tahminler</Text>
         <TouchableOpacity style={styles.infoButton}>
           <Ionicons name="help-circle-outline" size={24} color={COLORS.gray400} />
@@ -1525,7 +1529,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 40 : 16,
     paddingBottom: 16,
     backgroundColor: COLORS.bg,
     borderBottomWidth: 1,
@@ -1813,7 +1816,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 40 : 16,
     paddingBottom: 16,
     backgroundColor: COLORS.card,
     borderBottomWidth: 1,

@@ -49,7 +49,6 @@ export const getProfile = async () => {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.USER_PROFILE);
     return data ? JSON.parse(data) : DEFAULT_PROFILE;
   } catch (error) {
-    console.error('getProfile error:', error);
     return DEFAULT_PROFILE;
   }
 };
@@ -59,7 +58,6 @@ export const saveProfile = async (profile) => {
     await AsyncStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(profile));
     return true;
   } catch (error) {
-    console.error('saveProfile error:', error);
     return false;
   }
 };
@@ -71,7 +69,6 @@ export const updateProfile = async (updates) => {
     await saveProfile(updated);
     return updated;
   } catch (error) {
-    console.error('updateProfile error:', error);
     return null;
   }
 };
@@ -85,7 +82,6 @@ export const getStats = async () => {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.USER_STATS);
     return data ? JSON.parse(data) : DEFAULT_STATS;
   } catch (error) {
-    console.error('getStats error:', error);
     return DEFAULT_STATS;
   }
 };
@@ -95,7 +91,6 @@ export const saveStats = async (stats) => {
     await AsyncStorage.setItem(STORAGE_KEYS.USER_STATS, JSON.stringify(stats));
     return true;
   } catch (error) {
-    console.error('saveStats error:', error);
     return false;
   }
 };
@@ -107,7 +102,6 @@ export const incrementStat = async (statName, amount = 1) => {
     await saveStats(updated);
     return updated;
   } catch (error) {
-    console.error('incrementStat error:', error);
     return null;
   }
 };
@@ -127,7 +121,6 @@ export const getNotificationSettings = async () => {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS_NOTIFICATIONS);
     return data ? JSON.parse(data) : DEFAULT_NOTIFICATIONS;
   } catch (error) {
-    console.error('getNotificationSettings error:', error);
     return DEFAULT_NOTIFICATIONS;
   }
 };
@@ -137,7 +130,6 @@ export const saveNotificationSettings = async (settings) => {
     await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS_NOTIFICATIONS, JSON.stringify(settings));
     return true;
   } catch (error) {
-    console.error('saveNotificationSettings error:', error);
     return false;
   }
 };
@@ -149,7 +141,6 @@ export const updateNotificationSetting = async (key, value) => {
     await saveNotificationSettings(updated);
     return updated;
   } catch (error) {
-    console.error('updateNotificationSetting error:', error);
     return null;
   }
 };
@@ -163,7 +154,6 @@ export const getAppearanceSettings = async () => {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS_APPEARANCE);
     return data ? JSON.parse(data) : DEFAULT_APPEARANCE;
   } catch (error) {
-    console.error('getAppearanceSettings error:', error);
     return DEFAULT_APPEARANCE;
   }
 };
@@ -173,7 +163,6 @@ export const saveAppearanceSettings = async (settings) => {
     await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS_APPEARANCE, JSON.stringify(settings));
     return true;
   } catch (error) {
-    console.error('saveAppearanceSettings error:', error);
     return false;
   }
 };
@@ -185,7 +174,6 @@ export const updateAppearanceSetting = async (key, value) => {
     await saveAppearanceSettings(updated);
     return updated;
   } catch (error) {
-    console.error('updateAppearanceSetting error:', error);
     return null;
   }
 };
@@ -206,7 +194,6 @@ export const resetAllProfileData = async () => {
     ]);
     return true;
   } catch (error) {
-    console.error('resetAllProfileData error:', error);
     return false;
   }
 };
@@ -234,7 +221,6 @@ export const exportProfileData = async () => {
       },
     };
   } catch (error) {
-    console.error('exportProfileData error:', error);
     return null;
   }
 };
@@ -256,7 +242,6 @@ export const calculateCacheSize = async () => {
     const sizeInMB = (totalSize / (1024 * 1024)).toFixed(2);
     return parseFloat(sizeInMB);
   } catch (error) {
-    console.error('calculateCacheSize error:', error);
     return 0;
   }
 };

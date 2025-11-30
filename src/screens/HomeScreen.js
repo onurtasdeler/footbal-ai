@@ -17,7 +17,7 @@ import {
   Pressable,
   StatusBar
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Localization from 'expo-localization';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -38,7 +38,10 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // ═══════════════════════════════════════════════════════════════════════════════
 // HOME SCREEN
 // ═══════════════════════════════════════════════════════════════════════════════
-const HomeScreen = ({ onMatchPress, onShowPaywall }) => {
+const HomeScreen = ({ navigation }) => {
+  // Safe area insets for proper header positioning
+  const insets = useSafeAreaInsets();
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const isPro = useIsPro();
 
@@ -111,7 +114,7 @@ const HomeScreen = ({ onMatchPress, onShowPaywall }) => {
       const country = LOCALE_TO_COUNTRY[locale] || null;
       setUserCountry(country);
     } catch (e) {
-      console.log('Locale detection failed:', e);
+      // Silent fail
     }
   }, []);
 
@@ -129,7 +132,7 @@ const HomeScreen = ({ onMatchPress, onShowPaywall }) => {
       const analyzedIds = await getAnalyzedFixtureIds();
       setAnalyzedMatchIds(analyzedIds);
     } catch (error) {
-      console.error('Load favorites/analyzed error:', error);
+      // Silent fail
     }
   }, []);
 
@@ -153,7 +156,7 @@ const HomeScreen = ({ onMatchPress, onShowPaywall }) => {
       await AsyncStorage.setItem('@favorite_matches', JSON.stringify(favorites));
       setFavoriteMatchIds(favorites.map(f => f.id));
     } catch (error) {
-      console.error('Toggle favorite error:', error);
+      // Silent fail
     }
   };
 
@@ -194,7 +197,6 @@ const HomeScreen = ({ onMatchPress, onShowPaywall }) => {
         setSortedLeagues([]);
       }
     } catch (err) {
-      console.error('Fetch error:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -305,7 +307,7 @@ const HomeScreen = ({ onMatchPress, onShowPaywall }) => {
   return (
     <View style={styles.screen}>
       {/* HEADER */}
-      <View style={styles.bultenHeader}>
+      <View style={[styles.bultenHeader, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity
           style={styles.headerIconBtn}
           onPress={() => setShowDatePicker(true)}
@@ -315,7 +317,7 @@ const HomeScreen = ({ onMatchPress, onShowPaywall }) => {
         <Text style={styles.appTitle}>Goalwise</Text>
         <TouchableOpacity
           style={[styles.proBadge, isPro && styles.proBadgeActive]}
-          onPress={isPro ? undefined : onShowPaywall}
+          onPress={isPro ? undefined : () => navigation.navigate('Paywall')}
           activeOpacity={isPro ? 1 : 0.7}
           disabled={isPro}
         >
@@ -440,7 +442,6 @@ const HomeScreen = ({ onMatchPress, onShowPaywall }) => {
                               source={{ uri: league.flag || league.logo }}
                               style={styles.bultenFlag}
                               resizeMode="cover"
-                              onError={(e) => console.log('[IMG ERROR]', league.country, league.flag, e.nativeEvent.error)}
                             />
                           ) : (
                             <Ionicons name="football" size={16} color={COLORS.gray500} />
@@ -467,7 +468,7 @@ const HomeScreen = ({ onMatchPress, onShowPaywall }) => {
                             key={match.id}
                             style={styles.matchCard}
                             activeOpacity={0.7}
-                            onPress={() => onMatchPress && onMatchPress(match)}
+                            onPress={() => navigation.navigate('MatchAnalysis', { match })}
                           >
                             <View style={[styles.matchTimeCol, match.isLive && styles.matchTimeColLive]}>
                               {match.isLive ? (
@@ -615,7 +616,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 40 : 16,
     paddingBottom: 16,
     backgroundColor: COLORS.bg,
     borderBottomWidth: 1,

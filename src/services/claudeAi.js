@@ -46,7 +46,6 @@ export const analyzeMatch = async (matchData) => {
       });
 
       if (error) {
-        console.error('Edge Function Error:', error);
         throw new Error(error.message || 'Edge Function error');
       }
 
@@ -56,7 +55,6 @@ export const analyzeMatch = async (matchData) => {
     // Fallback disabled - use Edge Functions only
     throw new Error('Direct API calls disabled - use Edge Functions');
   } catch (error) {
-    console.error('Claude AI Error:', error);
     throw error;
   }
 };
@@ -357,13 +355,11 @@ export const quickAnalyze = async (homeName, awayName, leagueName) => {
     });
 
     if (error) {
-      console.error('Quick analyze error:', error);
       return null;
     }
 
     return data;
   } catch (error) {
-    console.error('Quick analyze error:', error);
     return null;
   }
 };

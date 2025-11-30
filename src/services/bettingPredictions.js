@@ -34,7 +34,7 @@ export const getBettingPredictions = async (matchData) => {
       }
     }
   } catch (e) {
-    console.log('Cache read error:', e);
+    // Silent fail
   }
 
   try {
@@ -60,7 +60,6 @@ export const getBettingPredictions = async (matchData) => {
       });
 
       if (error) {
-        console.error('Edge Function Error:', error);
         return getDefaultPredictions();
       }
 
@@ -75,7 +74,7 @@ export const getBettingPredictions = async (matchData) => {
           matchId: matchData.id,
         }));
       } catch (e) {
-        console.log('Cache write error:', e);
+        // Silent fail
       }
 
       return enrichedPredictions;
@@ -84,7 +83,6 @@ export const getBettingPredictions = async (matchData) => {
     // Fallback disabled
     throw new Error('Direct API calls disabled - use Edge Functions');
   } catch (error) {
-    console.error('Betting Predictions Error:', error);
     return getDefaultPredictions();
   }
 };
@@ -277,13 +275,11 @@ export const getQuickPredictions = async (homeName, awayName, leagueName) => {
     });
 
     if (error) {
-      console.error('Quick predictions error:', error);
       return null;
     }
 
     return enrichPredictions(data);
   } catch (error) {
-    console.error('Quick predictions error:', error);
     return null;
   }
 };
@@ -304,7 +300,7 @@ export const clearPredictionCache = async (matchId = null) => {
       await AsyncStorage.multiRemove(predictionKeys);
     }
   } catch (error) {
-    console.error('Clear cache error:', error);
+    // Silent fail
   }
 };
 
@@ -336,7 +332,7 @@ export const cleanOldPredictionCache = async () => {
       }
     }
   } catch (error) {
-    console.error('Clean old cache error:', error);
+    // Silent fail
   }
 };
 
@@ -358,7 +354,6 @@ export const getCachedMatchIds = async () => {
     }
     return matchIds;
   } catch (error) {
-    console.error('Get cached match IDs error:', error);
     return new Set();
   }
 };

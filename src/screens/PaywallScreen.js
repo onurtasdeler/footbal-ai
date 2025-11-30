@@ -76,7 +76,18 @@ const DEFAULT_PLANS = [
   },
 ];
 
-const PaywallScreen = ({ visible, onClose }) => {
+const PaywallScreen = ({ visible: propVisible, onClose, navigation }) => {
+  // Support both navigation mode and inline modal mode
+  const isNavigationMode = !!navigation;
+  const visible = propVisible ?? isNavigationMode;
+  const closeScreen = () => {
+    if (isNavigationMode) {
+      navigation.goBack();
+    } else if (onClose) {
+      onClose();
+    }
+  };
+
   const [selectedPlan, setSelectedPlan] = useState('monthly');
   const [isPurchasing, setIsPurchasing] = useState(false);
   const glowAnim = useRef(new Animated.Value(0.5)).current;
@@ -145,7 +156,7 @@ const PaywallScreen = ({ visible, onClose }) => {
         duration: 200,
         useNativeDriver: true,
       }),
-    ]).start(() => onClose());
+    ]).start(() => closeScreen());
   };
 
   // Handle purchase with RevenueCat
@@ -165,7 +176,6 @@ const PaywallScreen = ({ visible, onClose }) => {
         );
       } else if (result.cancelled) {
         // User cancelled - do nothing
-        console.log('[Paywall] User cancelled purchase');
       } else if (result.error) {
         // Purchase failed
         Alert.alert(
@@ -175,7 +185,6 @@ const PaywallScreen = ({ visible, onClose }) => {
         );
       }
     } catch (error) {
-      console.error('[Paywall] Purchase error:', error);
       Alert.alert(
         'Hata',
         'Beklenmeyen bir hata olustu. Lutfen tekrar deneyin.',
@@ -214,7 +223,6 @@ const PaywallScreen = ({ visible, onClose }) => {
         );
       }
     } catch (error) {
-      console.error('[Paywall] Restore error:', error);
       Alert.alert(
         'Hata',
         'Beklenmeyen bir hata olustu.',

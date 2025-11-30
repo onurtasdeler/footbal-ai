@@ -11,12 +11,16 @@ import {
   RefreshControl,
   Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import footballApi from '../services/footballApi';
 import { useSmartPolling, useAppState, POLLING_INTERVALS } from '../services/pollingService';
 import { COLORS } from '../theme/colors';
 
-const LiveScreen = ({ onMatchPress, onLiveMatchPress }) => {
+const LiveScreen = ({ navigation }) => {
+  // Safe area insets for proper header positioning
+  const insets = useSafeAreaInsets();
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const [liveMatches, setLiveMatches] = useState([]);
@@ -81,7 +85,7 @@ const LiveScreen = ({ onMatchPress, onLiveMatchPress }) => {
         return newStats;
       }
     } catch (error) {
-      console.error('Stats fetch error:', error);
+      // Silent fail
     }
     return null;
   };
@@ -115,7 +119,7 @@ const LiveScreen = ({ onMatchPress, onLiveMatchPress }) => {
       setSortedMatches(sortMatchesByMinute(formattedMatches));
       setLastUpdated(new Date());
     } catch (error) {
-      console.error('Live matches fetch error:', error);
+      // Silent fail
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -171,7 +175,7 @@ const LiveScreen = ({ onMatchPress, onLiveMatchPress }) => {
       <TouchableOpacity
         style={[premiumStyles.heroCard, critical && premiumStyles.heroCardCritical]}
         activeOpacity={0.9}
-        onPress={() => onLiveMatchPress && onLiveMatchPress(match)}
+        onPress={() => navigation.navigate('LiveMatchDetail', { match })}
       >
         {/* Gradient Overlay */}
         <View style={[
@@ -281,7 +285,7 @@ const LiveScreen = ({ onMatchPress, onLiveMatchPress }) => {
             important && premiumStyles.matchCardImportant,
           ]}
           activeOpacity={0.85}
-          onPress={() => onLiveMatchPress && onLiveMatchPress(match)}
+          onPress={() => navigation.navigate('LiveMatchDetail', { match })}
         >
           {/* Main Row */}
           <View style={premiumStyles.matchMainRow}>
@@ -376,7 +380,7 @@ const LiveScreen = ({ onMatchPress, onLiveMatchPress }) => {
         }
       >
         {/* Header */}
-        <Animated.View style={[premiumStyles.header, { opacity: fadeAnim }]}>
+        <Animated.View style={[premiumStyles.header, { opacity: fadeAnim, paddingTop: insets.top + 8 }]}>
           <View style={premiumStyles.headerLeft}>
             <Text style={premiumStyles.headerTitle}>Canlı</Text>
             <View style={premiumStyles.headerBadge}>

@@ -13,6 +13,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import footballApi from '../services/footballApi';
@@ -866,7 +867,13 @@ const StatRow = ({ label, homeValue, awayValue, isPercentage = false }) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
-const MatchAnalysisScreen = ({ match, onBack }) => {
+const MatchAnalysisScreen = ({ route, navigation }) => {
+  // Get match from route params
+  const match = route?.params?.match;
+
+  // Safe area insets for proper header positioning
+  const insets = useSafeAreaInsets();
+
   // PRO subscription check - hooks must be called unconditionally
   const { isPro } = useSubscription();
 
@@ -950,7 +957,7 @@ const MatchAnalysisScreen = ({ match, onBack }) => {
           setPrediction(formatted);
         }
       } catch (e) {
-        console.log('Prediction fetch error:', e);
+        // Silent fail
       }
 
       // Fetch H2H
@@ -999,7 +1006,7 @@ const MatchAnalysisScreen = ({ match, onBack }) => {
             });
           }
         } catch (e) {
-          console.log('H2H fetch error:', e);
+          // Silent fail
         }
       }
 
@@ -1024,11 +1031,11 @@ const MatchAnalysisScreen = ({ match, onBack }) => {
           });
         }
       } catch (e) {
-        console.log('Stats fetch error:', e);
+        // Silent fail
       }
 
     } catch (error) {
-      console.error('Match details fetch error:', error);
+      // Silent fail
     } finally {
       setLoading(false);
     }
@@ -1128,7 +1135,7 @@ const MatchAnalysisScreen = ({ match, onBack }) => {
     return (
       <PaywallScreen
         visible={true}
-        onClose={onBack}
+        onClose={() => navigation.goBack()}
       />
     );
   }
@@ -1137,10 +1144,10 @@ const MatchAnalysisScreen = ({ match, onBack }) => {
   // RENDER HEADER
   // ─────────────────────────────────────────────────────────────────────────────
   const renderHeader = () => (
-    <ImageBackground source={STADIUM_BG} style={styles.header} resizeMode="cover">
+    <ImageBackground source={STADIUM_BG} style={[styles.header, { paddingTop: insets.top }]} resizeMode="cover">
       <View style={styles.headerOverlay} />
       <View style={styles.headerTop}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={24} color={COLORS.white} />
         </TouchableOpacity>
         <View style={styles.leagueContainer}>
@@ -1783,7 +1790,7 @@ const styles = StyleSheet.create({
   aiLoadingSubtext: { color: COLORS.gray500, fontSize: 12, marginTop: 6 },
 
   // Header
-  header: { paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0, paddingBottom: 20 },
+  header: { paddingBottom: 20 },
   headerOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15, 20, 25, 0.75)' },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20 },
   backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },

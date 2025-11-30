@@ -56,25 +56,19 @@ class AppStateManager {
     this.subscription = AppState.addEventListener('change', this._handleAppStateChange);
     this.isInitialized = true;
 
-    if (__DEV__) {
-      console.log('[AppState] Manager initialized, current state:', this.currentState);
-    }
   }
 
   _handleAppStateChange = (nextAppState) => {
     const previousState = this.currentState;
     this.currentState = nextAppState;
 
-    if (__DEV__) {
-      console.log(`[AppState] ${previousState} → ${nextAppState}`);
-    }
 
     // Notify all listeners
     this.listeners.forEach(callback => {
       try {
         callback(nextAppState, previousState);
       } catch (error) {
-        console.error('[AppState] Listener error:', error);
+        // Silent fail
       }
     });
   };
@@ -161,9 +155,6 @@ class SmartPollingManager {
     // Polling başlat
     this._startInterval(id);
 
-    if (__DEV__) {
-      console.log(`[Polling] Started: ${id}, interval: ${baseInterval}ms`);
-    }
 
     return () => this.stop(id);
   }
@@ -180,9 +171,6 @@ class SmartPollingManager {
       }
       this.activePolls.delete(id);
 
-      if (__DEV__) {
-        console.log(`[Polling] Stopped: ${id}`);
-      }
     }
 
     // Tüm polling'ler durmuşsa AppState listener'ı kaldır
@@ -226,9 +214,6 @@ class SmartPollingManager {
 
     pollData.currentInterval = interval;
 
-    if (__DEV__) {
-      console.log(`[Polling] ${id} interval set: ${interval}ms`);
-    }
   }
 
   _executeCallback(id) {
@@ -238,7 +223,7 @@ class SmartPollingManager {
     try {
       pollData.callback();
     } catch (error) {
-      console.error(`[Polling] ${id} callback error:`, error);
+      // Silent fail
     }
   }
 
@@ -269,9 +254,6 @@ class SmartPollingManager {
 
     if (isNowActive && !wasActive) {
       // Background'dan active'e geçiş - polling'leri hızlandır
-      if (__DEV__) {
-        console.log('[Polling] App became active, resuming polling');
-      }
       this.activePolls.forEach((pollData, id) => {
         if (pollData.isPaused) {
           pollData.isPaused = false;
@@ -282,9 +264,6 @@ class SmartPollingManager {
       });
     } else if (!isNowActive && wasActive) {
       // Active'den background'a geçiş - polling'leri yavaşlat veya durdur
-      if (__DEV__) {
-        console.log('[Polling] App went to background');
-      }
       this.activePolls.forEach((pollData, id) => {
         if (pollData.pauseInBackground) {
           // Yavaşlat (durdurma yerine)

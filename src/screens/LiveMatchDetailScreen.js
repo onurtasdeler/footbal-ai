@@ -13,7 +13,7 @@ import {
   ImageBackground,
   StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import footballApi from '../services/footballApi';
 import { useSmartPolling, useAppState, POLLING_INTERVALS } from '../services/pollingService';
@@ -203,7 +203,13 @@ const EventItem = ({ event, homeTeamId }) => {
 // LIVE MATCH DETAIL SCREEN
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const LiveMatchDetailScreen = ({ match, onBack }) => {
+const LiveMatchDetailScreen = ({ route, navigation }) => {
+  // Get match from route params
+  const match = route?.params?.match;
+
+  // Safe area insets for proper header positioning
+  const insets = useSafeAreaInsets();
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const [loading, setLoading] = useState(true);
@@ -292,7 +298,7 @@ const LiveMatchDetailScreen = ({ match, onBack }) => {
 
       setLastUpdated(new Date());
     } catch (error) {
-      console.error('Live data fetch error:', error);
+      // Silent fail
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -379,8 +385,8 @@ const LiveMatchDetailScreen = ({ match, onBack }) => {
   return (
     <View style={baseStyles.screen}>
       {/* Header */}
-      <Animated.View style={[styles.header, { opacity: fadeAnim }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack}>
+      <Animated.View style={[styles.header, { opacity: fadeAnim, paddingTop: insets.top }]}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={COLORS.white} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>

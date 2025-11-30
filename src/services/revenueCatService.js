@@ -6,9 +6,19 @@ import Constants from 'expo-constants';
 // REVENUECAT SERVICE - Goalwise Pro Subscription Management
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// Get API key from app.json extra config
+// For production: Update the key in app.json extra.revenueCatApiKey
+// Test keys: start with "test_" (sandbox environment)
+// Production keys: start with "appl_" (iOS) or "goog_" (Android)
+const getApiKey = () => {
+  return Constants.expoConfig?.extra?.revenueCatApiKey || 'test_GClyPBcnkdxiPCUwdJUxmnpDHgH';
+};
+
 // RevenueCat Configuration
 const REVENUECAT_CONFIG = {
-  apiKey: 'test_GClyPBcnkdxiPCUwdJUxmnpDHgH',
+  get apiKey() {
+    return getApiKey();
+  },
   entitlementId: 'Goalwise Pro', // Entitlement identifier in RevenueCat dashboard
   productIds: {
     weekly: 'goalwise_pro_weekly',

@@ -96,10 +96,6 @@ export const getCountryFlagUrl = (countryName) => {
     return `https://flagcdn.com/48x36/${isoCode}.png`;
   }
 
-  // Log unmapped countries for debugging
-  if (__DEV__) {
-    console.log('[FLAG] Unmapped country:', countryName);
-  }
   return null;
 };
 
@@ -118,9 +114,6 @@ const apiCall = async (endpoint, params = {}) => {
   requestCount++;
   if (requestCount > 280) {
     const waitTime = 60000 - (now - lastResetTime);
-    if (__DEV__) {
-      console.warn(`Rate limit approaching (${requestCount}/300), waiting ${waitTime}ms...`);
-    }
     await new Promise(resolve => setTimeout(resolve, waitTime));
     requestCount = 1;
     lastResetTime = Date.now();
@@ -134,13 +127,11 @@ const apiCall = async (endpoint, params = {}) => {
       });
 
       if (error) {
-        console.error('Edge Function Error:', error);
         throw new Error(error.message || 'Edge Function error');
       }
 
       // Edge Function returns the API response directly
       if (data?.errors && Object.keys(data.errors).length > 0) {
-        console.error('API Error:', data.errors);
         throw new Error(Object.values(data.errors).join(', '));
       }
 
@@ -151,7 +142,6 @@ const apiCall = async (endpoint, params = {}) => {
     // NOTE: This path should not be used in production
     throw new Error('Direct API calls disabled - use Edge Functions');
   } catch (error) {
-    console.error('API Call Error:', error);
     throw error;
   }
 };

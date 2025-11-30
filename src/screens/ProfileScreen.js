@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // iOS HIG Spacing Constants
@@ -86,7 +87,10 @@ const GroupedTableSection = ({ title, children, footer }) => (
 // ═══════════════════════════════════════════════════════════════════════════════
 // ProfileScreen Component
 // ═══════════════════════════════════════════════════════════════════════════════
-const ProfileScreen = ({ onShowPaywall }) => {
+const ProfileScreen = ({ navigation }) => {
+  // Safe area insets for proper header positioning
+  const insets = useSafeAreaInsets();
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   // Language state
@@ -160,7 +164,7 @@ const ProfileScreen = ({ onShowPaywall }) => {
       contentContainerStyle={[styles.screenContent, { paddingHorizontal: IOS_SPACING.screenMargin }]}
     >
       {/* ════════════════════ PAGE TITLE ════════════════════ */}
-      <Animated.View style={[styles.header, { opacity: fadeAnim }]}>
+      <Animated.View style={[styles.header, { opacity: fadeAnim, paddingTop: insets.top }]}>
         <Text style={styles.pageTitle}>Profil</Text>
       </Animated.View>
 
@@ -168,7 +172,7 @@ const ProfileScreen = ({ onShowPaywall }) => {
       <Animated.View style={{ opacity: fadeAnim }}>
         <TouchableOpacity
           style={styles.proCard}
-          onPress={onShowPaywall}
+          onPress={() => navigation.navigate('Paywall')}
           activeOpacity={0.85}
         >
           <View style={styles.proCardGradient}>
