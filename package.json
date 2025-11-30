@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@supabase/supabase-js": "^2.86.0",
     "expo": "~54.0.25",
     "expo-blur": "~15.0.7",
     "expo-linear-gradient": "~15.0.7",
@@ -24,6 +25,8 @@
   },
   "private": true,
   "devDependencies": {
-    "babel-preset-expo": "^54.0.7"
+    "@types/react": "~19.1.10",
+    "babel-preset-expo": "^54.0.7",
+    "typescript": "~5.9.2"
   }
 }

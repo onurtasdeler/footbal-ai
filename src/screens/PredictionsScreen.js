@@ -26,7 +26,10 @@ import * as Localization from 'expo-localization';
 import footballApi from '../services/footballApi';
 import { getBettingPredictions, getCachedMatchIds, cleanOldPredictionCache } from '../services/bettingPredictions';
 import { RISK_LEVELS, BETTING_CATEGORIES } from '../data/bettingTypes';
+import supabaseService from '../services/supabaseService';
 import { COLORS } from '../theme/colors';
+import { useSubscription } from '../context/SubscriptionContext';
+import PaywallScreen from './PaywallScreen';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -491,7 +494,6 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
         <View style={styles.detailLoadingContainer}>
           <ActivityIndicator size="large" color={COLORS.accent} />
           <Text style={styles.detailLoadingText}>Tahminler hesaplanıyor...</Text>
-          <Text style={styles.detailLoadingSubtext}>Claude AI analiz ediyor</Text>
         </View>
       ) : predictions ? (
         <ScrollView
@@ -1034,8 +1036,8 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
           <View style={styles.infoModalContent}>
             <Text style={styles.infoModalTitle}>Bilgi</Text>
             <Text style={styles.infoModalText}>
-              Bu tahminler Claude AI tarafından maç verileri analiz edilerek üretilmiştir.
-              Güven oranları ve risk seviyeleri, AI'ın analiz sonuçlarına dayalı tahminlerdir.
+              Bu tahminler maç verileri analiz edilerek üretilmiştir.
+              Güven oranları ve risk seviyeleri, analiz sonuçlarına dayalı tahminlerdir.
               {'\n\n'}
               Gerçek bahis tavsiyesi değildir. Finansal kararlarınızda bu verileri kullanmayınız.
             </Text>
@@ -1053,6 +1055,9 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
 // MAIN PREDICTIONS SCREEN
 // ═══════════════════════════════════════════════════════════════════════════════
 const PredictionsScreen = () => {
+  // PRO subscription check - hooks must be called unconditionally
+  const { isPro } = useSubscription();
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   // State
@@ -1240,9 +1245,25 @@ const PredictionsScreen = () => {
     setCurrentPredictions(null);
 
     try {
+      // 1. Önce Supabase'den paylaşımlı cache kontrol
+      const sharedPrediction = await supabaseService.getSharedPrediction(match.id);
+      if (sharedPrediction) {
+        setCurrentPredictions(sharedPrediction);
+        setPredictionLoading(false);
+        return; // Claude API çağrısı yok!
+      }
+
+      // 2. Supabase'de yoksa Claude API çağır
       const predictions = await getBettingPredictions(match);
       setCurrentPredictions(predictions);
-      // Cache güncelle
+
+      // 3. Sonucu Supabase'e kaydet (diğer kullanıcılar için)
+      if (predictions) {
+        const matchDate = match.date || new Date().toISOString().split('T')[0];
+        await supabaseService.saveSharedPrediction(match.id, predictions, matchDate);
+      }
+
+      // 4. Cache güncelle
       await refreshCachedMatchIds();
     } catch (error) {
       console.error('Prediction error:', error);
@@ -1259,6 +1280,20 @@ const PredictionsScreen = () => {
       setCurrentPredictions(null);
     }, 300); // Animasyon bitmesini bekle
   };
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PRO CHECK - Tüm hooks'lardan sonra
+  // ─────────────────────────────────────────────────────────────────────────────
+  if (!isPro) {
+    return (
+      <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
+        <PaywallScreen
+          visible={true}
+          onClose={() => {}}
+        />
+      </View>
+    );
+  }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER

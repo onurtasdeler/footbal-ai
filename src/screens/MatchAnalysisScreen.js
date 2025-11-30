@@ -18,6 +18,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import footballApi from '../services/footballApi';
 import claudeAi from '../services/claudeAi';
 import cacheService from '../services/cacheService';
+import supabaseService from '../services/supabaseService';
+import { useSubscription } from '../context/SubscriptionContext';
+import PaywallScreen from './PaywallScreen';
 
 // Stadium background image
 const STADIUM_BG = require('../../assets/images/stad.jpg');
@@ -864,6 +867,9 @@ const StatRow = ({ label, homeValue, awayValue, isPercentage = false }) => {
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
 const MatchAnalysisScreen = ({ match, onBack }) => {
+  // PRO subscription check - hooks must be called unconditionally
+  const { isPro } = useSubscription();
+
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -1045,7 +1051,7 @@ const MatchAnalysisScreen = ({ match, onBack }) => {
     }
   }, [loading, hasAnalysis, cachedData, aiLoading]);
 
-  // Analysis handler with cache
+  // Analysis handler with shared cache (Supabase) + local cache
   const fetchAiAnalysis = async () => {
     if (aiLoading) return;
 
@@ -1056,6 +1062,18 @@ const MatchAnalysisScreen = ({ match, onBack }) => {
 
     setAiLoading(true);
     try {
+      // 1. First check Supabase for shared analysis (all users share this cache)
+      const sharedAnalysis = await supabaseService.getSharedAnalysis(fixtureId);
+      if (sharedAnalysis) {
+        setAiAnalysis(sharedAnalysis);
+        setCachedData(true);
+        // Also save to local cache for offline access
+        await cacheService.saveAnalysis(fixtureId, sharedAnalysis, match.date, match.status || 'NS');
+        setAiLoading(false);
+        return; // No Claude API call needed!
+      }
+
+      // 2. Not in Supabase - call Claude API
       const analysisData = {
         home: match.home,
         away: match.away,
@@ -1074,12 +1092,16 @@ const MatchAnalysisScreen = ({ match, onBack }) => {
       const result = await claudeAi.analyzeMatch(analysisData);
       if (result) {
         setAiAnalysis(result);
-        // Save to cache
+
+        // 3. Save to Supabase (so other users can access it)
+        await supabaseService.saveSharedAnalysis(fixtureId, result, match.date);
+
+        // 4. Also save to local cache (for offline access)
         await cacheService.saveAnalysis(fixtureId, result, match.date, match.status || 'NS');
         setCachedData(true);
       }
     } catch (error) {
-      console.error('Analysis error:', error);
+      // Silent fail - don't log to console
     } finally {
       setAiLoading(false);
     }
@@ -1098,6 +1120,18 @@ const MatchAnalysisScreen = ({ match, onBack }) => {
 
   // Analysis display data with defaults
   const analysis = aiAnalysis || claudeAi.getDefaultAnalysis();
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PRO CHECK - Tüm hooks'lardan sonra
+  // ─────────────────────────────────────────────────────────────────────────────
+  if (!isPro) {
+    return (
+      <PaywallScreen
+        visible={true}
+        onClose={onBack}
+      />
+    );
+  }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER HEADER

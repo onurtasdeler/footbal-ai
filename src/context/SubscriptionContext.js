@@ -8,18 +8,26 @@ import RevenueCat, {
   addCustomerInfoListener,
   getCustomerInfo,
   getPackagePrice,
+  IS_EXPO_GO,
 } from '../services/revenueCatService';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SUBSCRIPTION CONTEXT - Global Subscription State Management
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// DEV MODE: Set to true to bypass PRO check in Expo Go for testing
+// Set to false to test paywall flow in Expo Go
+const DEV_MODE_PRO_BYPASS = true;
+
 const SubscriptionContext = createContext(null);
 
 export const SubscriptionProvider = ({ children }) => {
+  // In Expo Go with dev mode, simulate PRO access for testing
+  const devModePro = __DEV__ && IS_EXPO_GO && DEV_MODE_PRO_BYPASS;
+
   // State
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [isPro, setIsPro] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(devModePro);
+  const [isPro, setIsPro] = useState(devModePro);
   const [isLoading, setIsLoading] = useState(true);
   const [packages, setPackages] = useState([]);
   const [customerInfo, setCustomerInfo] = useState(null);
@@ -33,6 +41,12 @@ export const SubscriptionProvider = ({ children }) => {
     const init = async () => {
       try {
         setIsLoading(true);
+
+        // Skip RevenueCat in Expo Go dev mode - use simulated PRO access
+        if (devModePro) {
+          setIsLoading(false);
+          return;
+        }
 
         // Initialize SDK
         const initialized = await initializeRevenueCat();
@@ -63,14 +77,14 @@ export const SubscriptionProvider = ({ children }) => {
           });
         }
       } catch (error) {
-        console.error('[SubscriptionContext] Init error:', error);
+        // Silent fail
       } finally {
         setIsLoading(false);
       }
     };
 
     init();
-  }, []);
+  }, [devModePro]);
 
   // Listen for customer info updates
   useEffect(() => {
@@ -79,7 +93,6 @@ export const SubscriptionProvider = ({ children }) => {
     const unsubscribe = addCustomerInfoListener((info, hasProAccess) => {
       setCustomerInfo(info);
       setIsPro(hasProAccess);
-      console.log('[SubscriptionContext] Customer info updated, Pro:', hasProAccess);
     });
 
     return () => {
@@ -104,7 +117,6 @@ export const SubscriptionProvider = ({ children }) => {
 
       return result;
     } catch (error) {
-      console.error('[SubscriptionContext] Purchase error:', error);
       return { success: false, error: error.message };
     } finally {
       setIsLoading(false);
@@ -128,7 +140,6 @@ export const SubscriptionProvider = ({ children }) => {
 
       return result;
     } catch (error) {
-      console.error('[SubscriptionContext] Restore error:', error);
       return { success: false, error: error.message };
     } finally {
       setIsLoading(false);
@@ -146,7 +157,7 @@ export const SubscriptionProvider = ({ children }) => {
       const info = await getCustomerInfo();
       setCustomerInfo(info);
     } catch (error) {
-      console.error('[SubscriptionContext] Refresh error:', error);
+      // Silent fail
     }
   }, [isInitialized]);
 

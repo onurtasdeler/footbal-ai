@@ -1,62 +1,60 @@
 /**
  * Claude AI Service for Football Match Analysis
  * Enhanced with comprehensive analysis variables
- * Anthropic Claude Sonnet 4 Integration
+ * NOW USING SUPABASE EDGE FUNCTIONS - API Keys are server-side
  */
 
-import { CLAUDE_API_KEY as ENV_CLAUDE_KEY } from '@env';
+import { supabase } from './supabaseService';
 
-const CLAUDE_API_KEY = ENV_CLAUDE_KEY;
-const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
+// Edge Function handles Claude API - key is stored server-side
+const USE_EDGE_FUNCTIONS = true; // Toggle for migration
 
 /**
- * Generate comprehensive match analysis using Claude AI
+ * Generate comprehensive match analysis using Claude AI via Edge Function
  * @param {object} matchData - Complete match data object
  * @returns {object} - Enhanced AI analysis response
  */
 export const analyzeMatch = async (matchData) => {
-  const prompt = generateEnhancedPrompt(matchData);
-
   try {
-    const response = await fetch(CLAUDE_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': CLAUDE_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 3000,
-        messages: [
-          {
-            role: 'user',
-            content: prompt,
+    if (USE_EDGE_FUNCTIONS) {
+      // Use Supabase Edge Function - API key is stored server-side
+      // Edge Function handles caching in Supabase database
+      const { data, error } = await supabase.functions.invoke('claude-analysis', {
+        body: {
+          matchData: {
+            home: matchData.home,
+            away: matchData.away,
+            league: matchData.league,
+            date: matchData.date,
+            time: matchData.time,
+            fixtureId: matchData.fixtureId,
+            homeForm: matchData.homeForm,
+            awayForm: matchData.awayForm,
+            homeTeamStats: matchData.homeTeamStats,
+            awayTeamStats: matchData.awayTeamStats,
+            h2h: matchData.h2h,
+            prediction: matchData.prediction,
+            tactics: matchData.tactics,
+            motivation: matchData.motivation,
+            advanced: matchData.advanced,
+            referee: matchData.referee,
+            squad: matchData.squad,
+            external: matchData.external,
           },
-        ],
-      }),
-    });
+          fixtureId: matchData.fixtureId,
+        },
+      });
 
-    if (!response.ok) {
-      const error = await response.json();
-      console.error('Claude API Error:', error);
-      throw new Error(error.error?.message || 'Claude API error');
-    }
-
-    const data = await response.json();
-    const content = data.content[0]?.text;
-
-    // Parse JSON response
-    try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+      if (error) {
+        console.error('Edge Function Error:', error);
+        throw new Error(error.message || 'Edge Function error');
       }
-      return JSON.parse(content);
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError);
-      return { rawAnalysis: content };
+
+      return data;
     }
+
+    // Fallback disabled - use Edge Functions only
+    throw new Error('Direct API calls disabled - use Edge Functions');
   } catch (error) {
     console.error('Claude AI Error:', error);
     throw error;
@@ -342,49 +340,28 @@ SADECE JSON yanıt ver. Başka açıklama ekleme.`;
 };
 
 /**
- * Quick analysis with minimal data
+ * Quick analysis with minimal data - uses same Edge Function
  */
 export const quickAnalyze = async (homeName, awayName, leagueName) => {
-  const prompt = `Futbol maçı: ${homeName} vs ${awayName} (${leagueName})
-
-Kısa analiz yap ve JSON döndür:
-{
-  "homeWinProb": <0-100>,
-  "drawProb": <0-100>,
-  "awayWinProb": <0-100>,
-  "confidence": <1-10>,
-  "expectedGoals": <beklenen gol>,
-  "bttsProb": <KG Var 0-100>,
-  "over25Prob": <2.5 Üst 0-100>,
-  "winner": "<ev/beraberlik/deplasman>",
-  "advice": "<kısa Türkçe tavsiye>"
-}
-
-SADECE JSON yanıt ver.`;
-
   try {
-    const response = await fetch(CLAUDE_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': CLAUDE_API_KEY,
-        'anthropic-version': '2023-06-01',
+    // Use the same Edge Function with minimal data
+    const { data, error } = await supabase.functions.invoke('claude-analysis', {
+      body: {
+        matchData: {
+          home: { name: homeName },
+          away: { name: awayName },
+          league: { name: leagueName },
+        },
+        fixtureId: `quick_${Date.now()}`, // Temporary ID for quick analysis
       },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 512,
-        messages: [{ role: 'user', content: prompt }],
-      }),
     });
 
-    if (!response.ok) {
-      throw new Error('Claude API error');
+    if (error) {
+      console.error('Quick analyze error:', error);
+      return null;
     }
 
-    const data = await response.json();
-    const content = data.content[0]?.text;
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    return jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    return data;
   } catch (error) {
     console.error('Quick analyze error:', error);
     return null;

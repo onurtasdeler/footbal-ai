@@ -1,5 +1,6 @@
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // REVENUECAT SERVICE - Goalwise Pro Subscription Management
@@ -18,32 +19,36 @@ const REVENUECAT_CONFIG = {
 // Initialization state
 let isInitialized = false;
 
+// Check if running in Expo Go (not a native build)
+const isExpoGo = Constants.appOwnership === 'expo';
+
 /**
  * Initialize RevenueCat SDK
  * Should be called once at app startup
+ * Skips initialization in Expo Go to prevent error logs
  */
 export const initializeRevenueCat = async () => {
+  // Skip RevenueCat in Expo Go - it doesn't work properly anyway
+  if (isExpoGo) {
+    return false;
+  }
+
   if (isInitialized) {
-    console.log('[RevenueCat] Already initialized');
     return true;
   }
 
   try {
-    // Enable debug logs in development
-    if (__DEV__) {
-      Purchases.setLogLevel(LOG_LEVEL.DEBUG);
-    }
+    // Suppress all logs
+    Purchases.setLogLevel(LOG_LEVEL.ERROR);
 
-    // Configure RevenueCat with API key
     await Purchases.configure({
       apiKey: REVENUECAT_CONFIG.apiKey,
     });
 
     isInitialized = true;
-    console.log('[RevenueCat] Successfully initialized');
     return true;
   } catch (error) {
-    console.error('[RevenueCat] Initialization error:', error);
+    // Silent fail
     return false;
   }
 };
@@ -53,11 +58,11 @@ export const initializeRevenueCat = async () => {
  * @returns {Promise<Object|null>} Customer info or null on error
  */
 export const getCustomerInfo = async () => {
+  if (isExpoGo) return null;
   try {
     const customerInfo = await Purchases.getCustomerInfo();
     return customerInfo;
   } catch (error) {
-    console.error('[RevenueCat] Error getting customer info:', error);
     return null;
   }
 };
@@ -67,17 +72,13 @@ export const getCustomerInfo = async () => {
  * @returns {Promise<boolean>} True if user has active Pro entitlement
  */
 export const checkProAccess = async () => {
+  if (isExpoGo) return false;
   try {
     const customerInfo = await Purchases.getCustomerInfo();
     const entitlements = customerInfo?.entitlements?.active;
-
-    // Check for Goalwise Pro entitlement
     const hasProAccess = entitlements?.[REVENUECAT_CONFIG.entitlementId]?.isActive === true;
-
-    console.log('[RevenueCat] Pro access:', hasProAccess);
     return hasProAccess;
   } catch (error) {
-    console.error('[RevenueCat] Error checking pro access:', error);
     return false;
   }
 };
@@ -87,18 +88,14 @@ export const checkProAccess = async () => {
  * @returns {Promise<Object|null>} Offerings or null on error
  */
 export const getOfferings = async () => {
+  if (isExpoGo) return null;
   try {
     const offerings = await Purchases.getOfferings();
-
     if (offerings?.current) {
-      console.log('[RevenueCat] Current offering:', offerings.current.identifier);
       return offerings;
     }
-
-    console.log('[RevenueCat] No offerings available');
     return null;
   } catch (error) {
-    console.error('[RevenueCat] Error getting offerings:', error);
     return null;
   }
 };
@@ -108,16 +105,14 @@ export const getOfferings = async () => {
  * @returns {Promise<Array>} Array of packages
  */
 export const getPackages = async () => {
+  if (isExpoGo) return [];
   try {
     const offerings = await getOfferings();
-
     if (offerings?.current?.availablePackages) {
       return offerings.current.availablePackages;
     }
-
     return [];
   } catch (error) {
-    console.error('[RevenueCat] Error getting packages:', error);
     return [];
   }
 };
@@ -128,15 +123,10 @@ export const getPackages = async () => {
  * @returns {Promise<Object>} Purchase result with success status and customerInfo
  */
 export const purchasePackage = async (packageToPurchase) => {
+  if (isExpoGo) return { success: false, error: 'Not available in Expo Go' };
   try {
-    console.log('[RevenueCat] Purchasing package:', packageToPurchase.identifier);
-
     const { customerInfo } = await Purchases.purchasePackage(packageToPurchase);
-
-    // Check if purchase granted Pro entitlement
     const hasProAccess = customerInfo?.entitlements?.active?.[REVENUECAT_CONFIG.entitlementId]?.isActive === true;
-
-    console.log('[RevenueCat] Purchase successful, Pro access:', hasProAccess);
 
     return {
       success: true,
@@ -144,9 +134,7 @@ export const purchasePackage = async (packageToPurchase) => {
       hasProAccess,
     };
   } catch (error) {
-    // Handle user cancellation
     if (error.userCancelled) {
-      console.log('[RevenueCat] User cancelled purchase');
       return {
         success: false,
         cancelled: true,
@@ -154,7 +142,6 @@ export const purchasePackage = async (packageToPurchase) => {
       };
     }
 
-    console.error('[RevenueCat] Purchase error:', error);
     return {
       success: false,
       cancelled: false,
@@ -169,10 +156,9 @@ export const purchasePackage = async (packageToPurchase) => {
  * @returns {Promise<Object>} Purchase result
  */
 export const purchaseProduct = async (productType) => {
+  if (isExpoGo) return { success: false, error: 'Not available in Expo Go' };
   try {
     const packages = await getPackages();
-
-    // Find matching package
     let packageToPurchase = null;
 
     for (const pkg of packages) {
@@ -193,7 +179,6 @@ export const purchaseProduct = async (productType) => {
     }
 
     if (!packageToPurchase) {
-      console.error('[RevenueCat] Package not found for:', productType);
       return {
         success: false,
         error: 'Ürün bulunamadı',
@@ -202,7 +187,6 @@ export const purchaseProduct = async (productType) => {
 
     return await purchasePackage(packageToPurchase);
   } catch (error) {
-    console.error('[RevenueCat] Error purchasing product:', error);
     return {
       success: false,
       error: error.message || 'Purchase failed',
@@ -215,13 +199,10 @@ export const purchaseProduct = async (productType) => {
  * @returns {Promise<Object>} Restore result with success status
  */
 export const restorePurchases = async () => {
+  if (isExpoGo) return { success: false, error: 'Not available in Expo Go' };
   try {
-    console.log('[RevenueCat] Restoring purchases...');
-
     const customerInfo = await Purchases.restorePurchases();
     const hasProAccess = customerInfo?.entitlements?.active?.[REVENUECAT_CONFIG.entitlementId]?.isActive === true;
-
-    console.log('[RevenueCat] Restore complete, Pro access:', hasProAccess);
 
     return {
       success: true,
@@ -229,7 +210,6 @@ export const restorePurchases = async () => {
       hasProAccess,
     };
   } catch (error) {
-    console.error('[RevenueCat] Restore error:', error);
     return {
       success: false,
       error: error.message || 'Restore failed',
@@ -242,11 +222,11 @@ export const restorePurchases = async () => {
  * @returns {Promise<string|null>} Management URL or null
  */
 export const getManagementURL = async () => {
+  if (isExpoGo) return null;
   try {
     const customerInfo = await Purchases.getCustomerInfo();
     return customerInfo?.managementURL || null;
   } catch (error) {
-    console.error('[RevenueCat] Error getting management URL:', error);
     return null;
   }
 };
@@ -256,11 +236,11 @@ export const getManagementURL = async () => {
  * @param {string} userId - Unique user identifier
  */
 export const setUserId = async (userId) => {
+  if (isExpoGo) return;
   try {
     await Purchases.logIn(userId);
-    console.log('[RevenueCat] User ID set:', userId);
   } catch (error) {
-    console.error('[RevenueCat] Error setting user ID:', error);
+    // Silent fail
   }
 };
 
@@ -268,11 +248,11 @@ export const setUserId = async (userId) => {
  * Log out current user (for when user logs out of your app)
  */
 export const logOutUser = async () => {
+  if (isExpoGo) return;
   try {
     await Purchases.logOut();
-    console.log('[RevenueCat] User logged out');
   } catch (error) {
-    console.error('[RevenueCat] Error logging out:', error);
+    // Silent fail
   }
 };
 
@@ -282,6 +262,7 @@ export const logOutUser = async () => {
  * @returns {Function} Unsubscribe function
  */
 export const addCustomerInfoListener = (callback) => {
+  if (isExpoGo) return () => {};
   const listener = Purchases.addCustomerInfoUpdateListener((customerInfo) => {
     const hasProAccess = customerInfo?.entitlements?.active?.[REVENUECAT_CONFIG.entitlementId]?.isActive === true;
     callback(customerInfo, hasProAccess);
@@ -298,6 +279,7 @@ export const addCustomerInfoListener = (callback) => {
  * @returns {Promise<Object|null>} Price info or null
  */
 export const getPackagePrice = async (packageType) => {
+  if (isExpoGo) return null;
   try {
     const packages = await getPackages();
 
@@ -321,13 +303,15 @@ export const getPackagePrice = async (packageType) => {
 
     return null;
   } catch (error) {
-    console.error('[RevenueCat] Error getting package price:', error);
     return null;
   }
 };
 
 // Export config for reference
 export const REVENUE_CAT_CONFIG = REVENUECAT_CONFIG;
+
+// Export Expo Go detection
+export const IS_EXPO_GO = isExpoGo;
 
 export default {
   initialize: initializeRevenueCat,

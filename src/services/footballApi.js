@@ -1,24 +1,21 @@
 // Football API Service
 // API-Football v3 Integration with Cache Optimization
+// NOW USING SUPABASE EDGE FUNCTIONS - API Keys are server-side
 
-import { API_FOOTBALL_KEY, API_FOOTBALL_URL } from '@env';
 import {
   fetchWithCache,
   buildCacheKey,
   CACHE_DURATIONS,
   getCacheStats,
 } from './cacheService';
+import { supabase } from './supabaseService';
 
-const API_KEY = API_FOOTBALL_KEY;
-const BASE_URL = API_FOOTBALL_URL || 'https://v3.football.api-sports.io';
+// Edge Function URL (Supabase handles the API key)
+const USE_EDGE_FUNCTIONS = true; // Toggle for migration
 
-// Rate limiting: Pro plan = 300 req/min
+// Rate limiting: Pro plan = 300 req/min (still tracked client-side for safety)
 let requestCount = 0;
 let lastResetTime = Date.now();
-
-const headers = {
-  'x-apisports-key': API_KEY,
-};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // COUNTRY TO FLAG MAPPING
@@ -107,11 +104,11 @@ export const getCountryFlagUrl = (countryName) => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// API CALL HELPER (with rate limiting)
+// API CALL HELPER (with rate limiting) - NOW USING EDGE FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const apiCall = async (endpoint, params = {}) => {
-  // Pro plan rate limiting (300 req/min)
+  // Pro plan rate limiting (300 req/min) - still track client-side
   const now = Date.now();
   if (now - lastResetTime >= 60000) {
     requestCount = 0;
@@ -129,23 +126,30 @@ const apiCall = async (endpoint, params = {}) => {
     lastResetTime = Date.now();
   }
 
-  const queryString = Object.entries(params)
-    .filter(([_, value]) => value !== undefined && value !== null)
-    .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
-    .join('&');
-
-  const url = `${BASE_URL}/${endpoint}${queryString ? `?${queryString}` : ''}`;
-
   try {
-    const response = await fetch(url, { headers });
-    const data = await response.json();
+    // Use Supabase Edge Function - API key is stored server-side
+    if (USE_EDGE_FUNCTIONS) {
+      const { data, error } = await supabase.functions.invoke('football-proxy', {
+        body: { endpoint, params },
+      });
 
-    if (data.errors && Object.keys(data.errors).length > 0) {
-      console.error('API Error:', data.errors);
-      throw new Error(Object.values(data.errors).join(', '));
+      if (error) {
+        console.error('Edge Function Error:', error);
+        throw new Error(error.message || 'Edge Function error');
+      }
+
+      // Edge Function returns the API response directly
+      if (data?.errors && Object.keys(data.errors).length > 0) {
+        console.error('API Error:', data.errors);
+        throw new Error(Object.values(data.errors).join(', '));
+      }
+
+      return data?.response || data || [];
     }
 
-    return data.response || [];
+    // Fallback: Direct API call (for development/testing only)
+    // NOTE: This path should not be used in production
+    throw new Error('Direct API calls disabled - use Edge Functions');
   } catch (error) {
     console.error('API Call Error:', error);
     throw error;

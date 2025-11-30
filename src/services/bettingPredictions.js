@@ -1,31 +1,30 @@
 /**
  * Betting Predictions Service
  * Claude AI entegrasyonu ile bahis tahminleri
+ * NOW USING SUPABASE EDGE FUNCTIONS - API Keys are server-side
  * NOT: Bu servis analyzeMatch'ten FARKLIDIR - sadece bahis tahminleri üretir
  */
 
-import { CLAUDE_API_KEY as ENV_CLAUDE_KEY } from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getAllBettingTypes, BETTING_CATEGORIES, RISK_LEVELS } from '../data/bettingTypes';
+import { supabase } from './supabaseService';
+import { BETTING_CATEGORIES, RISK_LEVELS } from '../data/bettingTypes';
 
-const CLAUDE_API_KEY = ENV_CLAUDE_KEY;
-const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
+// Edge Function handles Claude API - key is stored server-side
+const USE_EDGE_FUNCTIONS = true; // Toggle for migration
 
-// Cache key prefix
+// Cache key prefix (local cache for quick access)
 const PREDICTION_CACHE_KEY = '@betting_predictions_';
-// Cache süresi yok - maç bitene kadar saklanır
 
 /**
- * Maç için bahis tahminleri al
+ * Maç için bahis tahminleri al - Edge Function üzerinden
  * @param {object} matchData - Maç verileri
  * @returns {object} - Bahis tahminleri
  */
 export const getBettingPredictions = async (matchData) => {
-  // Cache key: maç ID + tarih (maç bitene kadar saklanır)
   const matchDate = matchData.date || new Date().toISOString().split('T')[0];
   const cacheKey = `${PREDICTION_CACHE_KEY}${matchData.id}_${matchDate}`;
 
-  // Cache kontrol - süre kontrolü yok, direkt döndür
+  // Local cache kontrol (hızlı erişim için)
   try {
     const cached = await AsyncStorage.getItem(cacheKey);
     if (cached) {
@@ -38,65 +37,52 @@ export const getBettingPredictions = async (matchData) => {
     console.log('Cache read error:', e);
   }
 
-  // API çağrısı
-  const prompt = generateBettingPrompt(matchData);
-
   try {
-    const response = await fetch(CLAUDE_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': CLAUDE_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
-        messages: [
-          {
-            role: 'user',
-            content: prompt,
+    if (USE_EDGE_FUNCTIONS) {
+      // Use Supabase Edge Function - API key is stored server-side
+      // Edge Function handles Supabase database caching
+      const { data, error } = await supabase.functions.invoke('claude-predictions', {
+        body: {
+          matchData: {
+            home: matchData.home,
+            away: matchData.away,
+            league: matchData.league,
+            date: matchData.date,
+            time: matchData.time,
+            homeForm: matchData.homeForm,
+            awayForm: matchData.awayForm,
+            h2h: matchData.h2h,
+            homeTeamStats: matchData.homeTeamStats,
+            awayTeamStats: matchData.awayTeamStats,
           },
-        ],
-      }),
-    });
+          fixtureId: matchData.id,
+        },
+      });
 
-    if (!response.ok) {
-      const error = await response.json();
-      console.error('Claude API Error:', error);
-      throw new Error(error.error?.message || 'Claude API error');
-    }
-
-    const data = await response.json();
-    const content = data.content[0]?.text;
-
-    // Parse JSON response
-    try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const predictions = JSON.parse(jsonMatch[0]);
-
-        // Tahminleri zenginleştir
-        const enrichedPredictions = enrichPredictions(predictions);
-
-        // Cache'e kaydet (maç bitene kadar saklanır)
-        try {
-          await AsyncStorage.setItem(cacheKey, JSON.stringify({
-            data: enrichedPredictions,
-            matchDate: matchDate,
-            matchId: matchData.id,
-          }));
-        } catch (e) {
-          console.log('Cache write error:', e);
-        }
-
-        return enrichedPredictions;
+      if (error) {
+        console.error('Edge Function Error:', error);
+        return getDefaultPredictions();
       }
-      throw new Error('Invalid JSON response');
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError);
-      return getDefaultPredictions();
+
+      // Enrich with UI data
+      const enrichedPredictions = enrichPredictions(data);
+
+      // Save to local cache for quick access
+      try {
+        await AsyncStorage.setItem(cacheKey, JSON.stringify({
+          data: enrichedPredictions,
+          matchDate: matchDate,
+          matchId: matchData.id,
+        }));
+      } catch (e) {
+        console.log('Cache write error:', e);
+      }
+
+      return enrichedPredictions;
     }
+
+    // Fallback disabled
+    throw new Error('Direct API calls disabled - use Edge Functions');
   } catch (error) {
     console.error('Betting Predictions Error:', error);
     return getDefaultPredictions();
@@ -274,55 +260,28 @@ const getDefaultPredictions = () => ({
 });
 
 /**
- * Hızlı tahmin (sadece temel verilerle)
+ * Hızlı tahmin (sadece temel verilerle) - Edge Function üzerinden
  */
 export const getQuickPredictions = async (homeName, awayName, leagueName) => {
-  const prompt = `Futbol maçı: ${homeName} vs ${awayName} (${leagueName})
-
-En olası 3 bahis tahmini ver:
-
-JSON formatı:
-{
-  "predictions": [
-    {
-      "betType": "<kod>",
-      "betName": "<isim>",
-      "confidence": <0-100>,
-      "risk": "<dusuk/orta/yuksek>",
-      "reasoning": "<kısa sebep>"
-    }
-  ]
-}
-
-SADECE JSON yanıt ver.`;
-
   try {
-    const response = await fetch(CLAUDE_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': CLAUDE_API_KEY,
-        'anthropic-version': '2023-06-01',
+    // Use the same Edge Function with minimal data
+    const { data, error } = await supabase.functions.invoke('claude-predictions', {
+      body: {
+        matchData: {
+          home: { name: homeName },
+          away: { name: awayName },
+          league: { name: leagueName },
+        },
+        fixtureId: `quick_${Date.now()}`, // Temporary ID
       },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 512,
-        messages: [{ role: 'user', content: prompt }],
-      }),
     });
 
-    if (!response.ok) {
-      throw new Error('Claude API error');
+    if (error) {
+      console.error('Quick predictions error:', error);
+      return null;
     }
 
-    const data = await response.json();
-    const content = data.content[0]?.text;
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-
-    if (jsonMatch) {
-      return enrichPredictions(JSON.parse(jsonMatch[0]));
-    }
-    return null;
+    return enrichPredictions(data);
   } catch (error) {
     console.error('Quick predictions error:', error);
     return null;
