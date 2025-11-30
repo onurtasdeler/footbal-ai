@@ -47,6 +47,8 @@ import * as profileService from './src/services/profileService';
 import HomeScreen from './src/screens/HomeScreen';
 import MatchAnalysisScreen from './src/screens/MatchAnalysisScreen';
 import PredictionsScreen from './src/screens/PredictionsScreen';
+import PaywallScreen from './src/screens/PaywallScreen';
+import { SubscriptionProvider, useSubscription } from './src/context/SubscriptionContext';
 import { COLORS } from './src/theme/colors';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -4861,7 +4863,7 @@ const GroupedTableSection = ({ title, children, footer }) => (
   </View>
 );
 
-const ProfileScreen = () => {
+const ProfileScreen = ({ onShowPaywall }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [refreshing, setRefreshing] = useState(false);
 
@@ -5016,6 +5018,26 @@ const ProfileScreen = () => {
             </View>
           )}
         </View>
+      </Animated.View>
+
+      {/* ════════════════════ PRO UPGRADE CARD ════════════════════ */}
+      <Animated.View style={{ opacity: fadeAnim }}>
+        <TouchableOpacity
+          style={profileStyles.proUpgradeCard}
+          onPress={onShowPaywall}
+          activeOpacity={0.8}
+        >
+          <View style={profileStyles.proUpgradeLeft}>
+            <View style={profileStyles.proUpgradeIconBg}>
+              <Ionicons name="trophy" size={20} color="#F4B43A" />
+            </View>
+            <View style={profileStyles.proUpgradeTextContainer}>
+              <Text style={profileStyles.proUpgradeTitle}>PRO'ya Yükselt</Text>
+              <Text style={profileStyles.proUpgradeSubtitle}>Sınırsız AI tahmin ve daha fazlası</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={COLORS.gray500} />
+        </TouchableOpacity>
       </Animated.View>
 
       {/* ════════════════════ STATS CARDS ════════════════════ */}
@@ -5267,6 +5289,47 @@ const ProfileScreen = () => {
 // PROFILE STYLES - iOS HIG Compliant
 // ═══════════════════════════════════════════════════════════════════════════════
 const profileStyles = StyleSheet.create({
+  // PRO Upgrade Card
+  proUpgradeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(244,180,58,0.12)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(244,180,58,0.25)',
+  },
+  proUpgradeLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  proUpgradeIconBg: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(244,180,58,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  proUpgradeTextContainer: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  proUpgradeTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#F4B43A',
+    letterSpacing: -0.3,
+  },
+  proUpgradeSubtitle: {
+    fontSize: 12,
+    color: COLORS.gray400,
+    marginTop: 2,
+  },
+
   // Header
   header: {
     flexDirection: 'row',
@@ -5576,6 +5639,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [liveDetailMatch, setLiveDetailMatch] = useState(null);
+  const [showPaywall, setShowPaywall] = useState(false);
+
+  // Paywall handlers
+  const handleShowPaywall = () => setShowPaywall(true);
+  const handleClosePaywall = () => setShowPaywall(false);
 
   // AI Analiz için (MatchAnalysisScreen)
   const handleMatchPress = (match) => {
@@ -5608,28 +5676,36 @@ export default function App() {
 
     switch (activeTab) {
       case 'home':
-        return <HomeScreen onMatchPress={handleMatchPress} />;
+        return <HomeScreen onMatchPress={handleMatchPress} onShowPaywall={handleShowPaywall} />;
       case 'live':
         return <LiveScreen onMatchPress={handleMatchPress} onLiveMatchPress={handleLiveMatchPress} />;
       case 'predictions':
         return <PredictionsScreen />;
       case 'profile':
-        return <ProfileScreen />;
+        return <ProfileScreen onShowPaywall={handleShowPaywall} />;
       default:
-        return <HomeScreen onMatchPress={handleMatchPress} />;
+        return <HomeScreen onMatchPress={handleMatchPress} onShowPaywall={handleShowPaywall} />;
     }
   };
 
   const isDetailScreen = selectedMatch || liveDetailMatch;
 
   return (
-    <SafeAreaProvider>
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
-        {renderScreen()}
-        {!isDetailScreen && <BottomTabBar activeTab={activeTab} onTabPress={setActiveTab} />}
-      </SafeAreaView>
-    </SafeAreaProvider>
+    <SubscriptionProvider>
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.container} edges={['top']}>
+          <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+          {renderScreen()}
+          {!isDetailScreen && <BottomTabBar activeTab={activeTab} onTabPress={setActiveTab} />}
+        </SafeAreaView>
+
+        {/* Paywall Modal */}
+        <PaywallScreen
+          visible={showPaywall}
+          onClose={handleClosePaywall}
+        />
+      </SafeAreaProvider>
+    </SubscriptionProvider>
   );
 }
 

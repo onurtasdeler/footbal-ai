@@ -23,6 +23,7 @@ import * as Localization from 'expo-localization';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import footballApi from '../services/footballApi';
 import { getAnalyzedFixtureIds } from '../services/cacheService';
+import { useIsPro } from '../context/SubscriptionContext';
 import { COLORS } from '../theme/colors';
 
 const LOCALE_TO_COUNTRY = {
@@ -37,8 +38,9 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // ═══════════════════════════════════════════════════════════════════════════════
 // HOME SCREEN
 // ═══════════════════════════════════════════════════════════════════════════════
-const HomeScreen = ({ onMatchPress }) => {
+const HomeScreen = ({ onMatchPress, onShowPaywall }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const isPro = useIsPro();
 
   // State
   const [loading, setLoading] = useState(true);
@@ -311,9 +313,20 @@ const HomeScreen = ({ onMatchPress }) => {
           <Ionicons name="calendar-outline" size={20} color={COLORS.white} />
         </TouchableOpacity>
         <Text style={styles.appTitle}>Goalwise</Text>
-        <TouchableOpacity style={styles.proBadge}>
-          <Ionicons name="trophy" size={16} color="#F4B43A" />
-          <Text style={styles.proText}>PRO</Text>
+        <TouchableOpacity
+          style={[styles.proBadge, isPro && styles.proBadgeActive]}
+          onPress={isPro ? undefined : onShowPaywall}
+          activeOpacity={isPro ? 1 : 0.7}
+          disabled={isPro}
+        >
+          <Ionicons
+            name={isPro ? "checkmark-circle" : "trophy"}
+            size={16}
+            color={isPro ? "#00d4aa" : "#F4B43A"}
+          />
+          <Text style={[styles.proText, isPro && styles.proTextActive]}>
+            {isPro ? "PRO" : "PRO"}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -631,6 +644,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#F4B43A',
     letterSpacing: 0.5,
+  },
+  proBadgeActive: {
+    backgroundColor: 'rgba(0, 212, 170, 0.15)',
+  },
+  proTextActive: {
+    color: '#00d4aa',
   },
   notificationBadge: {
     position: 'absolute',
