@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-React Native mobile application (Expo SDK 54) for football match tracking, live scores, and AI-powered betting analysis. Integrates with API-Football v3 for data and Claude AI for match predictions.
+React Native mobile application (Expo SDK 54) for football match tracking, live scores, and AI-powered betting analysis. Integrates with API-Football v3 for data and Claude AI for match predictions. Turkish-language UI targeting Turkey-based users.
 
 ## Development Commands
 
@@ -16,20 +16,45 @@ npm run ios          # Run on iOS simulator/device
 npm run web          # Run in web browser
 ```
 
+**Environment Setup**: Create `.env` file with `API_FOOTBALL_KEY` and `API_FOOTBALL_URL`.
+
 ## Architecture
 
 ### Entry Points
 - `index.js` - Expo root component registration
-- `App.js` - Main application (~147KB, monolithic component with all UI screens)
+- `App.js` - Main application (~5000+ lines, monolithic). Contains all screens (Live, Widgets, Profile, MatchDetail, LiveMatchDetail) with tab-based navigation. Screens are rendered conditionally via `activeTab` state.
+
+### Screen Flow
+```
+App.js (TabBar navigation)
+├── HomeScreen.js (src/screens/) - Today's fixtures, filtering, search
+├── LiveScreen (inline) - Real-time scores with 15-30s polling
+├── WidgetsScreen (inline) - Customizable dashboard widgets
+├── ProfileScreen (inline) - Settings, stats, cache management
+├── MatchDetailScreen (inline) - Pre-match analysis, H2H, lineups
+├── LiveMatchDetailScreen (inline) - Live match with pitch visualization
+└── MatchAnalysisScreen.js (src/screens/) - AI betting analysis
+```
 
 ### Services (`src/services/`)
-- `footballApi.js` - API-Football v3 client with rate limiting (280 req/min safety margin)
+- `footballApi.js` - API-Football v3 client with rate limiting (280 req/min safety margin) and cache-first strategy
 - `claudeAi.js` - Claude Sonnet 4 integration for match analysis (Turkish language prompts)
+- `cacheService.js` - AsyncStorage-based caching with tiered TTLs (30s for live data, up to 24h for static)
+- `pollingService.js` - Smart polling with AppState awareness (slows in background, speeds up for critical moments 85+ min)
+- `profileService.js` - User profile, stats, and settings CRUD operations
 
 ### Key Dependencies
 - `expo` ~54.0.25 (New Architecture enabled)
 - `react` 19.1.0 / `react-native` 0.81.5
 - `expo-localization` - Device locale detection for country-based league prioritization
+- `@react-native-async-storage/async-storage` - Persistent storage for cache and settings
+
+### Caching Strategy
+Tiered cache durations in `cacheService.js`:
+- **Live data** (30-60s): `LIVE_FIXTURES`, `FIXTURE_STATS`, `FIXTURE_EVENTS`
+- **Semi-static** (5-60min): `FIXTURE_LINEUPS`, `STANDINGS`, `HEAD_TO_HEAD`
+- **Static** (1-24h): `LEAGUES`, `TEAM_INFO`, `TOP_SCORERS`
+- **Finished matches**: 7-day cache (results don't change)
 
 ## API-Football v3 Integration
 
@@ -89,7 +114,32 @@ Popular league IDs used for prioritization:
 - 2: Champions League
 - 3: Europa League
 
+### Smart Polling Intervals
+Defined in `pollingService.js`:
+- **Critical** (15s): Match minute 85+
+- **Important** (20s): Match minute 75-84
+- **Active** (30s): Normal live match
+- **Halftime** (2min): Devre arası
+- **Background**: 3x multiplier when app inactive
+
+### AsyncStorage Keys
+```javascript
+// Profile & Settings
+'@profile_user'           // User display name, membership date
+'@profile_stats'          // Prediction stats (total, correct)
+'@profile_appearance'     // Dark mode, language, odds format
+
+// Cache
+'@api_cache_*'            // API response cache (auto-managed)
+'ai_analysis_*'           // Claude AI analysis cache (per fixture)
+
+// User Data
+'@user_widgets'           // Widget configuration
+'@favorite_teams'         // Favorite team IDs
+```
+
 ## Documentation
 
+- `docs/PRD.md` - Product requirements and full feature list
 - `docs/BETTING_ANALYSIS.md` - Betting analysis system technical docs (Turkish)
 - `docs/UI_DESIGN_PROMPTS.md` - AI design prompts for all pages

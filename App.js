@@ -12,18 +12,41 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
+  ImageBackground,
   Modal,
   Switch,
   TextInput,
   Pressable,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Localization from 'expo-localization';
-import footballApi from './src/services/footballApi';
+import footballApi, {
+  getTodayOdds,
+  getFixtureOdds,
+  BET_TYPES,
+  get1X2Odds,
+  getOverUnderOdds,
+  getBTTSOdds,
+  getDoubleChanceOdds,
+  getHandicapOdds,
+  getTodayFixtures,
+  getLiveFixtures,
+  getStandings,
+} from './src/services/footballApi';
+import {
+  useSmartPolling,
+  useAppState,
+  POLLING_INTERVALS,
+  getSmartPollingInterval,
+} from './src/services/pollingService';
 import claudeAi from './src/services/claudeAi';
+import * as profileService from './src/services/profileService';
 import HomeScreen from './src/screens/HomeScreen';
 import MatchAnalysisScreen from './src/screens/MatchAnalysisScreen';
+import { COLORS } from './src/theme/colors';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // LOCALE TO COUNTRY MAPPING
@@ -61,57 +84,134 @@ const LOCALE_TO_COUNTRY = {
 // Popüler ligler (fallback sıralaması)
 const POPULAR_LEAGUE_IDS = [39, 140, 135, 78, 61, 203, 2, 3]; // PL, La Liga, Serie A, Bundesliga, Ligue 1, Süper Lig, UCL, UEL
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// THEME - Premium Sports Dark
-// ═══════════════════════════════════════════════════════════════════════════════
-const COLORS = {
-  // Base
-  bg: '#0a0e13',
-  card: '#141a22',
-  cardElevated: '#1a222c',
-  border: '#232d3b',
-
-  // Glassmorphism
-  glass: 'rgba(20, 26, 34, 0.92)',
-  glassBorder: 'rgba(255, 255, 255, 0.06)',
-
-  // Accents
-  accent: '#00d4aa',
-  accentDim: 'rgba(0, 212, 170, 0.12)',
-  accentGlow: 'rgba(0, 212, 170, 0.25)',
-
-  // Status
-  success: '#00d977',
-  warning: '#ff9f0a',
-  danger: '#ff453a',
-
-  // Live States
-  liveRed: '#ff3b30',
-  liveGlow: 'rgba(255, 59, 48, 0.2)',
-  critical: '#ff453a',       // 85+ dakika
-  criticalGlow: 'rgba(255, 69, 58, 0.15)',
-  important: '#ff9f0a',      // 75-84 dakika
-  importantGlow: 'rgba(255, 159, 10, 0.12)',
-
-  // Grays
-  white: '#ffffff',
-  gray50: '#fafafa',
-  gray100: '#f5f5f5',
-  gray200: '#e5e5e5',
-  gray300: '#d4d4d4',
-  gray400: '#a3a3a3',
-  gray500: '#737373',
-  gray600: '#525252',
-  gray700: '#404040',
-  gray800: '#262626',
-  gray900: '#171717',
-
-  // Team colors (for future use)
-  homeTeam: '#3b82f6',
-  awayTeam: '#ef4444',
-};
+// COLORS import edildi: ./src/theme/colors.js
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// WIDGET SYSTEM - Constants & Configuration
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const WIDGET_TYPES = {
+  LIVE_SCORES: 'live_scores',
+  UPCOMING_MATCHES: 'upcoming_matches',
+  FAVORITE_TEAM: 'favorite_team',
+  STANDINGS: 'standings',
+  COUNTDOWN: 'countdown',
+  RECENT_RESULTS: 'recent_results',
+  TEAM_FORM: 'team_form',
+  STATS_CARD: 'stats_card',
+};
+
+const WIDGET_INFO = {
+  [WIDGET_TYPES.LIVE_SCORES]: {
+    title: 'Canlı Skorlar',
+    icon: 'radio',
+    description: 'Anlık maç skorları',
+    sizes: ['small', 'medium', 'large'],
+    defaultSize: 'medium',
+  },
+  [WIDGET_TYPES.UPCOMING_MATCHES]: {
+    title: 'Yaklaşan Maçlar',
+    icon: 'calendar',
+    description: 'Bugün ve yarının maçları',
+    sizes: ['small', 'medium', 'large'],
+    defaultSize: 'medium',
+  },
+  [WIDGET_TYPES.FAVORITE_TEAM]: {
+    title: 'Favori Takım',
+    icon: 'heart',
+    description: 'Takımının tüm bilgileri',
+    sizes: ['medium', 'large'],
+    defaultSize: 'medium',
+    requiresTeam: true,
+  },
+  [WIDGET_TYPES.STANDINGS]: {
+    title: 'Puan Durumu',
+    icon: 'trophy',
+    description: 'Lig sıralaması',
+    sizes: ['medium', 'large'],
+    defaultSize: 'large',
+    requiresLeague: true,
+  },
+  [WIDGET_TYPES.COUNTDOWN]: {
+    title: 'Geri Sayım',
+    icon: 'timer',
+    description: 'Önemli maça countdown',
+    sizes: ['small', 'medium'],
+    defaultSize: 'small',
+  },
+  [WIDGET_TYPES.RECENT_RESULTS]: {
+    title: 'Son Sonuçlar',
+    icon: 'checkmark-done',
+    description: 'Biten maçların skorları',
+    sizes: ['medium', 'large'],
+    defaultSize: 'medium',
+  },
+  [WIDGET_TYPES.TEAM_FORM]: {
+    title: 'Form Durumu',
+    icon: 'trending-up',
+    description: 'Son maç performansı',
+    sizes: ['small', 'medium'],
+    defaultSize: 'small',
+    requiresTeam: true,
+  },
+  [WIDGET_TYPES.STATS_CARD]: {
+    title: 'İstatistikler',
+    icon: 'stats-chart',
+    description: 'Detaylı istatistikler',
+    sizes: ['small', 'medium'],
+    defaultSize: 'medium',
+  },
+};
+
+const WIDGET_SIZES = {
+  small: { width: (SCREEN_WIDTH - 48) / 2, height: 160, columns: 1 },
+  medium: { width: SCREEN_WIDTH - 32, height: 160, columns: 2 },
+  large: { width: SCREEN_WIDTH - 32, height: 320, columns: 2 },
+};
+
+const WIDGET_THEMES = {
+  teal: { id: 'teal', name: 'Teal', primary: '#00d4aa', glow: 'rgba(0, 212, 170, 0.15)' },
+  red: { id: 'red', name: 'Kırmızı', primary: '#ff3b30', glow: 'rgba(255, 59, 48, 0.15)' },
+  blue: { id: 'blue', name: 'Mavi', primary: '#007aff', glow: 'rgba(0, 122, 255, 0.15)' },
+  purple: { id: 'purple', name: 'Mor', primary: '#af52de', glow: 'rgba(175, 82, 222, 0.15)' },
+  orange: { id: 'orange', name: 'Turuncu', primary: '#ff9500', glow: 'rgba(255, 149, 0, 0.15)' },
+  pink: { id: 'pink', name: 'Pembe', primary: '#ff2d55', glow: 'rgba(255, 45, 85, 0.15)' },
+  green: { id: 'green', name: 'Yeşil', primary: '#34c759', glow: 'rgba(52, 199, 89, 0.15)' },
+};
+
+const WIDGET_STORAGE_KEY = '@user_widgets';
+const FAVORITE_TEAMS_KEY = '@favorite_teams';
+const FAVORITE_LEAGUES_KEY = '@favorite_leagues';
+
+// Default widgets for new users
+const DEFAULT_WIDGETS = [
+  {
+    id: 'default_live',
+    type: WIDGET_TYPES.LIVE_SCORES,
+    size: 'medium',
+    position: 0,
+    theme: 'red',
+    settings: {},
+  },
+  {
+    id: 'default_upcoming',
+    type: WIDGET_TYPES.UPCOMING_MATCHES,
+    size: 'medium',
+    position: 1,
+    theme: 'teal',
+    settings: {},
+  },
+  {
+    id: 'default_standings',
+    type: WIDGET_TYPES.STANDINGS,
+    size: 'large',
+    position: 2,
+    theme: 'blue',
+    settings: { leagueId: 203 }, // Turkish Super Lig
+  },
+];
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MOCK DATA - AI Maç Analiz
@@ -273,14 +373,11 @@ const LIVE_MATCHES = [
 const LiveScreen = ({ onMatchPress, onLiveMatchPress }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const sheetAnim = useRef(new Animated.Value(0)).current;
   const [liveMatches, setLiveMatches] = useState([]);
   const [sortedMatches, setSortedMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [matchStats, setMatchStats] = useState({});
-  const [selectedMatch, setSelectedMatch] = useState(null);
-  const [sheetVisible, setSheetVisible] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
 
   // Maçları dakikaya göre sırala (kritik maçlar üstte)
@@ -379,36 +476,19 @@ const LiveScreen = ({ onMatchPress, onLiveMatchPress }) => {
     }
   };
 
-  // Bottom Sheet aç
-  const openSheet = async (match) => {
-    setSelectedMatch(match);
-    setSheetVisible(true);
-    fetchMatchStats(match.id);
-    Animated.spring(sheetAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      damping: 20,
-      stiffness: 200,
-    }).start();
-  };
+  // Akıllı polling - canlı maç listesi için
+  useSmartPolling('live_matches_list', fetchLiveMatches, {
+    enabled: true,
+    baseInterval: POLLING_INTERVALS.LIVE_LIST,
+    pauseInBackground: true,
+    deps: [],
+  });
 
-  // Bottom Sheet kapat
-  const closeSheet = () => {
-    Animated.timing(sheetAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      setSheetVisible(false);
-      setSelectedMatch(null);
-    });
-  };
-
-  useEffect(() => {
-    fetchLiveMatches();
-    const interval = setInterval(fetchLiveMatches, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  // App öne geldiğinde hemen güncelle
+  useAppState(
+    () => fetchLiveMatches(), // onForeground
+    null // onBackground
+  );
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
@@ -445,7 +525,7 @@ const LiveScreen = ({ onMatchPress, onLiveMatchPress }) => {
       <TouchableOpacity
         style={[premiumStyles.heroCard, critical && premiumStyles.heroCardCritical]}
         activeOpacity={0.9}
-        onPress={() => openSheet(match)}
+        onPress={() => onLiveMatchPress && onLiveMatchPress(match)}
       >
         {/* Gradient Overlay */}
         <View style={[
@@ -555,7 +635,7 @@ const LiveScreen = ({ onMatchPress, onLiveMatchPress }) => {
             important && premiumStyles.matchCardImportant,
           ]}
           activeOpacity={0.85}
-          onPress={() => openSheet(match)}
+          onPress={() => onLiveMatchPress && onLiveMatchPress(match)}
         >
           {/* Main Row */}
           <View style={premiumStyles.matchMainRow}>
@@ -615,147 +695,6 @@ const LiveScreen = ({ onMatchPress, onLiveMatchPress }) => {
           </View>
         </TouchableOpacity>
       </Animated.View>
-    );
-  };
-
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // BOTTOM SHEET COMPONENT
-  // ═══════════════════════════════════════════════════════════════════════════════
-  const MatchStatsSheet = () => {
-    if (!selectedMatch) return null;
-
-    const stats = matchStats[selectedMatch.id];
-    const critical = isCriticalMatch(selectedMatch.minute);
-
-    const StatRow = ({ label, home, away, isPercentage }) => {
-      const total = (home || 0) + (away || 0) || 1;
-      const homePercent = isPercentage ? home : ((home || 0) / total) * 100;
-
-      return (
-        <View style={premiumStyles.sheetStatRow}>
-          <Text style={premiumStyles.sheetStatValue}>{home || 0}{isPercentage ? '%' : ''}</Text>
-          <View style={premiumStyles.sheetStatBarContainer}>
-            <View style={premiumStyles.sheetStatBar}>
-              <View style={[premiumStyles.sheetStatBarHome, { width: `${homePercent}%` }]} />
-            </View>
-            <Text style={premiumStyles.sheetStatLabel}>{label}</Text>
-          </View>
-          <Text style={premiumStyles.sheetStatValue}>{away || 0}{isPercentage ? '%' : ''}</Text>
-        </View>
-      );
-    };
-
-    return (
-      <Modal
-        visible={sheetVisible}
-        transparent
-        animationType="none"
-        onRequestClose={closeSheet}
-      >
-        <Pressable style={premiumStyles.sheetOverlay} onPress={closeSheet}>
-          <Animated.View
-            style={[
-              premiumStyles.sheetContainer,
-              {
-                transform: [{
-                  translateY: sheetAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [600, 0],
-                  })
-                }]
-              }
-            ]}
-          >
-            <Pressable onPress={(e) => e.stopPropagation()}>
-              {/* Handle */}
-              <View style={premiumStyles.sheetHandle}>
-                <View style={premiumStyles.sheetHandleBar} />
-              </View>
-
-              {/* Header with Match Info */}
-              <View style={premiumStyles.sheetHeader}>
-                <View style={premiumStyles.sheetMatchInfo}>
-                  {/* Home Team */}
-                  <View style={premiumStyles.sheetTeam}>
-                    {selectedMatch.home?.logo && (
-                      <Image source={{ uri: selectedMatch.home.logo }} style={premiumStyles.sheetTeamLogo} />
-                    )}
-                    <Text style={premiumStyles.sheetTeamName}>{selectedMatch.home?.short || selectedMatch.homeShort}</Text>
-                  </View>
-
-                  {/* Score */}
-                  <View style={premiumStyles.sheetScoreBox}>
-                    <Text style={[premiumStyles.sheetScore, critical && { color: COLORS.critical }]}>
-                      {selectedMatch.home?.score ?? selectedMatch.homeScore} - {selectedMatch.away?.score ?? selectedMatch.awayScore}
-                    </Text>
-                    <View style={[premiumStyles.sheetLiveBadge, critical && { backgroundColor: COLORS.criticalGlow }]}>
-                      <View style={[premiumStyles.sheetLiveDot, critical && { backgroundColor: COLORS.critical }]} />
-                      <Text style={[premiumStyles.sheetLiveText, critical && { color: COLORS.critical }]}>
-                        {selectedMatch.statusText || `${selectedMatch.minute}'`}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Away Team */}
-                  <View style={[premiumStyles.sheetTeam, { alignItems: 'flex-end' }]}>
-                    {selectedMatch.away?.logo && (
-                      <Image source={{ uri: selectedMatch.away.logo }} style={premiumStyles.sheetTeamLogo} />
-                    )}
-                    <Text style={premiumStyles.sheetTeamName}>{selectedMatch.away?.short || selectedMatch.awayShort}</Text>
-                  </View>
-                </View>
-
-                {/* League Info */}
-                <View style={premiumStyles.sheetLeagueRow}>
-                  {selectedMatch.league?.logo && (
-                    <Image source={{ uri: selectedMatch.league.logo }} style={premiumStyles.sheetLeagueLogo} />
-                  )}
-                  <Text style={premiumStyles.sheetLeagueName}>{selectedMatch.league?.name}</Text>
-                </View>
-              </View>
-
-              {/* Statistics */}
-              <View style={premiumStyles.sheetStatsSection}>
-                <Text style={premiumStyles.sheetSectionTitle}>İSTATİSTİKLER</Text>
-                <StatRow label="Top Kontrolü" home={stats?.possession?.home} away={stats?.possession?.away} isPercentage />
-                <StatRow label="Toplam Şut" home={stats?.shots?.home} away={stats?.shots?.away} />
-                <StatRow label="İsabetli Şut" home={stats?.shotsOnTarget?.home} away={stats?.shotsOnTarget?.away} />
-                <StatRow label="Korner" home={stats?.corners?.home} away={stats?.corners?.away} />
-                <StatRow label="Faul" home={stats?.fouls?.home} away={stats?.fouls?.away} />
-              </View>
-
-              {/* Action Buttons */}
-              <View style={premiumStyles.sheetActions}>
-                {/* Birincil Buton: Canlı Takip */}
-                <TouchableOpacity
-                  style={premiumStyles.sheetActionBtnPrimary}
-                  onPress={() => {
-                    closeSheet();
-                    setTimeout(() => onLiveMatchPress && onLiveMatchPress(selectedMatch), 300);
-                  }}
-                >
-                  <Ionicons name="football" size={18} color={COLORS.white} />
-                  <Text style={premiumStyles.sheetActionTextPrimary}>Canlı Takip</Text>
-                </TouchableOpacity>
-                {/* İkincil Buton: Detaylı Analiz */}
-                <TouchableOpacity
-                  style={premiumStyles.sheetActionBtn}
-                  onPress={() => {
-                    closeSheet();
-                    setTimeout(() => onMatchPress && onMatchPress(selectedMatch), 300);
-                  }}
-                >
-                  <Ionicons name="stats-chart" size={18} color={COLORS.accent} />
-                  <Text style={premiumStyles.sheetActionText}>Analiz</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={premiumStyles.sheetFavBtn}>
-                  <Ionicons name="bookmark-outline" size={20} color={COLORS.gray400} />
-                </TouchableOpacity>
-              </View>
-            </Pressable>
-          </Animated.View>
-        </Pressable>
-      </Modal>
     );
   };
 
@@ -835,8 +774,6 @@ const LiveScreen = ({ onMatchPress, onLiveMatchPress }) => {
         <View style={{ height: 120 }} />
       </ScrollView>
 
-      {/* Bottom Sheet */}
-      <MatchStatsSheet />
     </View>
   );
 };
@@ -1388,9 +1325,10 @@ const MatchDetailScreen = ({ match, onBack }) => {
   const [stats, setStats] = useState(null);
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
   const [expandedSections, setExpandedSections] = useState({
-    ai: true,
-    stats: true,
+    predictions: true, // Predictions & Odds
+    stats: true,       // Statistics
     h2h: false,
     lineups: false,
   });
@@ -1415,6 +1353,49 @@ const MatchDetailScreen = ({ match, onBack }) => {
 
   const toggleSection = (section) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  // Favori maç kontrolü ve yönetimi
+  const checkFavoriteStatus = async () => {
+    try {
+      const favoritesJson = await AsyncStorage.getItem('@favorite_matches');
+      if (favoritesJson) {
+        const favorites = JSON.parse(favoritesJson);
+        setIsFavorite(favorites.some(f => f.id === fixtureId));
+      }
+    } catch (error) {
+      console.error('Check favorite error:', error);
+    }
+  };
+
+  const toggleFavorite = async () => {
+    try {
+      const favoritesJson = await AsyncStorage.getItem('@favorite_matches');
+      let favorites = favoritesJson ? JSON.parse(favoritesJson) : [];
+
+      if (isFavorite) {
+        // Favorilerden kaldır
+        favorites = favorites.filter(f => f.id !== fixtureId);
+      } else {
+        // Favorilere ekle
+        favorites.push({
+          id: fixtureId,
+          homeName,
+          awayName,
+          homeLogo,
+          awayLogo,
+          date: match.date,
+          time: match.time,
+          league: leagueName,
+          addedAt: Date.now(),
+        });
+      }
+
+      await AsyncStorage.setItem('@favorite_matches', JSON.stringify(favorites));
+      setIsFavorite(!isFavorite);
+    } catch (error) {
+      console.error('Toggle favorite error:', error);
+    }
   };
 
   // Fetch match details from API
@@ -1552,6 +1533,7 @@ const MatchDetailScreen = ({ match, onBack }) => {
 
   useEffect(() => {
     fetchMatchDetails();
+    checkFavoriteStatus();
   }, [fixtureId]);
 
   useEffect(() => {
@@ -1562,8 +1544,9 @@ const MatchDetailScreen = ({ match, onBack }) => {
     if (!loading && !aiAnalysis && !aiLoading) fetchAiAnalysis();
   }, [loading]);
 
-  // Analysis display data
-  const analysisDisplay = aiAnalysis || {
+  // Analysis display data - Enhanced with all AI fields
+  // Use spread to merge AI data with defaults (AI data takes precedence)
+  const defaultAnalysis = {
     homeWinProb: prediction?.percent?.home || match.homeWinProb || 33,
     drawProb: prediction?.percent?.draw || match.drawProb || 34,
     awayWinProb: prediction?.percent?.away || match.awayWinProb || 33,
@@ -1579,7 +1562,26 @@ const MatchDetailScreen = ({ match, onBack }) => {
       prediction.homeForm ? { text: `Ev sahibi form: ${prediction.homeForm}`, positive: prediction.homeForm?.slice(-3).includes('W') } : null,
       prediction.awayForm ? { text: `Deplasman form: ${prediction.awayForm}`, positive: prediction.awayForm?.slice(-3).includes('W') } : null,
     ].filter(Boolean) : [],
+    // New AI fields with defaults
+    riskLevel: 'orta',
+    bankoScore: 50,
+    volatility: 0.5,
+    mostLikelyScore: '1-1',
+    scoreProb: 12,
+    alternativeScores: [],
+    htHomeWinProb: 30,
+    htDrawProb: 45,
+    htAwayWinProb: 25,
+    recommendedBets: [],
+    homeTeamAnalysis: { strengths: [], weaknesses: [], keyPlayer: null, tacticalSummary: '' },
+    awayTeamAnalysis: { strengths: [], weaknesses: [], keyPlayer: null, tacticalSummary: '' },
+    trendSummary: { homeFormTrend: 'dengeli', awayFormTrend: 'dengeli', tacticalMatchupSummary: '' },
   };
+
+  // Merge AI analysis with defaults - AI values override defaults
+  const analysisDisplay = aiAnalysis
+    ? { ...defaultAnalysis, ...aiAnalysis }
+    : defaultAnalysis;
 
   const h2hDisplay = h2hData || { total: 0, homeWins: 0, draws: 0, awayWins: 0, recentMatches: [] };
   const lineupsDisplay = lineups || { home: { formation: '?', players: [], coach: '' }, away: { formation: '?', players: [], coach: '' } };
@@ -1601,7 +1603,7 @@ const MatchDetailScreen = ({ match, onBack }) => {
           <Text style={detailStyles.sectionTitle}>{title}</Text>
           {badge && <View style={detailStyles.sectionBadge}><Text style={detailStyles.sectionBadgeText}>{badge}</Text></View>}
         </View>
-        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color={COLORS.gray500} />
+        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color={COLORS.accent} />
       </TouchableOpacity>
       {expanded && <View style={detailStyles.sectionContent}>{children}</View>}
     </View>
@@ -1624,6 +1626,210 @@ const MatchDetailScreen = ({ match, onBack }) => {
           <Text style={detailStyles.statLabel}>{label}</Text>
         </View>
         <Text style={[detailStyles.statValue, { textAlign: 'right' }]}>{away || 0}{isPercent ? '%' : ''}</Text>
+      </View>
+    );
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // AI INSIGHT HELPERS
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const getRiskColor = (risk) => {
+    const colors = { 'düşük': '#34C759', 'orta': '#FF9500', 'yüksek': '#FF3B30' };
+    return colors[risk?.toLowerCase()] || '#8E8E93';
+  };
+
+  const getImpactIcon = (impact) => {
+    const icons = {
+      'positive': { name: 'checkmark-circle', color: '#34C759' },
+      'negative': { name: 'close-circle', color: '#FF3B30' },
+      'neutral': { name: 'remove-circle', color: '#8E8E93' },
+      'mixed': { name: 'alert-circle', color: '#FF9500' },
+    };
+    return icons[impact?.toLowerCase()] || icons.neutral;
+  };
+
+  const getFormTrendIcon = (trend) => {
+    const icons = {
+      'yükselen': { name: 'trending-up', color: '#34C759' },
+      'düşen': { name: 'trending-down', color: '#FF3B30' },
+      'dengeli': { name: 'remove', color: '#8E8E93' },
+    };
+    return icons[trend?.toLowerCase()] || icons.dengeli;
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // TEAM ANALYSIS CARD COMPONENT
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const TeamAnalysisCard = ({ team, analysis, formTrend, isHome }) => {
+    const trendIcon = getFormTrendIcon(formTrend);
+    const teamName = isHome ? homeName : awayName;
+
+    return (
+      <View style={detailStyles.teamAnalysisCard}>
+        <View style={detailStyles.teamAnalysisHeader}>
+          <Text style={detailStyles.teamAnalysisName} numberOfLines={1}>{teamName}</Text>
+          {formTrend && (
+            <View style={[detailStyles.trendBadge, { backgroundColor: `${trendIcon.color}20` }]}>
+              <Ionicons name={trendIcon.name} size={12} color={trendIcon.color} />
+              <Text style={[detailStyles.trendText, { color: trendIcon.color }]}>
+                {formTrend.charAt(0).toUpperCase() + formTrend.slice(1)}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Strengths */}
+        {analysis?.strengths?.length > 0 && (
+          <View style={detailStyles.analysisSection}>
+            <Text style={detailStyles.analysisSectionTitle}>✅ Güçlü</Text>
+            {analysis.strengths.slice(0, 2).map((s, i) => (
+              <Text key={i} style={detailStyles.analysisItem}>• {s}</Text>
+            ))}
+          </View>
+        )}
+
+        {/* Weaknesses */}
+        {analysis?.weaknesses?.length > 0 && (
+          <View style={detailStyles.analysisSection}>
+            <Text style={[detailStyles.analysisSectionTitle, { color: '#FF9500' }]}>⚠️ Zayıf</Text>
+            {analysis.weaknesses.slice(0, 2).map((w, i) => (
+              <Text key={i} style={detailStyles.analysisItem}>• {w}</Text>
+            ))}
+          </View>
+        )}
+
+        {/* Key Player */}
+        {analysis?.keyPlayer && (
+          <View style={detailStyles.keyPlayerBox}>
+            <Ionicons name="star" size={12} color="#FFD700" />
+            <Text style={detailStyles.keyPlayerText}>{analysis.keyPlayer}</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // FACTOR CARD COMPONENT
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const FactorCard = ({ factor }) => {
+    const icon = getImpactIcon(factor.impact);
+    const categoryLabels = {
+      'form': '📊 FORM',
+      'h2h': '🔄 H2H',
+      'kadro': '👥 KADRO',
+      'motivasyon': '🎯 MOTİVASYON',
+      'taktik': '⚔️ TAKTİK',
+      'hakem': '🎽 HAKEM',
+      'hava': '🌤️ HAVA',
+      'market': '📈 MARKET',
+    };
+
+    return (
+      <View style={detailStyles.factorCard}>
+        <View style={detailStyles.factorCardHeader}>
+          <Text style={detailStyles.factorCategory}>
+            {categoryLabels[factor.category?.toLowerCase()] || factor.category}
+          </Text>
+          <View style={[detailStyles.impactBadge, { backgroundColor: `${icon.color}20` }]}>
+            <Ionicons name={icon.name} size={12} color={icon.color} />
+          </View>
+        </View>
+        <Text style={detailStyles.factorCardText}>{factor.text}</Text>
+        {factor.weight && (
+          <View style={detailStyles.weightBar}>
+            <View style={[detailStyles.weightFill, { width: `${factor.weight * 100}%`, backgroundColor: icon.color }]} />
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // SCORE PREDICTION COMPONENT
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const ScorePrediction = () => {
+    const score = analysisDisplay.mostLikelyScore || '1-1';
+    const prob = analysisDisplay.scoreProb || 12;
+    const alternatives = analysisDisplay.alternativeScores || [];
+
+    return (
+      <View style={detailStyles.scorePredictionBox}>
+        <View style={detailStyles.mainScoreBox}>
+          <Text style={detailStyles.mainScore}>{score}</Text>
+          <Text style={detailStyles.mainScoreProb}>%{prob}</Text>
+        </View>
+        {alternatives.length > 0 && (
+          <View style={detailStyles.alternativeScores}>
+            {alternatives.slice(0, 3).map((alt, i) => (
+              <View key={i} style={detailStyles.altScoreItem}>
+                <Text style={detailStyles.altScore}>{alt.score}</Text>
+                <Text style={detailStyles.altProb}>%{alt.prob}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // HALF TIME STATS COMPONENT
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const HalfTimeStats = () => {
+    const htHome = analysisDisplay.htHomeWinProb || 30;
+    const htDraw = analysisDisplay.htDrawProb || 45;
+    const htAway = analysisDisplay.htAwayWinProb || 25;
+
+    return (
+      <View style={detailStyles.htStatsContainer}>
+        <View style={detailStyles.htStatItem}>
+          <Text style={[detailStyles.htStatValue, { color: COLORS.accent }]}>{htHome}%</Text>
+          <View style={detailStyles.htMiniBar}>
+            <View style={[detailStyles.htMiniFill, { width: `${htHome}%`, backgroundColor: COLORS.accent }]} />
+          </View>
+          <Text style={detailStyles.htStatLabel}>EV</Text>
+        </View>
+        <View style={detailStyles.htStatItem}>
+          <Text style={detailStyles.htStatValue}>{htDraw}%</Text>
+          <View style={detailStyles.htMiniBar}>
+            <View style={[detailStyles.htMiniFill, { width: `${htDraw}%`, backgroundColor: COLORS.gray500 }]} />
+          </View>
+          <Text style={detailStyles.htStatLabel}>BER</Text>
+        </View>
+        <View style={detailStyles.htStatItem}>
+          <Text style={[detailStyles.htStatValue, { color: COLORS.gray400 }]}>{htAway}%</Text>
+          <View style={detailStyles.htMiniBar}>
+            <View style={[detailStyles.htMiniFill, { width: `${htAway}%`, backgroundColor: COLORS.gray600 }]} />
+          </View>
+          <Text style={detailStyles.htStatLabel}>DEP</Text>
+        </View>
+      </View>
+    );
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // RECOMMENDED BET CARD COMPONENT
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const RecommendedBetCard = ({ bet }) => {
+    const riskColor = getRiskColor(bet.risk);
+
+    return (
+      <View style={detailStyles.betCard}>
+        <View style={detailStyles.betCardHeader}>
+          <Text style={detailStyles.betType}>{bet.type}</Text>
+          <View style={detailStyles.betConfidenceBox}>
+            <Text style={detailStyles.betConfidence}>{bet.confidence}%</Text>
+          </View>
+        </View>
+        <View style={[detailStyles.betRiskBadge, { backgroundColor: `${riskColor}20` }]}>
+          <Text style={[detailStyles.betRiskText, { color: riskColor }]}>
+            Risk: {bet.risk?.toUpperCase()}
+          </Text>
+        </View>
+        {bet.reasoning && (
+          <Text style={detailStyles.betReasoning}>{bet.reasoning}</Text>
+        )}
       </View>
     );
   };
@@ -1656,8 +1862,12 @@ const MatchDetailScreen = ({ match, onBack }) => {
           {leagueLogo && <Image source={{ uri: leagueLogo }} style={detailStyles.headerLeagueLogo} />}
           <Text style={detailStyles.headerLeagueName} numberOfLines={1}>{leagueName}</Text>
         </View>
-        <TouchableOpacity style={detailStyles.favBtn}>
-          <Ionicons name="bookmark-outline" size={22} color={COLORS.gray400} />
+        <TouchableOpacity style={detailStyles.favBtn} onPress={toggleFavorite}>
+          <Ionicons
+            name={isFavorite ? "star" : "star-outline"}
+            size={22}
+            color={isFavorite ? "#FFD700" : COLORS.gray400}
+          />
         </TouchableOpacity>
       </Animated.View>
 
@@ -1724,15 +1934,23 @@ const MatchDetailScreen = ({ match, onBack }) => {
         )}
 
         {/* ═══════════════════════════════════════════════════════════════════════════ */}
-        {/* AI ANALYSIS SECTION */}
+        {/* PREDICTIONS & ODDS SECTION */}
         {/* ═══════════════════════════════════════════════════════════════════════════ */}
         <Section
-          title="AI ANALİZ"
-          icon="sparkles"
-          expanded={expandedSections.ai}
-          onToggle={() => toggleSection('ai')}
-          badge={aiAnalysis ? 'AI' : null}
+          title="TAHMİN & ORANLAR"
+          icon="trophy"
+          expanded={expandedSections.predictions}
+          onToggle={() => toggleSection('predictions')}
         >
+          {/* AI Uyarı Metni */}
+          <View style={detailStyles.aiWarningBox}>
+            <Ionicons name="warning" size={14} color="#FF3B30" />
+            <Text style={detailStyles.aiWarningText}>
+              Bu yapay zeka tarafından analiz edilmektedir, garanti sonuç sunmaz
+            </Text>
+          </View>
+
+          {/* AI Loading */}
           {aiLoading && (
             <View style={detailStyles.aiLoadingBox}>
               <ActivityIndicator size="small" color={COLORS.accent} />
@@ -1772,6 +1990,18 @@ const MatchDetailScreen = ({ match, onBack }) => {
             <Text style={detailStyles.confidenceValue}>{analysisDisplay.confidence}/10</Text>
           </View>
 
+          {/* Most Likely Score */}
+          <View style={detailStyles.scoreSectionBox}>
+            <Text style={detailStyles.scoreSectionTitle}>🎯 En Olası Skor</Text>
+            <ScorePrediction />
+          </View>
+
+          {/* Half Time Predictions */}
+          <View style={detailStyles.htSectionBox}>
+            <Text style={detailStyles.htSectionTitle}>🏁 İlk Yarı Tahmini</Text>
+            <HalfTimeStats />
+          </View>
+
           {/* Quick Betting Stats */}
           <View style={detailStyles.bettingStats}>
             <View style={detailStyles.bettingStatBox}>
@@ -1788,27 +2018,15 @@ const MatchDetailScreen = ({ match, onBack }) => {
             </View>
           </View>
 
-          {/* Advice */}
-          {analysisDisplay.advice && (
-            <View style={detailStyles.adviceBox}>
-              <Ionicons name="bulb" size={16} color={COLORS.accent} />
-              <Text style={detailStyles.adviceText}>{analysisDisplay.advice}</Text>
-            </View>
-          )}
-
-          {/* Factors */}
-          {analysisDisplay.factors?.length > 0 && (
-            <View style={detailStyles.factorsContainer}>
-              {analysisDisplay.factors.map((factor, idx) => (
-                <View key={idx} style={detailStyles.factorRow}>
-                  <Ionicons
-                    name={factor.positive ? 'checkmark-circle' : 'alert-circle'}
-                    size={16}
-                    color={factor.positive ? COLORS.accent : COLORS.warning}
-                  />
-                  <Text style={detailStyles.factorText}>{factor.text}</Text>
-                </View>
-              ))}
+          {/* Recommended Bets */}
+          {analysisDisplay.recommendedBets?.length > 0 && (
+            <View style={detailStyles.recommendedBetsSection}>
+              <Text style={detailStyles.recommendedBetsTitle}>💡 Önerilen Bahisler</Text>
+              <View style={detailStyles.betCardsContainer}>
+                {analysisDisplay.recommendedBets.slice(0, 3).map((bet, idx) => (
+                  <RecommendedBetCard key={idx} bet={bet} />
+                ))}
+              </View>
             </View>
           )}
         </Section>
@@ -2152,6 +2370,23 @@ const detailStyles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.gray500,
   },
+  aiWarningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 59, 48, 0.2)',
+  },
+  aiWarningText: {
+    flex: 1,
+    fontSize: 11,
+    color: '#FF3B30',
+    fontWeight: '500',
+  },
   probContainer: {
     marginBottom: 16,
   },
@@ -2373,6 +2608,383 @@ const detailStyles = StyleSheet.create({
   loadingText: {
     fontSize: 14,
     color: COLORS.gray500,
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // AI SUMMARY STYLES
+  // ═══════════════════════════════════════════════════════════════════════════════
+  aiSummaryBox: {
+    backgroundColor: COLORS.cardElevated,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.accentDim,
+  },
+  aiSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  aiSummaryTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.accent,
+    flex: 1,
+  },
+  bankoBadge: {
+    backgroundColor: '#34C75920',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  bankoBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#34C759',
+    letterSpacing: 1,
+  },
+  aiSummaryText: {
+    fontSize: 13,
+    color: COLORS.white,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  riskVolatilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  riskBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  riskBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  volatilityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  volatilityText: {
+    fontSize: 11,
+    color: COLORS.gray400,
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // FACTOR CARD STYLES
+  // ═══════════════════════════════════════════════════════════════════════════════
+  factorsSection: {
+    marginBottom: 16,
+  },
+  factorsSectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.gray400,
+    marginBottom: 10,
+    letterSpacing: 0.5,
+  },
+  factorCardsContainer: {
+    gap: 8,
+  },
+  factorCard: {
+    backgroundColor: COLORS.cardElevated,
+    borderRadius: 10,
+    padding: 12,
+  },
+  factorCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  factorCategory: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.gray500,
+    letterSpacing: 0.5,
+  },
+  impactBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  factorCardText: {
+    fontSize: 12,
+    color: COLORS.white,
+    lineHeight: 17,
+    marginBottom: 8,
+  },
+  weightBar: {
+    height: 4,
+    backgroundColor: COLORS.gray700,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  weightFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // TEAM ANALYSIS STYLES
+  // ═══════════════════════════════════════════════════════════════════════════════
+  teamAnalysisSection: {
+    marginBottom: 16,
+  },
+  teamAnalysisSectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.gray400,
+    marginBottom: 10,
+    letterSpacing: 0.5,
+  },
+  teamAnalysisGrid: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  teamAnalysisCard: {
+    flex: 1,
+    backgroundColor: COLORS.cardElevated,
+    borderRadius: 12,
+    padding: 12,
+  },
+  teamAnalysisHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  teamAnalysisName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.white,
+    flex: 1,
+  },
+  trendBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  trendText: {
+    fontSize: 9,
+    fontWeight: '600',
+  },
+  analysisSection: {
+    marginBottom: 8,
+  },
+  analysisSectionTitle: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#34C759',
+    marginBottom: 4,
+  },
+  analysisItem: {
+    fontSize: 10,
+    color: COLORS.gray400,
+    lineHeight: 15,
+  },
+  keyPlayerBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  keyPlayerText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFD700',
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // SCORE PREDICTION STYLES
+  // ═══════════════════════════════════════════════════════════════════════════════
+  scoreSectionBox: {
+    marginBottom: 16,
+  },
+  scoreSectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.gray400,
+    marginBottom: 10,
+  },
+  scorePredictionBox: {
+    alignItems: 'center',
+  },
+  mainScoreBox: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    marginBottom: 12,
+  },
+  mainScore: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: COLORS.white,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  mainScoreProb: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.accent,
+  },
+  alternativeScores: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  altScoreItem: {
+    alignItems: 'center',
+  },
+  altScore: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.gray400,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  altProb: {
+    fontSize: 10,
+    color: COLORS.gray500,
+    marginTop: 2,
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // HALF TIME STATS STYLES
+  // ═══════════════════════════════════════════════════════════════════════════════
+  htSectionBox: {
+    marginBottom: 16,
+  },
+  htSectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.gray400,
+    marginBottom: 10,
+  },
+  htStatsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  htStatItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  htStatValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginBottom: 6,
+  },
+  htMiniBar: {
+    width: 50,
+    height: 4,
+    backgroundColor: COLORS.gray700,
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  htMiniFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  htStatLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: COLORS.gray500,
+    letterSpacing: 0.5,
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // RECOMMENDED BETS STYLES
+  // ═══════════════════════════════════════════════════════════════════════════════
+  recommendedBetsSection: {
+    marginTop: 8,
+  },
+  recommendedBetsTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.gray400,
+    marginBottom: 10,
+  },
+  betCardsContainer: {
+    gap: 10,
+  },
+  betCard: {
+    backgroundColor: COLORS.cardElevated,
+    borderRadius: 12,
+    padding: 14,
+  },
+  betCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  betType: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  betConfidenceBox: {
+    backgroundColor: COLORS.accentDim,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  betConfidence: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.accent,
+  },
+  betRiskBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  betRiskText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  betReasoning: {
+    fontSize: 12,
+    color: COLORS.gray400,
+    lineHeight: 17,
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // TACTICAL BOX STYLES
+  // ═══════════════════════════════════════════════════════════════════════════════
+  tacticalBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: COLORS.accentDim,
+    borderRadius: 10,
+    padding: 12,
+  },
+  tacticalText: {
+    flex: 1,
+    fontSize: 12,
+    color: COLORS.white,
+    lineHeight: 17,
   },
 });
 
@@ -2648,17 +3260,30 @@ const LiveMatchDetailScreen = ({ match, onBack }) => {
     }
   };
 
-  // Initial fetch and auto-refresh
+  // Akıllı polling - maç durumuna göre dinamik interval
+  const getMatchStatusForPolling = useCallback(() => ({
+    status: currentStatus,
+    minute: currentMinute,
+  }), [currentStatus, currentMinute]);
+
+  useSmartPolling(`live_match_detail_${fixtureId}`, () => fetchLiveData(false), {
+    enabled: !isFinished, // Sadece maç bitmediyse
+    baseInterval: POLLING_INTERVALS.LIVE_ACTIVE,
+    getMatchStatus: getMatchStatusForPolling,
+    pauseInBackground: true,
+    deps: [fixtureId, isFinished],
+  });
+
+  // İlk yüklemede veriyi çek
   useEffect(() => {
     fetchLiveData(true);
-    // 30 saniyede bir güncelle (sadece maç devam ediyorsa)
-    const interval = setInterval(() => {
-      if (!isFinished) {
-        fetchLiveData(false);
-      }
-    }, 30000);
-    return () => clearInterval(interval);
   }, [fixtureId]);
+
+  // App öne geldiğinde hemen güncelle (sadece maç bitmediyse)
+  useAppState(
+    () => { if (!isFinished) fetchLiveData(false); }, // onForeground
+    null // onBackground
+  );
 
   // Animations
   useEffect(() => {
@@ -2742,43 +3367,53 @@ const LiveMatchDetailScreen = ({ match, onBack }) => {
       >
         {/* Score Hero */}
         <Animated.View style={[liveDetailStyles.scoreHero, { opacity: fadeAnim }]}>
-          {/* Home Team */}
-          <View style={liveDetailStyles.heroTeam}>
-            {homeLogo && <Image source={{ uri: homeLogo }} style={liveDetailStyles.heroTeamLogo} />}
-            <Text style={liveDetailStyles.heroTeamName}>{homeShort}</Text>
-          </View>
+          <ImageBackground
+            source={require('./assets/images/canlisaha.png')}
+            style={liveDetailStyles.scoreHeroBackground}
+            imageStyle={liveDetailStyles.scoreHeroBackgroundImage}
+            resizeMode="cover"
+          >
+            {/* Glass Overlay */}
+            <View style={liveDetailStyles.scoreHeroOverlay} />
 
-          {/* Score Center */}
-          <View style={liveDetailStyles.heroScoreCenter}>
-            <Text style={[liveDetailStyles.heroScore, isCritical && { color: COLORS.critical }]}>
-              {currentScore.home} - {currentScore.away}
-            </Text>
-            {isLive ? (
-              <View style={[liveDetailStyles.heroLiveBadge, isCritical && { backgroundColor: COLORS.criticalGlow }]}>
-                <Animated.View style={[liveDetailStyles.heroLiveDot, { transform: [{ scale: pulseAnim }] }, isCritical && { backgroundColor: COLORS.critical }]} />
-                <Text style={[liveDetailStyles.heroLiveText, isCritical && { color: COLORS.critical }]}>
-                  {statusText}
-                </Text>
-              </View>
-            ) : isFinished ? (
-              <View style={liveDetailStyles.heroFinishedBadge}>
-                <Text style={liveDetailStyles.heroFinishedText}>Maç Sona Erdi</Text>
-              </View>
-            ) : (
-              <Text style={liveDetailStyles.heroStatusText}>{statusText}</Text>
-            )}
-            {lastUpdated && (
-              <Text style={liveDetailStyles.lastUpdatedText}>
-                Son güncelleme: {lastUpdated.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            {/* Home Team */}
+            <View style={liveDetailStyles.heroTeam}>
+              {homeLogo && <Image source={{ uri: homeLogo }} style={liveDetailStyles.heroTeamLogo} />}
+              <Text style={liveDetailStyles.heroTeamName}>{homeShort}</Text>
+            </View>
+
+            {/* Score Center */}
+            <View style={liveDetailStyles.heroScoreCenter}>
+              <Text style={[liveDetailStyles.heroScore, isCritical && { color: COLORS.critical }]}>
+                {currentScore.home} - {currentScore.away}
               </Text>
-            )}
-          </View>
+              {isLive ? (
+                <View style={[liveDetailStyles.heroLiveBadge, isCritical && { backgroundColor: COLORS.criticalGlow }]}>
+                  <Animated.View style={[liveDetailStyles.heroLiveDot, { transform: [{ scale: pulseAnim }] }, isCritical && { backgroundColor: COLORS.critical }]} />
+                  <Text style={[liveDetailStyles.heroLiveText, isCritical && { color: COLORS.critical }]}>
+                    {statusText}
+                  </Text>
+                </View>
+              ) : isFinished ? (
+                <View style={liveDetailStyles.heroFinishedBadge}>
+                  <Text style={liveDetailStyles.heroFinishedText}>Maç Sona Erdi</Text>
+                </View>
+              ) : (
+                <Text style={liveDetailStyles.heroStatusText}>{statusText}</Text>
+              )}
+              {lastUpdated && (
+                <Text style={liveDetailStyles.lastUpdatedText}>
+                  Son güncelleme: {lastUpdated.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </Text>
+              )}
+            </View>
 
-          {/* Away Team */}
-          <View style={[liveDetailStyles.heroTeam, { alignItems: 'flex-end' }]}>
-            {awayLogo && <Image source={{ uri: awayLogo }} style={liveDetailStyles.heroTeamLogo} />}
-            <Text style={liveDetailStyles.heroTeamName}>{awayShort}</Text>
-          </View>
+            {/* Away Team */}
+            <View style={[liveDetailStyles.heroTeam, { alignItems: 'flex-end' }]}>
+              {awayLogo && <Image source={{ uri: awayLogo }} style={liveDetailStyles.heroTeamLogo} />}
+              <Text style={liveDetailStyles.heroTeamName}>{awayShort}</Text>
+            </View>
+          </ImageBackground>
         </Animated.View>
 
         {/* Football Pitch - Lineup Visualization */}
@@ -2904,17 +3539,27 @@ const liveDetailStyles = StyleSheet.create({
 
   // Score Hero
   scoreHero: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+  },
+  scoreHeroBackground: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 24,
     paddingHorizontal: 20,
-    backgroundColor: COLORS.card,
-    marginHorizontal: 16,
-    marginBottom: 16,
+  },
+  scoreHeroBackgroundImage: {
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: COLORS.glassBorder,
+  },
+  scoreHeroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 20,
   },
   heroTeam: {
     flex: 1,
@@ -2929,6 +3574,9 @@ const liveDetailStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: COLORS.white,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   heroScoreCenter: {
     alignItems: 'center',
@@ -2940,6 +3588,9 @@ const liveDetailStyles = StyleSheet.create({
     color: COLORS.white,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     letterSpacing: 2,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
   },
   heroLiveBadge: {
     flexDirection: 'row',
@@ -2962,6 +3613,9 @@ const liveDetailStyles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.liveRed,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   heroFinishedBadge: {
     backgroundColor: COLORS.cardElevated,
@@ -2982,9 +3636,12 @@ const liveDetailStyles = StyleSheet.create({
   },
   lastUpdatedText: {
     fontSize: 10,
-    color: COLORS.gray600,
+    color: COLORS.gray300,
     marginTop: 8,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
 
   // Section
@@ -3207,11 +3864,713 @@ const liveDetailStyles = StyleSheet.create({
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ANALYSIS SCREEN - Analiz
+// WIDGETS SCREEN - Kişiselleştirilebilir Dashboard (iOS Widget Style)
 // ═══════════════════════════════════════════════════════════════════════════════
-const AnalysisScreen = () => {
+
+// Custom Hook for Widget Management
+const useWidgets = () => {
+  const [widgets, setWidgets] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadWidgets();
+  }, []);
+
+  const loadWidgets = async () => {
+    try {
+      const stored = await AsyncStorage.getItem(WIDGET_STORAGE_KEY);
+      if (stored) {
+        setWidgets(JSON.parse(stored));
+      } else {
+        // Set default widgets for new users
+        setWidgets(DEFAULT_WIDGETS);
+        await AsyncStorage.setItem(WIDGET_STORAGE_KEY, JSON.stringify(DEFAULT_WIDGETS));
+      }
+    } catch (error) {
+      console.error('Error loading widgets:', error);
+      setWidgets(DEFAULT_WIDGETS);
+    }
+    setLoading(false);
+  };
+
+  const saveWidgets = async (newWidgets) => {
+    try {
+      await AsyncStorage.setItem(WIDGET_STORAGE_KEY, JSON.stringify(newWidgets));
+      setWidgets(newWidgets);
+    } catch (error) {
+      console.error('Error saving widgets:', error);
+    }
+  };
+
+  const addWidget = async (type, size, theme, settings = {}) => {
+    const newWidget = {
+      id: `widget_${Date.now()}`,
+      type,
+      size,
+      position: widgets.length,
+      theme,
+      settings,
+    };
+    const updated = [...widgets, newWidget];
+    await saveWidgets(updated);
+    return newWidget;
+  };
+
+  const updateWidget = async (widgetId, updates) => {
+    const updated = widgets.map(w =>
+      w.id === widgetId ? { ...w, ...updates } : w
+    );
+    await saveWidgets(updated);
+  };
+
+  const removeWidget = async (widgetId) => {
+    const updated = widgets.filter(w => w.id !== widgetId);
+    await saveWidgets(updated);
+  };
+
+  const reorderWidgets = async (fromIndex, toIndex) => {
+    const updated = [...widgets];
+    const [moved] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, moved);
+    // Update positions
+    const reordered = updated.map((w, i) => ({ ...w, position: i }));
+    await saveWidgets(reordered);
+  };
+
+  return {
+    widgets,
+    loading,
+    addWidget,
+    updateWidget,
+    removeWidget,
+    reorderWidgets,
+    refreshWidgets: loadWidgets,
+  };
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// WIDGET COMPONENTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Base Widget Wrapper
+const BaseWidget = ({ widget, onPress, onLongPress, children }) => {
+  const theme = WIDGET_THEMES[widget.theme] || WIDGET_THEMES.teal;
+  const size = WIDGET_SIZES[widget.size];
+
+  return (
+    <TouchableOpacity
+      style={[
+        widgetStyles.widgetContainer,
+        {
+          width: size.width,
+          height: size.height,
+          borderColor: theme.primary + '30',
+        }
+      ]}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      activeOpacity={0.8}
+    >
+      <View style={[widgetStyles.widgetGlow, { backgroundColor: theme.glow }]} />
+      <View style={widgetStyles.widgetContent}>
+        {children}
+      </View>
+      <View style={[widgetStyles.widgetAccent, { backgroundColor: theme.primary }]} />
+    </TouchableOpacity>
+  );
+};
+
+// Live Scores Widget
+const LiveScoresWidget = ({ widget, liveMatches }) => {
+  const theme = WIDGET_THEMES[widget.theme] || WIDGET_THEMES.red;
+  const matchCount = widget.size === 'small' ? 1 : widget.size === 'medium' ? 2 : 4;
+  const matches = liveMatches.slice(0, matchCount);
+
+  return (
+    <View style={widgetStyles.widgetInner}>
+      <View style={widgetStyles.widgetHeader}>
+        <View style={widgetStyles.widgetTitleRow}>
+          <View style={[widgetStyles.liveDot, { backgroundColor: theme.primary }]} />
+          <Text style={[widgetStyles.widgetTitle, { color: theme.primary }]}>Canlı</Text>
+        </View>
+        <Text style={widgetStyles.widgetCount}>{liveMatches.length}</Text>
+      </View>
+
+      {matches.length > 0 ? (
+        <View style={widgetStyles.matchesList}>
+          {matches.map((match, index) => (
+            <View key={match.fixture?.id || index} style={widgetStyles.liveMatchRow}>
+              <Text style={widgetStyles.teamNameSmall} numberOfLines={1}>
+                {match.teams?.home?.name?.substring(0, 3).toUpperCase()}
+              </Text>
+              <View style={widgetStyles.scoreBox}>
+                <Text style={[widgetStyles.liveScore, { color: theme.primary }]}>
+                  {match.goals?.home ?? 0} - {match.goals?.away ?? 0}
+                </Text>
+                <Text style={[widgetStyles.matchMinute, { color: theme.primary }]}>
+                  {match.fixture?.status?.elapsed}'
+                </Text>
+              </View>
+              <Text style={widgetStyles.teamNameSmall} numberOfLines={1}>
+                {match.teams?.away?.name?.substring(0, 3).toUpperCase()}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View style={widgetStyles.emptyWidget}>
+          <Ionicons name="radio-outline" size={24} color={COLORS.gray600} />
+          <Text style={widgetStyles.emptyText}>Canlı maç yok</Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
+// Upcoming Matches Widget
+const UpcomingMatchesWidget = ({ widget, upcomingMatches }) => {
+  const theme = WIDGET_THEMES[widget.theme] || WIDGET_THEMES.teal;
+  const matchCount = widget.size === 'small' ? 1 : widget.size === 'medium' ? 2 : 4;
+  const matches = upcomingMatches.slice(0, matchCount);
+
+  return (
+    <View style={widgetStyles.widgetInner}>
+      <View style={widgetStyles.widgetHeader}>
+        <View style={widgetStyles.widgetTitleRow}>
+          <Ionicons name="calendar" size={14} color={theme.primary} />
+          <Text style={[widgetStyles.widgetTitle, { color: theme.primary }]}>Yaklaşan</Text>
+        </View>
+        <Text style={widgetStyles.widgetCount}>{upcomingMatches.length}</Text>
+      </View>
+
+      {matches.length > 0 ? (
+        <View style={widgetStyles.matchesList}>
+          {matches.map((match, index) => {
+            const time = new Date(match.fixture?.date).toLocaleTimeString('tr-TR', {
+              hour: '2-digit', minute: '2-digit'
+            });
+            return (
+              <View key={match.fixture?.id || index} style={widgetStyles.upcomingMatchRow}>
+                <View style={widgetStyles.teamsColumn}>
+                  <Text style={widgetStyles.teamNameSmall} numberOfLines={1}>
+                    {match.teams?.home?.name}
+                  </Text>
+                  <Text style={widgetStyles.vsText}>vs</Text>
+                  <Text style={widgetStyles.teamNameSmall} numberOfLines={1}>
+                    {match.teams?.away?.name}
+                  </Text>
+                </View>
+                <View style={[widgetStyles.timeBadge, { backgroundColor: theme.glow }]}>
+                  <Text style={[widgetStyles.timeText, { color: theme.primary }]}>{time}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      ) : (
+        <View style={widgetStyles.emptyWidget}>
+          <Ionicons name="calendar-outline" size={24} color={COLORS.gray600} />
+          <Text style={widgetStyles.emptyText}>Maç yok</Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
+// Standings Widget
+const StandingsWidget = ({ widget, standings }) => {
+  const theme = WIDGET_THEMES[widget.theme] || WIDGET_THEMES.blue;
+  const teamCount = widget.size === 'medium' ? 5 : 10;
+  const teams = standings?.slice(0, teamCount) || [];
+
+  return (
+    <View style={widgetStyles.widgetInner}>
+      <View style={widgetStyles.widgetHeader}>
+        <View style={widgetStyles.widgetTitleRow}>
+          <Ionicons name="trophy" size={14} color={theme.primary} />
+          <Text style={[widgetStyles.widgetTitle, { color: theme.primary }]}>Puan Durumu</Text>
+        </View>
+      </View>
+
+      {teams.length > 0 ? (
+        <View style={widgetStyles.standingsList}>
+          {teams.map((team, index) => (
+            <View key={team.team?.id || index} style={widgetStyles.standingRow}>
+              <Text style={[widgetStyles.rankText, index < 3 && { color: theme.primary }]}>
+                {team.rank}
+              </Text>
+              <Image source={{ uri: team.team?.logo }} style={widgetStyles.teamLogoSmall} />
+              <Text style={widgetStyles.standingTeamName} numberOfLines={1}>
+                {team.team?.name}
+              </Text>
+              <Text style={widgetStyles.pointsText}>{team.points}</Text>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View style={widgetStyles.emptyWidget}>
+          <Ionicons name="trophy-outline" size={24} color={COLORS.gray600} />
+          <Text style={widgetStyles.emptyText}>Yükleniyor...</Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
+// Team Form Widget
+const TeamFormWidget = ({ widget }) => {
+  const theme = WIDGET_THEMES[widget.theme] || WIDGET_THEMES.green;
+  const mockForm = ['W', 'W', 'D', 'L', 'W'];
+
+  const getFormColor = (result) => {
+    switch(result) {
+      case 'W': return '#34c759';
+      case 'D': return '#fbbf24';
+      case 'L': return '#ff3b30';
+      default: return COLORS.gray500;
+    }
+  };
+
+  return (
+    <View style={widgetStyles.widgetInner}>
+      <View style={widgetStyles.widgetHeader}>
+        <View style={widgetStyles.widgetTitleRow}>
+          <Ionicons name="trending-up" size={14} color={theme.primary} />
+          <Text style={[widgetStyles.widgetTitle, { color: theme.primary }]}>Form</Text>
+        </View>
+      </View>
+
+      <View style={widgetStyles.formContainer}>
+        <Text style={widgetStyles.formTeamName}>
+          {widget.settings?.teamName || 'Takım Seç'}
+        </Text>
+        <View style={widgetStyles.formRow}>
+          {mockForm.map((result, index) => (
+            <View
+              key={index}
+              style={[widgetStyles.formBadge, { backgroundColor: getFormColor(result) }]}
+            >
+              <Text style={widgetStyles.formText}>{result}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+};
+
+// Stats Card Widget
+const StatsCardWidget = ({ widget }) => {
+  const theme = WIDGET_THEMES[widget.theme] || WIDGET_THEMES.teal;
+
+  return (
+    <View style={widgetStyles.widgetInner}>
+      <View style={widgetStyles.widgetHeader}>
+        <View style={widgetStyles.widgetTitleRow}>
+          <Ionicons name="stats-chart" size={14} color={theme.primary} />
+          <Text style={[widgetStyles.widgetTitle, { color: theme.primary }]}>İstatistik</Text>
+        </View>
+      </View>
+
+      <View style={widgetStyles.statsGrid}>
+        <View style={widgetStyles.statItem}>
+          <Text style={[widgetStyles.statValue, { color: theme.primary }]}>2.4</Text>
+          <Text style={widgetStyles.statLabel}>Gol Ort.</Text>
+        </View>
+        <View style={widgetStyles.statItem}>
+          <Text style={[widgetStyles.statValue, { color: theme.primary }]}>68%</Text>
+          <Text style={widgetStyles.statLabel}>Galibiyet</Text>
+        </View>
+        <View style={widgetStyles.statItem}>
+          <Text style={[widgetStyles.statValue, { color: theme.primary }]}>12</Text>
+          <Text style={widgetStyles.statLabel}>Maç</Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+// Countdown Widget
+const CountdownWidget = ({ widget }) => {
+  const theme = WIDGET_THEMES[widget.theme] || WIDGET_THEMES.orange;
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, mins: 0 });
+
+  useEffect(() => {
+    // Mock countdown - in real app would use actual match date
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + 2);
+    targetDate.setHours(21, 0, 0, 0);
+
+    const updateCountdown = () => {
+      const now = new Date();
+      const diff = targetDate - now;
+      if (diff > 0) {
+        setTimeLeft({
+          days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+          mins: Math.floor((diff / (1000 * 60)) % 60),
+        });
+      }
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <View style={widgetStyles.widgetInner}>
+      <View style={widgetStyles.widgetHeader}>
+        <View style={widgetStyles.widgetTitleRow}>
+          <Ionicons name="timer" size={14} color={theme.primary} />
+          <Text style={[widgetStyles.widgetTitle, { color: theme.primary }]}>Geri Sayım</Text>
+        </View>
+      </View>
+
+      <View style={widgetStyles.countdownContainer}>
+        <Text style={widgetStyles.countdownMatch}>
+          {widget.settings?.matchName || 'Derbi Maçı'}
+        </Text>
+        <View style={widgetStyles.countdownRow}>
+          <View style={widgetStyles.countdownItem}>
+            <Text style={[widgetStyles.countdownValue, { color: theme.primary }]}>
+              {timeLeft.days}
+            </Text>
+            <Text style={widgetStyles.countdownLabel}>GÜN</Text>
+          </View>
+          <Text style={widgetStyles.countdownSeparator}>:</Text>
+          <View style={widgetStyles.countdownItem}>
+            <Text style={[widgetStyles.countdownValue, { color: theme.primary }]}>
+              {timeLeft.hours}
+            </Text>
+            <Text style={widgetStyles.countdownLabel}>SAAT</Text>
+          </View>
+          <Text style={widgetStyles.countdownSeparator}>:</Text>
+          <View style={widgetStyles.countdownItem}>
+            <Text style={[widgetStyles.countdownValue, { color: theme.primary }]}>
+              {timeLeft.mins}
+            </Text>
+            <Text style={widgetStyles.countdownLabel}>DK</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+// Recent Results Widget
+const RecentResultsWidget = ({ widget, recentMatches }) => {
+  const theme = WIDGET_THEMES[widget.theme] || WIDGET_THEMES.green;
+  const matchCount = widget.size === 'medium' ? 3 : 5;
+  const matches = recentMatches.slice(0, matchCount);
+
+  return (
+    <View style={widgetStyles.widgetInner}>
+      <View style={widgetStyles.widgetHeader}>
+        <View style={widgetStyles.widgetTitleRow}>
+          <Ionicons name="checkmark-done" size={14} color={theme.primary} />
+          <Text style={[widgetStyles.widgetTitle, { color: theme.primary }]}>Son Sonuçlar</Text>
+        </View>
+      </View>
+
+      {matches.length > 0 ? (
+        <View style={widgetStyles.matchesList}>
+          {matches.map((match, index) => (
+            <View key={match.fixture?.id || index} style={widgetStyles.resultRow}>
+              <Text style={widgetStyles.resultTeam} numberOfLines={1}>
+                {match.teams?.home?.name?.substring(0, 10)}
+              </Text>
+              <Text style={widgetStyles.resultScore}>
+                {match.goals?.home} - {match.goals?.away}
+              </Text>
+              <Text style={widgetStyles.resultTeam} numberOfLines={1}>
+                {match.teams?.away?.name?.substring(0, 10)}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View style={widgetStyles.emptyWidget}>
+          <Ionicons name="checkmark-done-outline" size={24} color={COLORS.gray600} />
+          <Text style={widgetStyles.emptyText}>Sonuç yok</Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
+// Widget Renderer
+const WidgetRenderer = ({ widget, data, onPress, onLongPress }) => {
+  const renderContent = () => {
+    switch (widget.type) {
+      case WIDGET_TYPES.LIVE_SCORES:
+        return <LiveScoresWidget widget={widget} liveMatches={data.liveMatches || []} />;
+      case WIDGET_TYPES.UPCOMING_MATCHES:
+        return <UpcomingMatchesWidget widget={widget} upcomingMatches={data.upcomingMatches || []} />;
+      case WIDGET_TYPES.STANDINGS:
+        return <StandingsWidget widget={widget} standings={data.standings || []} />;
+      case WIDGET_TYPES.TEAM_FORM:
+        return <TeamFormWidget widget={widget} />;
+      case WIDGET_TYPES.STATS_CARD:
+        return <StatsCardWidget widget={widget} />;
+      case WIDGET_TYPES.COUNTDOWN:
+        return <CountdownWidget widget={widget} />;
+      case WIDGET_TYPES.RECENT_RESULTS:
+        return <RecentResultsWidget widget={widget} recentMatches={data.recentMatches || []} />;
+      default:
+        return <StatsCardWidget widget={widget} />;
+    }
+  };
+
+  return (
+    <BaseWidget widget={widget} onPress={onPress} onLongPress={onLongPress}>
+      {renderContent()}
+    </BaseWidget>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ADD WIDGET MODAL
+// ═══════════════════════════════════════════════════════════════════════════════
+const AddWidgetModal = ({ visible, onClose, onAdd }) => {
+  const [selectedType, setSelectedType] = useState(null);
+  const [selectedSize, setSelectedSize] = useState('medium');
+  const [selectedTheme, setSelectedTheme] = useState('teal');
+
+  const handleAdd = () => {
+    if (selectedType) {
+      onAdd(selectedType, selectedSize, selectedTheme);
+      setSelectedType(null);
+      setSelectedSize('medium');
+      setSelectedTheme('teal');
+      onClose();
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={widgetStyles.modalOverlay}>
+        <View style={widgetStyles.modalContainer}>
+          <View style={widgetStyles.modalHeader}>
+            <Text style={widgetStyles.modalTitle}>Widget Ekle</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={24} color={COLORS.white} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={widgetStyles.modalContent} showsVerticalScrollIndicator={false}>
+            {/* Widget Type Selection */}
+            <Text style={widgetStyles.modalSectionTitle}>Widget Türü</Text>
+            <View style={widgetStyles.widgetTypeGrid}>
+              {Object.entries(WIDGET_INFO).map(([type, info]) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[
+                    widgetStyles.widgetTypeCard,
+                    selectedType === type && widgetStyles.widgetTypeCardActive
+                  ]}
+                  onPress={() => {
+                    setSelectedType(type);
+                    setSelectedSize(info.defaultSize);
+                  }}
+                >
+                  <Ionicons
+                    name={info.icon}
+                    size={24}
+                    color={selectedType === type ? COLORS.accent : COLORS.gray400}
+                  />
+                  <Text style={[
+                    widgetStyles.widgetTypeText,
+                    selectedType === type && { color: COLORS.accent }
+                  ]}>
+                    {info.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Size Selection */}
+            {selectedType && (
+              <>
+                <Text style={widgetStyles.modalSectionTitle}>Boyut</Text>
+                <View style={widgetStyles.sizeRow}>
+                  {WIDGET_INFO[selectedType].sizes.map(size => (
+                    <TouchableOpacity
+                      key={size}
+                      style={[
+                        widgetStyles.sizeButton,
+                        selectedSize === size && widgetStyles.sizeButtonActive
+                      ]}
+                      onPress={() => setSelectedSize(size)}
+                    >
+                      <Text style={[
+                        widgetStyles.sizeButtonText,
+                        selectedSize === size && { color: COLORS.accent }
+                      ]}>
+                        {size === 'small' ? 'S' : size === 'medium' ? 'M' : 'L'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+
+            {/* Theme Selection */}
+            {selectedType && (
+              <>
+                <Text style={widgetStyles.modalSectionTitle}>Renk</Text>
+                <View style={widgetStyles.themeRow}>
+                  {Object.values(WIDGET_THEMES).map(theme => (
+                    <TouchableOpacity
+                      key={theme.id}
+                      style={[
+                        widgetStyles.themeButton,
+                        { backgroundColor: theme.primary },
+                        selectedTheme === theme.id && widgetStyles.themeButtonActive
+                      ]}
+                      onPress={() => setSelectedTheme(theme.id)}
+                    >
+                      {selectedTheme === theme.id && (
+                        <Ionicons name="checkmark" size={16} color={COLORS.white} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+          </ScrollView>
+
+          <TouchableOpacity
+            style={[
+              widgetStyles.addButton,
+              !selectedType && widgetStyles.addButtonDisabled
+            ]}
+            onPress={handleAdd}
+            disabled={!selectedType}
+          >
+            <Ionicons name="add" size={20} color={COLORS.white} />
+            <Text style={widgetStyles.addButtonText}>Widget Ekle</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// EDIT WIDGET MODAL
+// ═══════════════════════════════════════════════════════════════════════════════
+const EditWidgetModal = ({ visible, widget, onClose, onUpdate, onDelete }) => {
+  const [selectedSize, setSelectedSize] = useState(widget?.size || 'medium');
+  const [selectedTheme, setSelectedTheme] = useState(widget?.theme || 'teal');
+
+  useEffect(() => {
+    if (widget) {
+      setSelectedSize(widget.size);
+      setSelectedTheme(widget.theme);
+    }
+  }, [widget]);
+
+  const handleSave = () => {
+    onUpdate(widget.id, { size: selectedSize, theme: selectedTheme });
+    onClose();
+  };
+
+  const handleDelete = () => {
+    onDelete(widget.id);
+    onClose();
+  };
+
+  if (!widget) return null;
+
+  const info = WIDGET_INFO[widget.type];
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={widgetStyles.modalOverlay}>
+        <View style={widgetStyles.modalContainer}>
+          <View style={widgetStyles.modalHeader}>
+            <Text style={widgetStyles.modalTitle}>{info?.title || 'Widget'} Ayarları</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={24} color={COLORS.white} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={widgetStyles.modalContent}>
+            {/* Size Selection */}
+            <Text style={widgetStyles.modalSectionTitle}>Boyut</Text>
+            <View style={widgetStyles.sizeRow}>
+              {info?.sizes.map(size => (
+                <TouchableOpacity
+                  key={size}
+                  style={[
+                    widgetStyles.sizeButton,
+                    selectedSize === size && widgetStyles.sizeButtonActive
+                  ]}
+                  onPress={() => setSelectedSize(size)}
+                >
+                  <Text style={[
+                    widgetStyles.sizeButtonText,
+                    selectedSize === size && { color: COLORS.accent }
+                  ]}>
+                    {size === 'small' ? 'Küçük' : size === 'medium' ? 'Orta' : 'Büyük'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Theme Selection */}
+            <Text style={widgetStyles.modalSectionTitle}>Renk</Text>
+            <View style={widgetStyles.themeRow}>
+              {Object.values(WIDGET_THEMES).map(theme => (
+                <TouchableOpacity
+                  key={theme.id}
+                  style={[
+                    widgetStyles.themeButton,
+                    { backgroundColor: theme.primary },
+                    selectedTheme === theme.id && widgetStyles.themeButtonActive
+                  ]}
+                  onPress={() => setSelectedTheme(theme.id)}
+                >
+                  {selectedTheme === theme.id && (
+                    <Ionicons name="checkmark" size={16} color={COLORS.white} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+
+          <View style={widgetStyles.editButtonRow}>
+            <TouchableOpacity style={widgetStyles.deleteButton} onPress={handleDelete}>
+              <Ionicons name="trash-outline" size={18} color="#ff3b30" />
+              <Text style={widgetStyles.deleteButtonText}>Sil</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={widgetStyles.saveButton} onPress={handleSave}>
+              <Ionicons name="checkmark" size={18} color={COLORS.white} />
+              <Text style={widgetStyles.saveButtonText}>Kaydet</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// WIDGETS SCREEN (Main)
+// ═══════════════════════════════════════════════════════════════════════════════
+const WidgetsScreen = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const [selectedPeriod, setSelectedPeriod] = useState('week');
+  const { widgets, loading, addWidget, updateWidget, removeWidget, refreshWidgets } = useWidgets();
+  const [refreshing, setRefreshing] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingWidget, setEditingWidget] = useState(null);
+
+  // Widget data
+  const [liveMatches, setLiveMatches] = useState([]);
+  const [upcomingMatches, setUpcomingMatches] = useState([]);
+  const [recentMatches, setRecentMatches] = useState([]);
+  const [standings, setStandings] = useState([]);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -3219,230 +4578,155 @@ const AnalysisScreen = () => {
       duration: 400,
       useNativeDriver: true,
     }).start();
+    loadWidgetData();
   }, []);
 
-  const periods = [
-    { id: 'week', label: 'HAFTA' },
-    { id: 'month', label: 'AY' },
-    { id: 'all', label: 'TÜMÜ' },
-  ];
+  const loadWidgetData = async () => {
+    try {
+      // Load live matches
+      const live = await getLiveFixtures();
+      setLiveMatches(live || []);
 
-  // Mock AI Performance Data
-  const aiPerformance = {
-    totalPredictions: 156,
-    correct: 106,
-    accuracy: 68,
-    homeWinAccuracy: 72,
-    drawAccuracy: 45,
-    awayWinAccuracy: 64,
-    over25Accuracy: 71,
-    bttsAccuracy: 65,
+      // Load today's fixtures for upcoming
+      const today = await getTodayFixtures();
+      const upcoming = today.filter(f => f.fixture?.status?.short === 'NS');
+      const recent = today.filter(f => f.fixture?.status?.short === 'FT');
+      setUpcomingMatches(upcoming);
+      setRecentMatches(recent);
+
+      // Load standings (Turkish Super Lig as default)
+      const standingsData = await getStandings(203, 2024);
+      if (standingsData?.[0]?.league?.standings?.[0]) {
+        setStandings(standingsData[0].league.standings[0]);
+      }
+    } catch (error) {
+      console.error('Error loading widget data:', error);
+    }
   };
 
-  // Recent Predictions
-  const recentPredictions = [
-    {
-      id: '1',
-      home: 'Arsenal',
-      away: 'Chelsea',
-      prediction: 'EV',
-      actual: '2-1',
-      correct: true,
-      confidence: 7.8,
-      date: '27 Kas',
-    },
-    {
-      id: '2',
-      home: 'Barcelona',
-      away: 'Atletico',
-      prediction: 'EV',
-      actual: '1-1',
-      correct: false,
-      confidence: 6.5,
-      date: '26 Kas',
-    },
-    {
-      id: '3',
-      home: 'Bayern',
-      away: 'Leipzig',
-      prediction: 'EV',
-      actual: '3-0',
-      correct: true,
-      confidence: 8.2,
-      date: '26 Kas',
-    },
-    {
-      id: '4',
-      home: 'PSG',
-      away: 'Lyon',
-      prediction: '2.5Ü',
-      actual: '4-1',
-      correct: true,
-      confidence: 7.5,
-      date: '25 Kas',
-    },
-    {
-      id: '5',
-      home: 'Milan',
-      away: 'Napoli',
-      prediction: 'X',
-      actual: '0-0',
-      correct: true,
-      confidence: 5.8,
-      date: '25 Kas',
-    },
-  ];
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([loadWidgetData(), refreshWidgets()]);
+    setRefreshing(false);
+  };
 
-  // League Performance
-  const leaguePerformance = [
-    { league: 'Premier League', accuracy: 72, predictions: 42 },
-    { league: 'La Liga', accuracy: 65, predictions: 38 },
-    { league: 'Bundesliga', accuracy: 74, predictions: 32 },
-    { league: 'Serie A', accuracy: 61, predictions: 28 },
-    { league: 'Süper Lig', accuracy: 68, predictions: 16 },
-  ];
+  const widgetData = {
+    liveMatches,
+    upcomingMatches,
+    recentMatches,
+    standings,
+  };
+
+  // Organize widgets in rows
+  const organizeWidgets = () => {
+    const rows = [];
+    let currentRow = [];
+    let currentRowWidth = 0;
+
+    widgets.sort((a, b) => a.position - b.position).forEach(widget => {
+      const size = WIDGET_SIZES[widget.size];
+      const widgetColumns = size.columns;
+
+      if (currentRowWidth + widgetColumns > 2) {
+        if (currentRow.length > 0) rows.push(currentRow);
+        currentRow = [widget];
+        currentRowWidth = widgetColumns;
+      } else {
+        currentRow.push(widget);
+        currentRowWidth += widgetColumns;
+      }
+    });
+
+    if (currentRow.length > 0) rows.push(currentRow);
+    return rows;
+  };
+
+  const widgetRows = organizeWidgets();
 
   return (
-    <ScrollView
-      style={styles.screen}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.screenContent}
-    >
+    <View style={[styles.screen, { backgroundColor: COLORS.bg }]}>
       {/* Header */}
-      <Animated.View style={[styles.analysisHeader, { opacity: fadeAnim }]}>
-        <Text style={styles.analysisTitle}>AI Analiz</Text>
-        <View style={styles.periodSelector}>
-          {periods.map((period) => (
-            <TouchableOpacity
-              key={period.id}
-              style={[
-                styles.periodBtn,
-                selectedPeriod === period.id && styles.periodBtnActive,
-              ]}
-              onPress={() => setSelectedPeriod(period.id)}
-            >
-              <Text
-                style={[
-                  styles.periodBtnText,
-                  selectedPeriod === period.id && styles.periodBtnTextActive,
-                ]}
-              >
-                {period.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+      <View style={widgetStyles.header}>
+        <View style={widgetStyles.headerLeft}>
+          <Text style={widgetStyles.headerTitle}>Panellerim</Text>
         </View>
-      </Animated.View>
+        <TouchableOpacity
+          style={widgetStyles.addHeaderButton}
+          onPress={() => setShowAddModal(true)}
+        >
+          <Ionicons name="add" size={20} color={COLORS.accent} />
+        </TouchableOpacity>
+      </View>
 
-      {/* Main Stats */}
-      <Animated.View style={[styles.analysisMainStats, { opacity: fadeAnim }]}>
-        <View style={styles.analysisAccuracyCircle}>
-          <Text style={styles.analysisAccuracyValue}>{aiPerformance.accuracy}%</Text>
-          <Text style={styles.analysisAccuracyLabel}>BAŞARI</Text>
+      {/* Content */}
+      {loading ? (
+        <View style={widgetStyles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.accent} />
+          <Text style={widgetStyles.loadingText}>Widgetlar yükleniyor...</Text>
         </View>
-        <View style={styles.analysisSubStats}>
-          <View style={styles.analysisSubStatItem}>
-            <Text style={styles.analysisSubStatValue}>{aiPerformance.totalPredictions}</Text>
-            <Text style={styles.analysisSubStatLabel}>TAHMİN</Text>
-          </View>
-          <View style={styles.analysisSubStatItem}>
-            <Text style={[styles.analysisSubStatValue, { color: COLORS.accent }]}>
-              {aiPerformance.correct}
-            </Text>
-            <Text style={styles.analysisSubStatLabel}>DOĞRU</Text>
-          </View>
-        </View>
-      </Animated.View>
-
-      {/* Category Accuracy */}
-      <Animated.View style={{ opacity: fadeAnim }}>
-        <Text style={styles.sectionTitle}>KATEGORİ BAŞARI ORANLARI</Text>
-        <View style={styles.categoryGrid}>
-          {[
-            { label: 'Ev Kazanır', value: aiPerformance.homeWinAccuracy },
-            { label: 'Beraberlik', value: aiPerformance.drawAccuracy },
-            { label: 'Dep. Kazanır', value: aiPerformance.awayWinAccuracy },
-            { label: '2.5 Üst', value: aiPerformance.over25Accuracy },
-          ].map((cat, index) => (
-            <View key={index} style={styles.categoryItem}>
-              <View style={styles.categoryBarBg}>
-                <View
-                  style={[
-                    styles.categoryBarFill,
-                    { height: `${cat.value}%` },
-                    cat.value >= 70 && styles.categoryBarHigh,
-                    cat.value < 50 && styles.categoryBarLow,
-                  ]}
-                />
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={widgetStyles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={COLORS.accent}
+              colors={[COLORS.accent]}
+            />
+          }
+        >
+          <Animated.View style={{ opacity: fadeAnim }}>
+            {widgets.length > 0 ? (
+              widgetRows.map((row, rowIndex) => (
+                <View key={rowIndex} style={widgetStyles.widgetRow}>
+                  {row.map(widget => (
+                    <WidgetRenderer
+                      key={widget.id}
+                      widget={widget}
+                      data={widgetData}
+                      onPress={() => {}}
+                      onLongPress={() => setEditingWidget(widget)}
+                    />
+                  ))}
+                </View>
+              ))
+            ) : (
+              <View style={widgetStyles.emptyState}>
+                <Ionicons name="grid-outline" size={64} color={COLORS.gray500} />
+                <Text style={widgetStyles.emptyStateTitle}>Widget Yok</Text>
+                <Text style={widgetStyles.emptyStateText}>
+                  Dashboard'unuzu özelleştirmek için widget ekleyin
+                </Text>
+                <TouchableOpacity
+                  style={widgetStyles.emptyAddButton}
+                  onPress={() => setShowAddModal(true)}
+                >
+                  <Ionicons name="add" size={20} color={COLORS.white} />
+                  <Text style={widgetStyles.emptyAddButtonText}>Widget Ekle</Text>
+                </TouchableOpacity>
               </View>
-              <Text style={styles.categoryValue}>{cat.value}%</Text>
-              <Text style={styles.categoryLabel}>{cat.label}</Text>
-            </View>
-          ))}
-        </View>
-      </Animated.View>
+            )}
+          </Animated.View>
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      )}
 
-      {/* League Performance */}
-      <Animated.View style={{ opacity: fadeAnim }}>
-        <Text style={[styles.sectionTitle, { marginTop: 32 }]}>LİG PERFORMANSI</Text>
-        <View style={styles.leagueList}>
-          {leaguePerformance.map((league, index) => (
-            <View key={index} style={styles.leagueItem}>
-              <View style={styles.leagueInfo}>
-                <Text style={styles.leagueName}>{league.league}</Text>
-                <Text style={styles.leaguePredictions}>{league.predictions} tahmin</Text>
-              </View>
-              <View style={styles.leagueBarContainer}>
-                <View style={[styles.leagueBar, { width: `${league.accuracy}%` }]} />
-              </View>
-              <Text
-                style={[
-                  styles.leagueAccuracy,
-                  league.accuracy >= 70 && styles.leagueAccuracyHigh,
-                ]}
-              >
-                {league.accuracy}%
-              </Text>
-            </View>
-          ))}
-        </View>
-      </Animated.View>
-
-      {/* Recent Predictions */}
-      <Animated.View style={{ opacity: fadeAnim }}>
-        <Text style={[styles.sectionTitle, { marginTop: 32 }]}>SON TAHMİNLER</Text>
-        {recentPredictions.map((pred) => (
-          <View key={pred.id} style={styles.predictionRow}>
-            <View style={styles.predictionInfo}>
-              <Text style={styles.predictionTeams}>
-                {pred.home} vs {pred.away}
-              </Text>
-              <Text style={styles.predictionDate}>{pred.date}</Text>
-            </View>
-            <View style={styles.predictionResult}>
-              <View
-                style={[
-                  styles.predictionBadge,
-                  pred.correct ? styles.predictionBadgeCorrect : styles.predictionBadgeWrong,
-                ]}
-              >
-                <Text style={styles.predictionBadgeText}>{pred.prediction}</Text>
-              </View>
-              <Text style={styles.predictionActual}>{pred.actual}</Text>
-            </View>
-            <View style={styles.predictionStatus}>
-              <Ionicons
-                name={pred.correct ? 'checkmark-circle' : 'close-circle'}
-                size={20}
-                color={pred.correct ? COLORS.accent : COLORS.danger}
-              />
-            </View>
-          </View>
-        ))}
-      </Animated.View>
-
-      <View style={{ height: 100 }} />
-    </ScrollView>
+      {/* Modals */}
+      <AddWidgetModal
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onAdd={addWidget}
+      />
+      <EditWidgetModal
+        visible={!!editingWidget}
+        widget={editingWidget}
+        onClose={() => setEditingWidget(null)}
+        onUpdate={updateWidget}
+        onDelete={removeWidget}
+      />
+    </View>
   );
 };
 
@@ -3453,7 +4737,7 @@ const BottomTabBar = ({ activeTab, onTabPress }) => {
   const tabs = [
     { id: 'home', icon: 'grid-outline', activeIcon: 'grid', label: 'Ana' },
     { id: 'live', icon: 'radio-outline', activeIcon: 'radio', label: 'Canlı' },
-    { id: 'analysis', icon: 'analytics-outline', activeIcon: 'analytics', label: 'Analiz' },
+    { id: 'widgets', icon: 'apps-outline', activeIcon: 'apps', label: 'Panellerim' },
     { id: 'profile', icon: 'person-outline', activeIcon: 'person', label: 'Profil' },
   ];
 
@@ -3486,15 +4770,139 @@ const BottomTabBar = ({ activeTab, onTabPress }) => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PROFILE SCREEN - Profil
+// PROFILE SCREEN - iOS HIG Uyumlu Yeni Tasarım
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// iOS HIG Spacing Sabitleri
+const IOS_SPACING = {
+  screenMargin: 16,
+  sectionSpacing: 35,
+  rowHeight: 44,
+  rowPadding: 16,
+  iconBoxSize: 29,
+  chevronSize: 14,
+  sectionHeaderSize: 13,
+  rowTitleSize: 17,
+};
+
+// Icon Arka Plan Renkleri (iOS Settings Style)
+const ICON_COLORS = {
+  predictions: '#007AFF',
+  favorites: '#FF2D55',
+  saved: '#5856D6',
+  notifications: '#FF3B30',
+  liveAlerts: '#FF9500',
+  appearance: '#5856D6',
+  language: '#34C759',
+  cache: '#8E8E93',
+  privacy: '#007AFF',
+  danger: '#FF3B30',
+  darkMode: '#000000',
+  odds: '#00d4aa',
+};
+
+// TableRow Component - iOS Style
+const TableRow = ({ icon, iconColor, title, value, toggle, onToggle, onPress, isLast, destructive, disabled }) => {
+  const Component = onPress && !disabled ? TouchableOpacity : View;
+
+  return (
+    <Component
+      style={[
+        profileStyles.tableRow,
+        isLast && profileStyles.tableRowLast,
+      ]}
+      onPress={onPress}
+      activeOpacity={0.7}
+      disabled={disabled}
+    >
+      <View style={profileStyles.tableRowLeft}>
+        {icon && (
+          <View style={[profileStyles.iconBox, { backgroundColor: iconColor || COLORS.gray600 }]}>
+            <Ionicons name={icon} size={17} color="#fff" />
+          </View>
+        )}
+        <Text style={[
+          profileStyles.tableRowTitle,
+          destructive && { color: '#FF3B30' },
+          disabled && { color: COLORS.gray600 },
+        ]}>
+          {title}
+        </Text>
+      </View>
+
+      <View style={profileStyles.tableRowRight}>
+        {value && !toggle && (
+          <Text style={profileStyles.tableRowValue}>{value}</Text>
+        )}
+
+        {toggle !== undefined ? (
+          <Switch
+            value={toggle}
+            onValueChange={onToggle}
+            trackColor={{ false: COLORS.gray700, true: COLORS.accent }}
+            thumbColor={Platform.OS === 'android' ? COLORS.white : undefined}
+            ios_backgroundColor={COLORS.gray700}
+            disabled={disabled}
+          />
+        ) : onPress && !destructive && (
+          <Ionicons name="chevron-forward" size={IOS_SPACING.chevronSize} color={COLORS.gray500} />
+        )}
+      </View>
+    </Component>
+  );
+};
+
+// GroupedTableSection Component
+const GroupedTableSection = ({ title, children, footer }) => (
+  <View style={profileStyles.tableSection}>
+    {title && <Text style={profileStyles.tableSectionHeader}>{title}</Text>}
+    <View style={profileStyles.tableContainer}>
+      {children}
+    </View>
+    {footer && <Text style={profileStyles.tableSectionFooter}>{footer}</Text>}
+  </View>
+);
+
 const ProfileScreen = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const [notifications, setNotifications] = useState(true);
-  const [darkMode, setDarkMode] = useState(true);
-  const [liveAlerts, setLiveAlerts] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
+  // Profile State
+  const [profile, setProfile] = useState({
+    displayName: 'Kullanıcı',
+    memberSince: '2024-11-01',
+  });
+
+  // Stats State
+  const [stats, setStats] = useState({
+    totalPredictions: 0,
+    correctPredictions: 0,
+    savedMatches: 0,
+    favoriteTeamsCount: 0,
+  });
+
+
+  // Appearance Settings
+  const [appearSettings, setAppearSettings] = useState({
+    darkMode: true,
+    language: 'tr',
+    oddsFormat: 'decimal',
+  });
+
+  // Cache Size
+  const [cacheSize, setCacheSize] = useState(0);
+
+  // Favorite Teams (from AsyncStorage)
+  const [favoriteTeams, setFavoriteTeams] = useState([]);
+
+  // Modals
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
+  const [showOddsPicker, setShowOddsPicker] = useState(false);
+
+  // Load data on mount
   useEffect(() => {
+    loadProfileData();
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 400,
@@ -3502,164 +4910,666 @@ const ProfileScreen = () => {
     }).start();
   }, []);
 
-  // User Stats
-  const userStats = {
-    savedMatches: 12,
-    favoriteTeams: 5,
-    notifications: 24,
-    memberSince: 'Kasım 2024',
+  const loadProfileData = async () => {
+    try {
+      const [profileData, statsData, appearData, cacheSizeData, favoriteTeamsData] = await Promise.all([
+        profileService.getProfile(),
+        profileService.getStats(),
+        profileService.getAppearanceSettings(),
+        profileService.calculateCacheSize(),
+        AsyncStorage.getItem('@favorite_teams'),
+      ]);
+
+      setProfile(profileData);
+      setStats(statsData);
+      setAppearSettings(appearData);
+      setCacheSize(cacheSizeData);
+
+      if (favoriteTeamsData) {
+        setFavoriteTeams(JSON.parse(favoriteTeamsData));
+      }
+    } catch (error) {
+      console.error('loadProfileData error:', error);
+    }
   };
 
-  // Favorite Teams
-  const favoriteTeams = [
-    { id: '1', name: 'Real Madrid', short: 'RMA' },
-    { id: '2', name: 'Manchester City', short: 'MCI' },
-    { id: '3', name: 'Bayern München', short: 'BAY' },
-  ];
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadProfileData();
+    setRefreshing(false);
+  };
 
-  // Menu Items
-  const menuItems = [
-    { icon: 'bookmark-outline', label: 'Kayıtlı Maçlar', value: `${userStats.savedMatches} maç` },
-    { icon: 'heart-outline', label: 'Favori Takımlar', value: `${userStats.favoriteTeams} takım` },
-    { icon: 'time-outline', label: 'Geçmiş Tahminler', value: 'Görüntüle' },
-    { icon: 'stats-chart-outline', label: 'İstatistik Tercihleri', value: '' },
-  ];
+  // Başarı oranı hesapla
+  const winRate = stats.totalPredictions > 0
+    ? Math.round((stats.correctPredictions / stats.totalPredictions) * 100)
+    : 0;
 
-  const settingsItems = [
-    { icon: 'notifications-outline', label: 'Bildirimler', toggle: true, value: notifications, onToggle: setNotifications },
-    { icon: 'flash-outline', label: 'Canlı Uyarılar', toggle: true, value: liveAlerts, onToggle: setLiveAlerts },
-    { icon: 'moon-outline', label: 'Karanlık Mod', toggle: true, value: darkMode, onToggle: setDarkMode },
-    { icon: 'language-outline', label: 'Dil', value: 'Türkçe' },
-  ];
+  // Üyelik tarihini formatla
+  const formatMemberSince = (dateStr) => {
+    const date = new Date(dateStr);
+    const months = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+      'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+    return `${months[date.getMonth()]} ${date.getFullYear()}`;
+  };
 
-  const renderToggle = (value, onToggle) => (
-    <TouchableOpacity
-      style={[styles.toggle, value && styles.toggleActive]}
-      onPress={() => onToggle(!value)}
-      activeOpacity={0.8}
-    >
-      <View style={[styles.toggleKnob, value && styles.toggleKnobActive]} />
-    </TouchableOpacity>
-  );
+
+  // Reset handler
+  const handleReset = async () => {
+    setShowResetConfirm(false);
+
+    // Gerçek sıfırlama - AsyncStorage'dan tüm verileri sil
+    await profileService.resetAllProfileData();
+    await AsyncStorage.removeItem('@favorite_teams');
+    await AsyncStorage.removeItem('@user_widgets');
+
+    // State'leri default değerlere çevir
+    setProfile({ displayName: 'Kullanıcı', memberSince: new Date().toISOString().split('T')[0] });
+    setStats({ totalPredictions: 0, correctPredictions: 0, savedMatches: 0, favoriteTeamsCount: 0 });
+    setAppearSettings({ darkMode: true, language: 'tr', oddsFormat: 'decimal' });
+    setFavoriteTeams([]);
+    setCacheSize(0);
+
+    Alert.alert('Başarılı', 'Tüm veriler sıfırlandı.');
+  };
+
+  // Dil ve oran format isimleri
+  const getLanguageName = (code) => ({ tr: 'Türkçe', en: 'English' }[code] || code);
+  const getOddsFormatName = (format) => ({
+    decimal: 'Ondalık',
+    fractional: 'Kesirli',
+    american: 'Amerikan'
+  }[format] || format);
 
   return (
     <ScrollView
       style={styles.screen}
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.screenContent}
+      contentContainerStyle={[styles.screenContent, { paddingHorizontal: IOS_SPACING.screenMargin }]}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={COLORS.accent}
+        />
+      }
     >
-      {/* Header */}
-      <Animated.View style={[styles.profileHeader, { opacity: fadeAnim }]}>
-        <View style={styles.profileAvatar}>
-          <Ionicons name="person" size={32} color={COLORS.gray600} />
-        </View>
-        <View style={styles.profileInfo}>
-          <Text style={styles.profileName}>Kullanıcı</Text>
-          <Text style={styles.profileMember}>Üye: {userStats.memberSince}</Text>
-        </View>
-        <TouchableOpacity style={styles.profileEditBtn}>
-          <Ionicons name="settings-outline" size={20} color={COLORS.gray400} />
-        </TouchableOpacity>
-      </Animated.View>
-
-      {/* Quick Stats */}
-      <Animated.View style={[styles.profileStatsRow, { opacity: fadeAnim }]}>
-        <View style={styles.profileStatBox}>
-          <Text style={styles.profileStatValue}>{userStats.savedMatches}</Text>
-          <Text style={styles.profileStatLabel}>KAYITLI</Text>
-        </View>
-        <View style={styles.profileStatBox}>
-          <Text style={styles.profileStatValue}>{userStats.favoriteTeams}</Text>
-          <Text style={styles.profileStatLabel}>FAVORİ</Text>
-        </View>
-        <View style={styles.profileStatBox}>
-          <Text style={styles.profileStatValue}>{userStats.notifications}</Text>
-          <Text style={styles.profileStatLabel}>BİLDİRİM</Text>
-        </View>
-      </Animated.View>
-
-      {/* Favorite Teams */}
-      <Animated.View style={{ opacity: fadeAnim }}>
-        <Text style={styles.sectionTitle}>FAVORİ TAKIMLAR</Text>
-        <View style={styles.favoriteTeamsRow}>
-          {favoriteTeams.map((team) => (
-            <View key={team.id} style={styles.favoriteTeamBadge}>
-              <Text style={styles.favoriteTeamShort}>{team.short}</Text>
+      {/* ════════════════════ PROFILE HEADER ════════════════════ */}
+      <Animated.View style={[profileStyles.header, { opacity: fadeAnim }]}>
+        <View style={profileStyles.avatarContainer}>
+          <View style={profileStyles.avatar}>
+            <Ionicons name="person" size={36} color={COLORS.gray500} />
+          </View>
+          {winRate > 0 && (
+            <View style={profileStyles.winRateBadge}>
+              <Text style={profileStyles.winRateBadgeText}>%{winRate}</Text>
             </View>
-          ))}
-          <TouchableOpacity style={styles.addTeamBtn}>
-            <Ionicons name="add" size={20} color={COLORS.accent} />
-          </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={profileStyles.headerInfo}>
+          <Text style={profileStyles.headerName}>{profile.displayName}</Text>
+          <Text style={profileStyles.headerMember}>
+            Üye: {formatMemberSince(profile.memberSince)}
+          </Text>
+          {winRate > 0 && (
+            <View style={profileStyles.successChip}>
+              <Ionicons name="trending-up" size={12} color={COLORS.accent} />
+              <Text style={profileStyles.successChipText}>%{winRate} Başarı</Text>
+            </View>
+          )}
         </View>
       </Animated.View>
 
-      {/* Menu */}
+      {/* ════════════════════ STATS CARDS ════════════════════ */}
+      <Animated.View style={[profileStyles.statsRow, { opacity: fadeAnim }]}>
+        <View style={profileStyles.statCard}>
+          <Text style={profileStyles.statValue}>{stats.totalPredictions}</Text>
+          <Text style={profileStyles.statLabel}>TAHMİN</Text>
+        </View>
+        <View style={profileStyles.statCard}>
+          <Text style={[profileStyles.statValue, { color: COLORS.accent }]}>
+            %{winRate}
+          </Text>
+          <Text style={profileStyles.statLabel}>BAŞARI</Text>
+        </View>
+        <View style={profileStyles.statCard}>
+          <Text style={profileStyles.statValue}>{favoriteTeams.length}</Text>
+          <Text style={profileStyles.statLabel}>FAVORİ</Text>
+        </View>
+      </Animated.View>
+
+      {/* ════════════════════ FAVORITE TEAMS ════════════════════ */}
       <Animated.View style={{ opacity: fadeAnim }}>
-        <Text style={[styles.sectionTitle, { marginTop: 32 }]}>MENÜ</Text>
-        <View style={styles.menuCard}>
-          {menuItems.map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.menuItem,
-                index === menuItems.length - 1 && styles.menuItemLast,
-              ]}
-              activeOpacity={0.7}
-            >
-              <View style={styles.menuItemLeft}>
-                <Ionicons name={item.icon} size={20} color={COLORS.gray400} />
-                <Text style={styles.menuItemLabel}>{item.label}</Text>
-              </View>
-              <View style={styles.menuItemRight}>
-                {item.value && <Text style={styles.menuItemValue}>{item.value}</Text>}
-                <Ionicons name="chevron-forward" size={16} color={COLORS.gray700} />
-              </View>
+        <Text style={profileStyles.tableSectionHeader}>FAVORİ TAKIMLAR</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={profileStyles.teamsScroll}
+        >
+          {favoriteTeams.map((team) => (
+            <TouchableOpacity key={team.id} style={profileStyles.teamBadge} activeOpacity={0.7}>
+              <Text style={profileStyles.teamBadgeText}>{team.short}</Text>
             </TouchableOpacity>
           ))}
-        </View>
+          <TouchableOpacity style={profileStyles.addTeamBadge} activeOpacity={0.7}>
+            <Ionicons name="add" size={24} color={COLORS.accent} />
+          </TouchableOpacity>
+        </ScrollView>
       </Animated.View>
 
-      {/* Settings */}
+      {/* ════════════════════ AKTİVİTE SECTION ════════════════════ */}
       <Animated.View style={{ opacity: fadeAnim }}>
-        <Text style={[styles.sectionTitle, { marginTop: 32 }]}>AYARLAR</Text>
-        <View style={styles.menuCard}>
-          {settingsItems.map((item, index) => (
-            <View
-              key={index}
-              style={[
-                styles.menuItem,
-                index === settingsItems.length - 1 && styles.menuItemLast,
-              ]}
-            >
-              <View style={styles.menuItemLeft}>
-                <Ionicons name={item.icon} size={20} color={COLORS.gray400} />
-                <Text style={styles.menuItemLabel}>{item.label}</Text>
-              </View>
-              <View style={styles.menuItemRight}>
-                {item.toggle ? (
-                  renderToggle(item.value, item.onToggle)
-                ) : (
-                  <>
-                    <Text style={styles.menuItemValue}>{item.value}</Text>
-                    <Ionicons name="chevron-forward" size={16} color={COLORS.gray700} />
-                  </>
-                )}
-              </View>
+        <GroupedTableSection title="AKTİVİTE">
+          <TableRow
+            icon="analytics-outline"
+            iconColor={ICON_COLORS.predictions}
+            title="Tahmin Geçmişi"
+            value={`${stats.totalPredictions} tahmin`}
+            onPress={() => Alert.alert('Tahmin Geçmişi', 'Bu özellik yakında eklenecek.')}
+          />
+          <TableRow
+            icon="bookmark-outline"
+            iconColor={ICON_COLORS.saved}
+            title="Kaydedilen Maçlar"
+            value={`${stats.savedMatches} maç`}
+            onPress={() => Alert.alert('Kaydedilen Maçlar', 'Bu özellik yakında eklenecek.')}
+          />
+          <TableRow
+            icon="heart-outline"
+            iconColor={ICON_COLORS.favorites}
+            title="Favori Takımlar"
+            value={`${favoriteTeams.length} takım`}
+            onPress={() => Alert.alert('Favori Takımlar', 'Bu özellik yakında eklenecek.')}
+            isLast
+          />
+        </GroupedTableSection>
+      </Animated.View>
+
+
+      {/* ════════════════════ GÖRÜNÜM SECTION ════════════════════ */}
+      <Animated.View style={{ opacity: fadeAnim }}>
+        <GroupedTableSection title="GÖRÜNÜM">
+          <TableRow
+            icon="moon-outline"
+            iconColor={ICON_COLORS.darkMode}
+            title="Karanlık Mod"
+            toggle={appearSettings.darkMode}
+            disabled={true}
+          />
+          <TableRow
+            icon="globe-outline"
+            iconColor={ICON_COLORS.language}
+            title="Dil"
+            value={getLanguageName(appearSettings.language)}
+            onPress={() => setShowLanguagePicker(true)}
+          />
+          <TableRow
+            icon="calculator-outline"
+            iconColor={ICON_COLORS.odds}
+            title="Oran Formatı"
+            value={getOddsFormatName(appearSettings.oddsFormat)}
+            onPress={() => setShowOddsPicker(true)}
+            isLast
+          />
+        </GroupedTableSection>
+      </Animated.View>
+
+      {/* ════════════════════ VERİ & GİZLİLİK SECTION ════════════════════ */}
+      <Animated.View style={{ opacity: fadeAnim }}>
+        <GroupedTableSection
+          title="VERİ & GİZLİLİK"
+          footer="Verileriniz yalnızca cihazınızda saklanır."
+        >
+          <TableRow
+            icon="folder-outline"
+            iconColor={ICON_COLORS.cache}
+            title="Önbellek Yönetimi"
+            value={`${cacheSize} MB`}
+            onPress={() => Alert.alert(
+              'Önbelleği Temizle',
+              'API önbelleği temizlensin mi?',
+              [
+                { text: 'İptal', style: 'cancel' },
+                {
+                  text: 'Temizle',
+                  onPress: async () => {
+                    await AsyncStorage.removeItem('@api_cache');
+                    const newSize = await profileService.calculateCacheSize();
+                    setCacheSize(newSize);
+                    Alert.alert('Başarılı', 'Önbellek temizlendi.');
+                  }
+                }
+              ]
+            )}
+          />
+          <TableRow
+            icon="trash-outline"
+            iconColor={ICON_COLORS.danger}
+            title="Tüm Verileri Sıfırla"
+            destructive
+            onPress={() => setShowResetConfirm(true)}
+            isLast
+          />
+        </GroupedTableSection>
+      </Animated.View>
+
+      {/* ════════════════════ APP INFO ════════════════════ */}
+      <Animated.View style={[profileStyles.appInfo, { opacity: fadeAnim }]}>
+        <Text style={profileStyles.appInfoVersion}>AI Maç Analiz v1.0.0</Text>
+        <Text style={profileStyles.appInfoCopyright}>© 2024 Tüm Hakları Saklıdır</Text>
+      </Animated.View>
+
+      {/* Bottom Padding */}
+      <View style={{ height: 120 }} />
+
+      {/* ════════════════════ RESET CONFIRMATION MODAL ════════════════════ */}
+      <Modal
+        visible={showResetConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowResetConfirm(false)}
+      >
+        <View style={profileStyles.modalOverlay}>
+          <View style={profileStyles.alertCard}>
+            <Ionicons name="warning" size={48} color="#FF3B30" style={{ marginBottom: 16 }} />
+            <Text style={profileStyles.alertTitle}>Tüm Verileri Sıfırla</Text>
+            <Text style={profileStyles.alertMessage}>
+              Tüm tahmin geçmişiniz, istatistikleriniz ve ayarlarınız silinecek. Bu işlem geri alınamaz.
+            </Text>
+            <View style={profileStyles.alertButtons}>
+              <TouchableOpacity
+                style={[profileStyles.alertButton, profileStyles.alertButtonCancel]}
+                onPress={() => setShowResetConfirm(false)}
+              >
+                <Text style={profileStyles.alertButtonCancelText}>İptal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[profileStyles.alertButton, profileStyles.alertButtonDestructive]}
+                onPress={handleReset}
+              >
+                <Text style={profileStyles.alertButtonDestructiveText}>Sıfırla</Text>
+              </TouchableOpacity>
             </View>
-          ))}
+          </View>
         </View>
-      </Animated.View>
+      </Modal>
 
-      {/* App Info */}
-      <Animated.View style={[styles.appInfo, { opacity: fadeAnim }]}>
-        <Text style={styles.appInfoText}>AI Maç Analiz v1.0.0</Text>
-        <Text style={styles.appInfoSub}>© 2024 Tüm Hakları Saklıdır</Text>
-      </Animated.View>
+      {/* ════════════════════ LANGUAGE PICKER MODAL ════════════════════ */}
+      <Modal
+        visible={showLanguagePicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowLanguagePicker(false)}
+      >
+        <TouchableOpacity
+          style={profileStyles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowLanguagePicker(false)}
+        >
+          <View style={profileStyles.pickerCard}>
+            <Text style={profileStyles.pickerTitle}>Dil Seçin</Text>
+            {['tr', 'en'].map((lang) => (
+              <TouchableOpacity
+                key={lang}
+                style={profileStyles.pickerOption}
+                onPress={() => {
+                  setAppearSettings(prev => ({ ...prev, language: lang }));
+                  profileService.updateAppearanceSetting('language', lang);
+                  setShowLanguagePicker(false);
+                }}
+              >
+                <Text style={profileStyles.pickerOptionText}>{getLanguageName(lang)}</Text>
+                {appearSettings.language === lang && (
+                  <Ionicons name="checkmark" size={20} color={COLORS.accent} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
-      <View style={{ height: 100 }} />
+      {/* ════════════════════ ODDS FORMAT PICKER MODAL ════════════════════ */}
+      <Modal
+        visible={showOddsPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowOddsPicker(false)}
+      >
+        <TouchableOpacity
+          style={profileStyles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowOddsPicker(false)}
+        >
+          <View style={profileStyles.pickerCard}>
+            <Text style={profileStyles.pickerTitle}>Oran Formatı</Text>
+            {['decimal', 'fractional', 'american'].map((format) => (
+              <TouchableOpacity
+                key={format}
+                style={profileStyles.pickerOption}
+                onPress={() => {
+                  setAppearSettings(prev => ({ ...prev, oddsFormat: format }));
+                  profileService.updateAppearanceSetting('oddsFormat', format);
+                  setShowOddsPicker(false);
+                }}
+              >
+                <Text style={profileStyles.pickerOptionText}>{getOddsFormatName(format)}</Text>
+                {appearSettings.oddsFormat === format && (
+                  <Ionicons name="checkmark" size={20} color={COLORS.accent} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </ScrollView>
   );
 };
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PROFILE STYLES - iOS HIG Compliant
+// ═══════════════════════════════════════════════════════════════════════════════
+const profileStyles = StyleSheet.create({
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 20,
+    marginBottom: 8,
+  },
+  avatarContainer: {
+    position: 'relative',
+  },
+  avatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: COLORS.gray800,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  winRateBadge: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    backgroundColor: COLORS.accent,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 2,
+    borderColor: COLORS.bg,
+  },
+  winRateBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.bg,
+  },
+  headerInfo: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  headerName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.white,
+    letterSpacing: -0.5,
+  },
+  headerMember: {
+    fontSize: 13,
+    color: COLORS.gray500,
+    marginTop: 2,
+  },
+  successChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.accentDim,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 8,
+    gap: 4,
+  },
+  successChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.accent,
+  },
+
+  // Stats Row
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.white,
+    letterSpacing: -0.5,
+  },
+  statLabel: {
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 10,
+    color: COLORS.gray500,
+    marginTop: 4,
+    letterSpacing: 1,
+  },
+
+  // Favorite Teams
+  teamsScroll: {
+    paddingVertical: 8,
+    gap: 10,
+  },
+  teamBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: COLORS.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  teamBadgeText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.white,
+  },
+  addTeamBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: COLORS.accentDim,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+    borderStyle: 'dashed',
+  },
+
+  // Table Sections (iOS Style)
+  tableSection: {
+    marginTop: IOS_SPACING.sectionSpacing,
+  },
+  tableSectionHeader: {
+    fontSize: IOS_SPACING.sectionHeaderSize,
+    fontWeight: '400',
+    color: COLORS.gray500,
+    textTransform: 'uppercase',
+    marginLeft: 16,
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+  tableContainer: {
+    backgroundColor: COLORS.card,
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  tableSectionFooter: {
+    fontSize: 13,
+    color: COLORS.gray500,
+    marginHorizontal: 16,
+    marginTop: 8,
+    lineHeight: 18,
+  },
+
+  // Table Row
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: IOS_SPACING.rowHeight,
+    paddingHorizontal: IOS_SPACING.rowPadding,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.border,
+  },
+  tableRowLast: {
+    borderBottomWidth: 0,
+  },
+  tableRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  tableRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconBox: {
+    width: IOS_SPACING.iconBoxSize,
+    height: IOS_SPACING.iconBoxSize,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  tableRowTitle: {
+    fontSize: IOS_SPACING.rowTitleSize,
+    color: COLORS.white,
+  },
+  tableRowValue: {
+    fontSize: 17,
+    color: COLORS.gray500,
+    marginRight: 8,
+  },
+
+  // App Info
+  appInfo: {
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  appInfoVersion: {
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 12,
+    color: COLORS.gray500,
+  },
+  appInfoCopyright: {
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 10,
+    color: COLORS.gray600,
+    marginTop: 4,
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  alertCard: {
+    backgroundColor: COLORS.cardElevated,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 320,
+    alignItems: 'center',
+  },
+  alertTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginBottom: 8,
+  },
+  alertMessage: {
+    fontSize: 14,
+    color: COLORS.gray400,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  alertButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  alertButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  alertButtonCancel: {
+    backgroundColor: COLORS.gray700,
+  },
+  alertButtonCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  alertButtonDestructive: {
+    backgroundColor: '#FF3B30',
+  },
+  alertButtonDestructiveText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+
+  // Picker Modal
+  pickerCard: {
+    backgroundColor: COLORS.cardElevated,
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 320,
+    overflow: 'hidden',
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.white,
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    textAlign: 'center',
+  },
+  pickerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.border,
+  },
+  pickerOptionText: {
+    fontSize: 16,
+    color: COLORS.white,
+  },
+});
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN APP
@@ -3703,8 +5613,8 @@ export default function App() {
         return <HomeScreen onMatchPress={handleMatchPress} />;
       case 'live':
         return <LiveScreen onMatchPress={handleMatchPress} onLiveMatchPress={handleLiveMatchPress} />;
-      case 'analysis':
-        return <AnalysisScreen />;
+      case 'widgets':
+        return <WidgetsScreen />;
       case 'profile':
         return <ProfileScreen />;
       default:
@@ -6247,5 +8157,1152 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: COLORS.gray700,
     marginTop: 4,
+  },
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ODDS SCREEN STYLES - Unified Teal Theme (HomeScreen Consistent)
+// ═══════════════════════════════════════════════════════════════════════════════
+const oddsStyles = StyleSheet.create({
+  // Header - HomeScreen Style
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: COLORS.white,
+    letterSpacing: -0.5,
+  },
+  headerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.accentDim,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 6,
+  },
+  headerBadgeText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+    color: COLORS.accent,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+
+  // Bet Type Selector - Pill Style
+  betTypeScroll: {
+    marginBottom: 16,
+  },
+  betTypeContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    gap: 8,
+  },
+  betTypeTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    gap: 6,
+  },
+  betTypeTabActive: {
+    backgroundColor: COLORS.accentDim,
+    borderColor: COLORS.accent,
+  },
+  betTypeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.gray500,
+  },
+  betTypeTextActive: {
+    color: COLORS.accent,
+  },
+
+  // Scroll Content
+  scrollContent: {
+    paddingHorizontal: 16,
+  },
+
+  // League Group - Card Style
+  leagueGroup: {
+    marginBottom: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+  },
+  leagueHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    backgroundColor: COLORS.cardElevated,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.accent,
+  },
+  leagueInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  leagueLogo: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  leagueName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.white,
+    flex: 1,
+  },
+  leagueCountry: {
+    fontSize: 11,
+    color: COLORS.gray500,
+    marginTop: 1,
+  },
+  leagueRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  matchCountBadge: {
+    backgroundColor: COLORS.accentDim,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  matchCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.accent,
+  },
+  leagueMatches: {
+    paddingHorizontal: 10,
+    paddingBottom: 6,
+  },
+
+  // Match Card - Consistent with premiumStyles
+  matchCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+  },
+  matchHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  matchTeams: {
+    flex: 1,
+    gap: 5,
+  },
+  teamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  teamLogo: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  teamName: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+    color: COLORS.white,
+    flex: 1,
+  },
+  matchTimeContainer: {
+    backgroundColor: COLORS.accentDim,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  matchTime: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.accent,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+
+  // Odds Row - Clean Design
+  oddsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  oddButton: {
+    flex: 1,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+  },
+  oddButtonWide: {
+    flex: 1,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  oddLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.gray500,
+    marginBottom: 2,
+    letterSpacing: 0.5,
+  },
+  oddValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+
+  // No Odds
+  noOdds: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    backgroundColor: COLORS.cardElevated,
+    borderRadius: 10,
+  },
+  noOddsText: {
+    fontSize: 12,
+    color: COLORS.gray600,
+  },
+
+  // Loading
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 100,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: COLORS.gray500,
+    marginTop: 16,
+  },
+
+  // Empty State
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginTop: 16,
+  },
+  emptyStateText: {
+    fontSize: 13,
+    color: COLORS.gray500,
+    textAlign: 'center',
+    marginTop: 6,
+    maxWidth: 220,
+  },
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// WIDGET STYLES
+// ═══════════════════════════════════════════════════════════════════════════════
+const widgetStyles = StyleSheet.create({
+  // Header
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: COLORS.white,
+    letterSpacing: -0.5,
+  },
+  addHeaderButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.accentDim,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+  },
+
+  // Loading
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 100,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: COLORS.gray500,
+    marginTop: 16,
+  },
+
+  // Scroll Content
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+
+  // Widget Grid
+  widgetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    gap: 12,
+  },
+
+  // Base Widget
+  widgetContainer: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+  },
+  widgetContent: {
+    flex: 1,
+    padding: 12,
+    overflow: 'hidden',
+  },
+  widgetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  widgetHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  widgetIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  widgetTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.white,
+    flexShrink: 1,
+  },
+  widgetBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  widgetBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  widgetBody: {
+    flex: 1,
+  },
+
+  // Widget Card Items
+  widgetMatchItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  widgetMatchItemLast: {
+    borderBottomWidth: 0,
+  },
+  widgetTeamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  widgetTeamLogo: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+  },
+  widgetTeamName: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.white,
+    flex: 1,
+  },
+  widgetScore: {
+    fontSize: 13,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  widgetTime: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.gray500,
+    marginLeft: 8,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+
+  // Live Pulse
+  livePulse: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.live,
+    marginRight: 4,
+  },
+
+  // Standings Widget
+  standingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  standingsRowLast: {
+    borderBottomWidth: 0,
+  },
+  standingsPosition: {
+    width: 20,
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.accent,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  standingsTeamLogo: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginRight: 6,
+  },
+  standingsTeamName: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  standingsPoints: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.accent,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+
+  // Team Form Widget
+  formContainer: {
+    flexDirection: 'row',
+    gap: 4,
+    marginTop: 8,
+  },
+  formItem: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  formText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.white,
+  },
+
+  // Stats Widget
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  statItem: {
+    width: '47%',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 10,
+    padding: 10,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  statLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: COLORS.gray500,
+    marginTop: 2,
+    textTransform: 'uppercase',
+  },
+
+  // Countdown Widget
+  countdownContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  countdownMatch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  countdownTeamLogo: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  countdownVs: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.gray500,
+  },
+  countdownTimer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  countdownBlock: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    minWidth: 36,
+  },
+  countdownValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  countdownLabel: {
+    fontSize: 7,
+    fontWeight: '600',
+    color: COLORS.gray500,
+    marginTop: 1,
+    textTransform: 'uppercase',
+  },
+  countdownSeparator: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.gray500,
+  },
+
+  // Empty Widget Content
+  emptyWidgetContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  emptyWidgetText: {
+    fontSize: 11,
+    color: COLORS.gray500,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+
+  // Empty State
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 100,
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginTop: 16,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: COLORS.gray500,
+    textAlign: 'center',
+    marginTop: 8,
+    maxWidth: 260,
+    lineHeight: 20,
+  },
+  emptyAddButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.accent,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 24,
+    gap: 8,
+  },
+  emptyAddButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: COLORS.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.glassBorder,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.cardElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalContent: {
+    padding: 20,
+  },
+  modalScrollContent: {
+    paddingBottom: 40,
+  },
+
+  // Widget Type Selector
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginBottom: 12,
+  },
+  widgetTypeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 24,
+    justifyContent: 'space-between',
+  },
+  widgetTypeItem: {
+    width: (SCREEN_WIDTH - 60) / 2,
+    backgroundColor: COLORS.cardElevated,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+  },
+  widgetTypeItemSelected: {
+    borderColor: COLORS.accent,
+    backgroundColor: COLORS.accentDim,
+  },
+  widgetTypeIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  widgetTypeName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  widgetTypeDesc: {
+    fontSize: 10,
+    color: COLORS.gray500,
+    marginTop: 2,
+  },
+
+  // Size Selector
+  sizeSelector: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 24,
+  },
+  sizeOption: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 14,
+    backgroundColor: COLORS.cardElevated,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+  },
+  sizeOptionSelected: {
+    borderColor: COLORS.accent,
+    backgroundColor: COLORS.accentDim,
+  },
+  sizeLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.gray500,
+    marginTop: 4,
+  },
+  sizeLabelSelected: {
+    color: COLORS.accent,
+  },
+
+  // Color Selector
+  colorSelector: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 24,
+  },
+  colorOption: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  colorOptionSelected: {
+    borderColor: COLORS.white,
+  },
+  colorDot: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+
+  // Action Buttons
+  addButton: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.accent,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 20,
+    marginBottom: 30,
+    gap: 8,
+  },
+  addButtonDisabled: {
+    backgroundColor: COLORS.gray600,
+    opacity: 0.5,
+  },
+  addButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  saveButton: {
+    backgroundColor: COLORS.accent,
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  deleteButton: {
+    backgroundColor: 'rgba(255,59,48,0.15)',
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,59,48,0.3)',
+  },
+  deleteButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ff3b30',
+  },
+
+  // Widget Inner Styles
+  widgetGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0.3,
+  },
+  widgetAccent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 3,
+    height: '100%',
+    borderTopLeftRadius: 20,
+    borderBottomLeftRadius: 20,
+  },
+  widgetInner: {
+    flex: 1,
+  },
+  widgetTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  widgetCount: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.gray400,
+  },
+
+  // Match List Styles
+  matchesList: {
+    flex: 1,
+  },
+  liveMatchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  teamNameSmall: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.white,
+    flex: 1,
+    maxWidth: '40%',
+  },
+  scoreBox: {
+    alignItems: 'center',
+    marginHorizontal: 8,
+    minWidth: 40,
+  },
+  liveScore: {
+    fontSize: 14,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  matchMinute: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  emptyWidget: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  emptyText: {
+    fontSize: 12,
+    color: COLORS.gray500,
+    marginTop: 6,
+  },
+
+  // Upcoming Match Styles
+  upcomingMatchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  teamsColumn: {
+    flex: 1,
+  },
+  vsText: {
+    fontSize: 9,
+    color: COLORS.gray600,
+    marginVertical: 3,
+  },
+  timeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  timeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+
+  // Standings Styles
+  standingsList: {
+    flex: 1,
+  },
+  standingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  rankText: {
+    width: 18,
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.gray500,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  teamLogoSmall: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginRight: 6,
+  },
+  standingTeamName: {
+    flex: 1,
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.white,
+    marginRight: 4,
+  },
+  pointsText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.accent,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+
+  // Team Form Styles
+  formTeamName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.white,
+    marginBottom: 8,
+  },
+  formRow: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  formBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Countdown Styles
+  countdownMatch: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.white,
+    textAlign: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  countdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    flexWrap: 'wrap',
+  },
+  countdownItem: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    minWidth: 36,
+  },
+
+  // Recent Results Styles
+  recentMatchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  resultTeam: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: COLORS.white,
+    flex: 1,
+    maxWidth: '35%',
+  },
+  resultScore: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.accent,
+    marginHorizontal: 8,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  resultBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resultText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.white,
+  },
+  finalScore: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.white,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+
+  // Modal Specific Styles
+  modalSectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  widgetTypeCard: {
+    width: (SCREEN_WIDTH - 70) / 2,
+    backgroundColor: COLORS.cardElevated,
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    minHeight: 80,
+  },
+  widgetTypeCardActive: {
+    borderColor: COLORS.accent,
+    backgroundColor: COLORS.accentDim,
+  },
+  widgetTypeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.gray400,
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  sizeRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 20,
+  },
+  sizeButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    backgroundColor: COLORS.cardElevated,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+  },
+  sizeButtonActive: {
+    borderColor: COLORS.accent,
+    backgroundColor: COLORS.accentDim,
+  },
+  sizeButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.gray400,
+  },
+  sizeButtonTextActive: {
+    color: COLORS.accent,
+  },
+  themeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 20,
+  },
+  themeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  themeButtonActive: {
+    borderColor: COLORS.white,
+  },
+  themeColor: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  confirmButton: {
+    backgroundColor: COLORS.accent,
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 30,
+  },
+  confirmButtonDisabled: {
+    backgroundColor: COLORS.gray600,
+    opacity: 0.5,
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.white,
   },
 });

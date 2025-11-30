@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -20,34 +20,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Localization from 'expo-localization';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import footballApi from '../services/footballApi';
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// THEME & CONSTANTS
-// ═══════════════════════════════════════════════════════════════════════════════
-const COLORS = {
-  bg: '#0f1419',
-  card: '#1c2128',
-  cardHover: '#252d38',
-  border: '#2d3741',
-
-  accent: '#00d4aa',
-  accentDim: 'rgba(0, 212, 170, 0.15)',
-
-  success: '#00d977',
-  warning: '#ff9500',
-  danger: '#ff4757',
-
-  white: '#ffffff',
-  gray50: '#fafafa',
-  gray100: '#f5f5f5',
-  gray400: '#a0a0a0',
-  gray500: '#8b9199',
-  gray600: '#6b7280',
-  gray700: '#4b5563',
-  gray800: '#2d3741',
-  gray900: '#1c2128',
-};
+import { getAnalyzedFixtureIds } from '../services/cacheService';
+import { COLORS } from '../theme/colors';
 
 const LOCALE_TO_COUNTRY = {
   'tr': 'Turkey', 'en': 'England', 'de': 'Germany', 'es': 'Spain', 'fr': 'France',
@@ -76,7 +52,7 @@ const HomeScreen = ({ onMatchPress }) => {
   const [selectedDateOffset, setSelectedDateOffset] = useState(0);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [userCountry, setUserCountry] = useState(null);
-  const [sortedLeagues, setSortedLeagues] = useState([]);
+  // sortedLeagues artık useMemo ile hesaplanıyor (aşağıda)
   
   // Advanced Filters
   const [showFilterPanel, setShowFilterPanel] = useState(false);
@@ -85,7 +61,11 @@ const HomeScreen = ({ onMatchPress }) => {
   const [onlyDraws, setOnlyDraws] = useState(false);
   const [selectedLeagues, setSelectedLeagues] = useState([]);
 
-  const filters = ['Tümü', 'Banko', 'Orta', 'Riskli'];
+  // Favoriler ve Analiz Edilenler
+  const [favoriteMatchIds, setFavoriteMatchIds] = useState([]);
+  const [analyzedMatchIds, setAnalyzedMatchIds] = useState([]);
+
+  const filters = ['Tümü', 'Favoriler', 'Analiz Edilenler'];
   const dateOptions = [-3, -2, -1, 0, 1, 2, 3];
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -126,6 +106,28 @@ const HomeScreen = ({ onMatchPress }) => {
     }
   }, []);
 
+  // Favori maçları ve analiz edilmiş maçları yükle
+  const loadFavoritesAndAnalyzed = useCallback(async () => {
+    try {
+      // Favori maçları yükle
+      const favoritesJson = await AsyncStorage.getItem('@favorite_matches');
+      if (favoritesJson) {
+        const favorites = JSON.parse(favoritesJson);
+        setFavoriteMatchIds(favorites.map(f => f.id));
+      }
+
+      // Analiz edilmiş maçları yükle
+      const analyzedIds = await getAnalyzedFixtureIds();
+      setAnalyzedMatchIds(analyzedIds);
+    } catch (error) {
+      console.error('Load favorites/analyzed error:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadFavoritesAndAnalyzed();
+  }, [loadFavoritesAndAnalyzed]);
+
   const fetchData = useCallback(async (dateOffset = selectedDateOffset) => {
     try {
       setError(null);
@@ -136,7 +138,8 @@ const HomeScreen = ({ onMatchPress }) => {
       if (fixtures && fixtures.length > 0) {
         const formatted = fixtures.map(f => {
           const match = footballApi.formatFixture(f);
-          match.prediction = Math.floor(Math.random() * 60) + 20;
+          // prediction: Gerçek AI analiz sonucu için MatchAnalysisScreen kullanılmalı
+          match.prediction = null;
           return match;
         });
 
@@ -175,31 +178,34 @@ const HomeScreen = ({ onMatchPress }) => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
   }, [selectedDateOffset]);
 
-  useEffect(() => {
-    if (Object.keys(matchesByLeague).length > 0) {
-      const sorted = Object.entries(matchesByLeague).sort(([, a], [, b]) => {
-        if (userCountry) {
-          const aIsUser = a.country === userCountry;
-          const bIsUser = b.country === userCountry;
-          if (aIsUser && !bIsUser) return -1;
-          if (!aIsUser && bIsUser) return 1;
-        }
-        const aPop = POPULAR_LEAGUE_IDS.indexOf(a.id);
-        const bPop = POPULAR_LEAGUE_IDS.indexOf(b.id);
-        const aIsPop = aPop !== -1;
-        const bIsPop = bPop !== -1;
-        if (aIsPop && !bIsPop) return -1;
-        if (!aIsPop && bIsPop) return 1;
-        if (aIsPop && bIsPop) return aPop - bPop;
-        return (a.country + a.name).localeCompare(b.country + b.name);
-      });
-      setSortedLeagues(sorted);
-      // Auto expand first
-      if (sorted.length > 0 && Object.keys(expandedLeagues).length === 0) {
-        setExpandedLeagues({ [sorted[0][0]]: true });
+  // useMemo: Sıralanmış ligler (gereksiz re-render'ları önler)
+  const sortedLeagues = useMemo(() => {
+    if (Object.keys(matchesByLeague).length === 0) return [];
+
+    return Object.entries(matchesByLeague).sort(([, a], [, b]) => {
+      if (userCountry) {
+        const aIsUser = a.country === userCountry;
+        const bIsUser = b.country === userCountry;
+        if (aIsUser && !bIsUser) return -1;
+        if (!aIsUser && bIsUser) return 1;
       }
-    }
+      const aPop = POPULAR_LEAGUE_IDS.indexOf(a.id);
+      const bPop = POPULAR_LEAGUE_IDS.indexOf(b.id);
+      const aIsPop = aPop !== -1;
+      const bIsPop = bPop !== -1;
+      if (aIsPop && !bIsPop) return -1;
+      if (!aIsPop && bIsPop) return 1;
+      if (aIsPop && bIsPop) return aPop - bPop;
+      return (a.country + a.name).localeCompare(b.country + b.name);
+    });
   }, [matchesByLeague, userCountry]);
+
+  // Side effect: İlk ligi otomatik genişlet
+  useEffect(() => {
+    if (sortedLeagues.length > 0 && Object.keys(expandedLeagues).length === 0) {
+      setExpandedLeagues({ [sortedLeagues[0][0]]: true });
+    }
+  }, [sortedLeagues]);
 
   const toggleLeague = (key) => {
     setExpandedLeagues(prev => ({ ...prev, [key]: !prev[key] }));
@@ -243,10 +249,13 @@ const HomeScreen = ({ onMatchPress }) => {
       }
     }
 
-    // Prediction Filter
-    if (activeFilter === 'Banko') return filtered.filter(m => m.prediction >= 70);
-    if (activeFilter === 'Orta') return filtered.filter(m => m.prediction >= 40 && m.prediction < 70);
-    if (activeFilter === 'Riskli') return filtered.filter(m => m.prediction < 40);
+    // Tab Filters
+    if (activeFilter === 'Favoriler') {
+      return filtered.filter(m => favoriteMatchIds.includes(m.id));
+    }
+    if (activeFilter === 'Analiz Edilenler') {
+      return filtered.filter(m => analyzedMatchIds.includes(m.id));
+    }
 
     return filtered;
   };
@@ -461,12 +470,14 @@ const HomeScreen = ({ onMatchPress }) => {
                               </View>
                             </View>
 
-                            <View style={styles.predictionCol}>
-                              <Text style={[styles.predictionPercent, { color: COLORS.gray500 }]}>%</Text>
-                              <Text style={[styles.predictionValue, { color: getPredictionColor(match.prediction) }]}>
-                                {match.prediction}
-                              </Text>
-                            </View>
+                            {match.prediction !== null && (
+                              <View style={styles.predictionCol}>
+                                <Text style={[styles.predictionPercent, { color: COLORS.gray500 }]}>%</Text>
+                                <Text style={[styles.predictionValue, { color: getPredictionColor(match.prediction) }]}>
+                                  {match.prediction}
+                                </Text>
+                              </View>
+                            )}
                           </TouchableOpacity>
                         ))}
                       </View>
@@ -834,17 +845,18 @@ const styles = StyleSheet.create({
     color: COLORS.gray100,
   },
   predictionCol: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
     paddingLeft: 8,
-    minWidth: 40,
+    minWidth: 55,
   },
   predictionPercent: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
   },
   predictionValue: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
   },
   // Modal

@@ -1,7 +1,13 @@
 // Football API Service
-// API-Football v3 Integration
+// API-Football v3 Integration with Cache Optimization
 
 import { API_FOOTBALL_KEY, API_FOOTBALL_URL } from '@env';
+import {
+  fetchWithCache,
+  buildCacheKey,
+  CACHE_DURATIONS,
+  getCacheStats,
+} from './cacheService';
 
 const API_KEY = API_FOOTBALL_KEY;
 const BASE_URL = API_FOOTBALL_URL || 'https://v3.football.api-sports.io';
@@ -14,20 +20,24 @@ const headers = {
   'x-apisports-key': API_KEY,
 };
 
-// Helper function for API calls with rate limiting
+// ═══════════════════════════════════════════════════════════════════════════════
+// API CALL HELPER (with rate limiting)
+// ═══════════════════════════════════════════════════════════════════════════════
+
 const apiCall = async (endpoint, params = {}) => {
   // Pro plan rate limiting (300 req/min)
   const now = Date.now();
   if (now - lastResetTime >= 60000) {
-    // Reset counter every minute
     requestCount = 0;
     lastResetTime = now;
   }
 
   requestCount++;
-  if (requestCount > 280) { // Safety margin
+  if (requestCount > 280) {
     const waitTime = 60000 - (now - lastResetTime);
-    console.warn(`Rate limit approaching (${requestCount}/300), waiting ${waitTime}ms...`);
+    if (__DEV__) {
+      console.warn(`Rate limit approaching (${requestCount}/300), waiting ${waitTime}ms...`);
+    }
     await new Promise(resolve => setTimeout(resolve, waitTime));
     requestCount = 1;
     lastResetTime = Date.now();
@@ -57,105 +67,558 @@ const apiCall = async (endpoint, params = {}) => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// CACHED API CALL HELPER
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const cachedApiCall = async (cacheKey, endpoint, params = {}, cacheDuration) => {
+  return fetchWithCache(
+    cacheKey,
+    () => apiCall(endpoint, params),
+    cacheDuration
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // FIXTURES (Matches)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Get today's fixtures
+// Get today's fixtures (1 dakika cache)
 export const getTodayFixtures = async (timezone = 'Europe/Istanbul') => {
   const today = new Date().toISOString().split('T')[0];
-  return apiCall('fixtures', { date: today, timezone });
+  const cacheKey = buildCacheKey('today_fixtures', { date: today, timezone });
+
+  return cachedApiCall(
+    cacheKey,
+    'fixtures',
+    { date: today, timezone },
+    CACHE_DURATIONS.TODAY_FIXTURES
+  );
 };
 
-// Get live fixtures
+// Get live fixtures (30 saniye cache - canlı veriler)
 export const getLiveFixtures = async () => {
-  return apiCall('fixtures', { live: 'all' });
+  const cacheKey = 'live_fixtures';
+
+  return cachedApiCall(
+    cacheKey,
+    'fixtures',
+    { live: 'all' },
+    CACHE_DURATIONS.LIVE_FIXTURES
+  );
 };
 
-// Get fixtures by date
+// Get fixtures by date (1 dakika cache)
 export const getFixturesByDate = async (date, timezone = 'Europe/Istanbul') => {
-  return apiCall('fixtures', { date, timezone });
+  const cacheKey = buildCacheKey('fixtures_by_date', { date, timezone });
+
+  return cachedApiCall(
+    cacheKey,
+    'fixtures',
+    { date, timezone },
+    CACHE_DURATIONS.TODAY_FIXTURES
+  );
 };
 
 // Get fixtures by league and season
 export const getFixturesByLeague = async (leagueId, season, options = {}) => {
-  return apiCall('fixtures', {
-    league: leagueId,
-    season,
-    ...options
-  });
+  const cacheKey = buildCacheKey('fixtures_by_league', { league: leagueId, season, ...options });
+
+  return cachedApiCall(
+    cacheKey,
+    'fixtures',
+    { league: leagueId, season, ...options },
+    CACHE_DURATIONS.TODAY_FIXTURES
+  );
 };
 
-// Get single fixture details
+// Get single fixture details (1 dakika cache)
 export const getFixtureById = async (fixtureId) => {
-  return apiCall('fixtures', { id: fixtureId });
+  const cacheKey = buildCacheKey('fixture', { id: fixtureId });
+
+  return cachedApiCall(
+    cacheKey,
+    'fixtures',
+    { id: fixtureId },
+    CACHE_DURATIONS.FIXTURE_DETAILS
+  );
 };
 
-// Get fixture statistics
+// Get fixture statistics (30 saniye - canlı maç için)
 export const getFixtureStats = async (fixtureId) => {
-  return apiCall('fixtures/statistics', { fixture: fixtureId });
+  const cacheKey = buildCacheKey('fixture_stats', { fixture: fixtureId });
+
+  return cachedApiCall(
+    cacheKey,
+    'fixtures/statistics',
+    { fixture: fixtureId },
+    CACHE_DURATIONS.FIXTURE_STATS
+  );
 };
 
-// Get fixture events (goals, cards, subs)
+// Get fixture events (30 saniye - canlı maç için)
 export const getFixtureEvents = async (fixtureId) => {
-  return apiCall('fixtures/events', { fixture: fixtureId });
+  const cacheKey = buildCacheKey('fixture_events', { fixture: fixtureId });
+
+  return cachedApiCall(
+    cacheKey,
+    'fixtures/events',
+    { fixture: fixtureId },
+    CACHE_DURATIONS.FIXTURE_EVENTS
+  );
 };
 
-// Get fixture lineups
+// Get fixture lineups (5 dakika cache - maç başladıktan sonra değişmez)
 export const getFixtureLineups = async (fixtureId) => {
-  return apiCall('fixtures/lineups', { fixture: fixtureId });
+  const cacheKey = buildCacheKey('fixture_lineups', { fixture: fixtureId });
+
+  return cachedApiCall(
+    cacheKey,
+    'fixtures/lineups',
+    { fixture: fixtureId },
+    CACHE_DURATIONS.FIXTURE_LINEUPS
+  );
 };
 
-// Get head to head
+// Get head to head (1 saat cache)
 export const getHeadToHead = async (team1Id, team2Id, last = 10) => {
-  return apiCall('fixtures/headtohead', { h2h: `${team1Id}-${team2Id}`, last });
+  const cacheKey = buildCacheKey('h2h', { h2h: `${team1Id}-${team2Id}`, last });
+
+  return cachedApiCall(
+    cacheKey,
+    'fixtures/headtohead',
+    { h2h: `${team1Id}-${team2Id}`, last },
+    CACHE_DURATIONS.HEAD_TO_HEAD
+  );
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PREDICTIONS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Get AI predictions for a fixture
+// Get AI predictions for a fixture (30 dakika cache)
 export const getPredictions = async (fixtureId) => {
-  return apiCall('predictions', { fixture: fixtureId });
+  const cacheKey = buildCacheKey('predictions', { fixture: fixtureId });
+
+  return cachedApiCall(
+    cacheKey,
+    'predictions',
+    { fixture: fixtureId },
+    CACHE_DURATIONS.PREDICTIONS
+  );
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // LEAGUES
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Get all leagues
+// Get all leagues (1 gün cache - nadir değişir)
 export const getLeagues = async (options = {}) => {
-  return apiCall('leagues', options);
+  const cacheKey = buildCacheKey('leagues', options);
+
+  return cachedApiCall(
+    cacheKey,
+    'leagues',
+    options,
+    CACHE_DURATIONS.LEAGUES
+  );
 };
 
-// Get popular leagues (top 5 European + Turkey)
+// Get popular leagues (1 gün cache)
 export const getPopularLeagues = async () => {
-  const popularIds = [39, 140, 135, 78, 61, 203]; // PL, La Liga, Serie A, Bundesliga, Ligue 1, Super Lig
+  const popularIds = [39, 140, 135, 78, 61, 203];
   const season = new Date().getFullYear();
-  return apiCall('leagues', { id: popularIds.join('-'), season });
+  const cacheKey = buildCacheKey('popular_leagues', { season });
+
+  return cachedApiCall(
+    cacheKey,
+    'leagues',
+    { id: popularIds.join('-'), season },
+    CACHE_DURATIONS.LEAGUES
+  );
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // STANDINGS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Get league standings
+// Get league standings (30 dakika cache)
 export const getStandings = async (leagueId, season) => {
-  return apiCall('standings', { league: leagueId, season });
+  const cacheKey = buildCacheKey('standings', { league: leagueId, season });
+
+  return cachedApiCall(
+    cacheKey,
+    'standings',
+    { league: leagueId, season },
+    CACHE_DURATIONS.STANDINGS
+  );
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TEAMS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Get team info
+// Get team info (1 gün cache - nadiren değişir)
 export const getTeamInfo = async (teamId) => {
-  return apiCall('teams', { id: teamId });
+  const cacheKey = buildCacheKey('team_info', { id: teamId });
+
+  return cachedApiCall(
+    cacheKey,
+    'teams',
+    { id: teamId },
+    CACHE_DURATIONS.TEAM_INFO
+  );
 };
 
-// Get team statistics
+// Get team statistics (6 saat cache)
 export const getTeamStats = async (teamId, leagueId, season) => {
-  return apiCall('teams/statistics', { team: teamId, league: leagueId, season });
+  const cacheKey = buildCacheKey('team_stats', { team: teamId, league: leagueId, season });
+
+  return cachedApiCall(
+    cacheKey,
+    'teams/statistics',
+    { team: teamId, league: leagueId, season },
+    CACHE_DURATIONS.TEAM_STATS
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PLAYERS (Top Scorers, Assists, Cards)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Get top scorers (1 saat cache)
+export const getTopScorers = async (leagueId, season) => {
+  const cacheKey = buildCacheKey('top_scorers', { league: leagueId, season });
+
+  return cachedApiCall(
+    cacheKey,
+    'players/topscorers',
+    { league: leagueId, season },
+    CACHE_DURATIONS.TOP_SCORERS
+  );
+};
+
+// Get top assists (1 saat cache)
+export const getTopAssists = async (leagueId, season) => {
+  const cacheKey = buildCacheKey('top_assists', { league: leagueId, season });
+
+  return cachedApiCall(
+    cacheKey,
+    'players/topassists',
+    { league: leagueId, season },
+    CACHE_DURATIONS.TOP_ASSISTS
+  );
+};
+
+// Get top yellow cards (1 saat cache)
+export const getTopYellowCards = async (leagueId, season) => {
+  const cacheKey = buildCacheKey('top_yellows', { league: leagueId, season });
+
+  return cachedApiCall(
+    cacheKey,
+    'players/topyellowcards',
+    { league: leagueId, season },
+    CACHE_DURATIONS.TOP_CARDS
+  );
+};
+
+// Get top red cards (1 saat cache)
+export const getTopRedCards = async (leagueId, season) => {
+  const cacheKey = buildCacheKey('top_reds', { league: leagueId, season });
+
+  return cachedApiCall(
+    cacheKey,
+    'players/topredcards',
+    { league: leagueId, season },
+    CACHE_DURATIONS.TOP_CARDS
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TRANSFERS & INJURIES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Get transfers by team (6 saat cache)
+export const getTransfers = async (teamId) => {
+  const cacheKey = buildCacheKey('transfers', { team: teamId });
+
+  return cachedApiCall(
+    cacheKey,
+    'transfers',
+    { team: teamId },
+    CACHE_DURATIONS.TRANSFERS
+  );
+};
+
+// Get injuries by league (2 saat cache)
+export const getInjuries = async (leagueId, season) => {
+  const cacheKey = buildCacheKey('injuries', { league: leagueId, season });
+
+  return cachedApiCall(
+    cacheKey,
+    'injuries',
+    { league: leagueId, season },
+    CACHE_DURATIONS.INJURIES
+  );
+};
+
+// Get sidelined players (2 saat cache)
+export const getSidelined = async (playerId) => {
+  const cacheKey = buildCacheKey('sidelined', { player: playerId });
+
+  return cachedApiCall(
+    cacheKey,
+    'sidelined',
+    { player: playerId },
+    CACHE_DURATIONS.INJURIES
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ODDS (Bahis Oranları)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Bet type IDs mapping
+export const BET_TYPES = {
+  MATCH_WINNER: 1,        // 1X2 Maç Sonucu
+  OVER_UNDER: 5,          // Alt/Üst Gol
+  BTTS: 8,                // Karşılıklı Gol (Both Teams To Score)
+  HANDICAP: 10,           // Handikap
+  DOUBLE_CHANCE: 12,      // Çifte Şans
+  FIRST_HALF_WINNER: 13,  // 1. Yarı Sonucu
+  EXACT_SCORE: 16,        // Skor Tahmini
+};
+
+// Get odds for a specific fixture (1 dakika cache)
+export const getFixtureOdds = async (fixtureId, bookmaker = null) => {
+  const params = { fixture: fixtureId };
+  if (bookmaker) params.bookmaker = bookmaker;
+
+  const cacheKey = buildCacheKey('odds', params);
+
+  return cachedApiCall(
+    cacheKey,
+    'odds',
+    params,
+    CACHE_DURATIONS.FIXTURE_DETAILS
+  );
+};
+
+// Get odds by date - günün maçları için toplu oranlar (1 dakika cache)
+export const getOddsByDate = async (date, timezone = 'Europe/Istanbul', bookmaker = null) => {
+  const params = { date, timezone };
+  if (bookmaker) params.bookmaker = bookmaker;
+
+  const cacheKey = buildCacheKey('odds_by_date', params);
+
+  return cachedApiCall(
+    cacheKey,
+    'odds',
+    params,
+    CACHE_DURATIONS.TODAY_FIXTURES
+  );
+};
+
+// Get live odds (30 saniye cache - canlı oranlar)
+export const getLiveOdds = async (bookmaker = null) => {
+  const params = { live: 'all' };
+  if (bookmaker) params.bookmaker = bookmaker;
+
+  const cacheKey = buildCacheKey('live_odds', params);
+
+  return cachedApiCall(
+    cacheKey,
+    'odds/live',
+    params,
+    CACHE_DURATIONS.LIVE_FIXTURES
+  );
+};
+
+// Get list of all bet types (1 gün cache - nadir değişir)
+export const getBetTypes = async () => {
+  const cacheKey = 'bet_types';
+
+  return cachedApiCall(
+    cacheKey,
+    'odds/bets',
+    {},
+    CACHE_DURATIONS.LEAGUES
+  );
+};
+
+// Get list of all bookmakers (1 gün cache - nadir değişir)
+export const getBookmakers = async () => {
+  const cacheKey = 'bookmakers';
+
+  return cachedApiCall(
+    cacheKey,
+    'odds/bookmakers',
+    {},
+    CACHE_DURATIONS.LEAGUES
+  );
+};
+
+// Get pre-match odds mapping (odds for multiple fixtures from today's fixtures)
+export const getTodayOdds = async (timezone = 'Europe/Istanbul') => {
+  const today = new Date().toISOString().split('T')[0];
+  return getOddsByDate(today, timezone);
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ODDS HELPER FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Format odds response for easier usage
+export const formatOdds = (oddsData) => {
+  if (!oddsData || !oddsData.bookmakers || oddsData.bookmakers.length === 0) {
+    return null;
+  }
+
+  // İlk bookmaker'ı al (genellikle en popüler)
+  const bookmaker = oddsData.bookmakers[0];
+  const formatted = {
+    fixtureId: oddsData.fixture?.id,
+    bookmaker: {
+      id: bookmaker.id,
+      name: bookmaker.name,
+    },
+    bets: {},
+  };
+
+  // Her bet tipini işle
+  bookmaker.bets.forEach(bet => {
+    const betKey = getBetKey(bet.id);
+    if (betKey) {
+      formatted.bets[betKey] = {
+        id: bet.id,
+        name: bet.name,
+        values: bet.values.map(v => ({
+          label: v.value,
+          odd: parseFloat(v.odd),
+        })),
+      };
+    }
+  });
+
+  return formatted;
+};
+
+// Get bet key from bet ID
+const getBetKey = (betId) => {
+  const mapping = {
+    1: 'matchWinner',
+    5: 'overUnder',
+    8: 'btts',
+    10: 'handicap',
+    12: 'doubleChance',
+    13: 'firstHalfWinner',
+    16: 'exactScore',
+  };
+  return mapping[betId] || null;
+};
+
+// Extract specific bet type from odds data
+export const extractBetType = (oddsData, betType) => {
+  if (!oddsData || !oddsData.bookmakers) return null;
+
+  for (const bookmaker of oddsData.bookmakers) {
+    const bet = bookmaker.bets.find(b => b.id === betType);
+    if (bet) {
+      return {
+        bookmaker: bookmaker.name,
+        name: bet.name,
+        values: bet.values.map(v => ({
+          label: v.value,
+          odd: parseFloat(v.odd),
+        })),
+      };
+    }
+  }
+  return null;
+};
+
+// Get 1X2 odds from formatted data
+export const get1X2Odds = (oddsData) => {
+  const bet = extractBetType(oddsData, BET_TYPES.MATCH_WINNER);
+  if (!bet || !bet.values) return null;
+
+  const home = bet.values.find(v => v.label === 'Home');
+  const draw = bet.values.find(v => v.label === 'Draw');
+  const away = bet.values.find(v => v.label === 'Away');
+
+  return {
+    home: home?.odd || null,
+    draw: draw?.odd || null,
+    away: away?.odd || null,
+  };
+};
+
+// Get Over/Under odds from formatted data
+export const getOverUnderOdds = (oddsData, line = 2.5) => {
+  const bet = extractBetType(oddsData, BET_TYPES.OVER_UNDER);
+  if (!bet || !bet.values) return null;
+
+  const over = bet.values.find(v => v.label === `Over ${line}`);
+  const under = bet.values.find(v => v.label === `Under ${line}`);
+
+  return {
+    line,
+    over: over?.odd || null,
+    under: under?.odd || null,
+  };
+};
+
+// Get BTTS odds from formatted data
+export const getBTTSOdds = (oddsData) => {
+  const bet = extractBetType(oddsData, BET_TYPES.BTTS);
+  if (!bet || !bet.values) return null;
+
+  const yes = bet.values.find(v => v.label === 'Yes');
+  const no = bet.values.find(v => v.label === 'No');
+
+  return {
+    yes: yes?.odd || null,
+    no: no?.odd || null,
+  };
+};
+
+// Get Double Chance odds from formatted data
+export const getDoubleChanceOdds = (oddsData) => {
+  const bet = extractBetType(oddsData, BET_TYPES.DOUBLE_CHANCE);
+  if (!bet || !bet.values) return null;
+
+  const homeOrDraw = bet.values.find(v => v.label === 'Home/Draw');
+  const homeOrAway = bet.values.find(v => v.label === 'Home/Away');
+  const drawOrAway = bet.values.find(v => v.label === 'Draw/Away');
+
+  return {
+    homeOrDraw: homeOrDraw?.odd || null,
+    homeOrAway: homeOrAway?.odd || null,
+    drawOrAway: drawOrAway?.odd || null,
+  };
+};
+
+// Get Handicap odds from formatted data
+export const getHandicapOdds = (oddsData) => {
+  const bet = extractBetType(oddsData, BET_TYPES.HANDICAP);
+  if (!bet || !bet.values) return null;
+
+  // Group by handicap value
+  const handicaps = {};
+  bet.values.forEach(v => {
+    const match = v.label.match(/(Home|Away)\s*([+-]?\d+\.?\d*)/);
+    if (match) {
+      const team = match[1].toLowerCase();
+      const value = match[2];
+      if (!handicaps[value]) handicaps[value] = {};
+      handicaps[value][team] = v.odd;
+    }
+  });
+
+  return Object.entries(handicaps).map(([value, odds]) => ({
+    handicap: value,
+    home: odds.home || null,
+    away: odds.away || null,
+  }));
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -248,6 +711,12 @@ export const getStatusText = (status) => {
   return statusMap[status] || status;
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// CACHE UTILITIES (Export for debugging/monitoring)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const getApiCacheStats = getCacheStats;
+
 export default {
   getTodayFixtures,
   getLiveFixtures,
@@ -264,7 +733,34 @@ export default {
   getStandings,
   getTeamInfo,
   getTeamStats,
+  // Explore Screen APIs
+  getTopScorers,
+  getTopAssists,
+  getTopYellowCards,
+  getTopRedCards,
+  getTransfers,
+  getInjuries,
+  getSidelined,
+  // Odds Screen APIs
+  getFixtureOdds,
+  getOddsByDate,
+  getLiveOdds,
+  getBetTypes,
+  getBookmakers,
+  getTodayOdds,
+  // Odds Helpers
+  BET_TYPES,
+  formatOdds,
+  extractBetType,
+  get1X2Odds,
+  getOverUnderOdds,
+  getBTTSOdds,
+  getDoubleChanceOdds,
+  getHandicapOdds,
+  // Helpers
   formatFixture,
   formatPrediction,
   getStatusText,
+  // Cache utilities
+  getApiCacheStats,
 };

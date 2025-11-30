@@ -84,7 +84,13 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // ═══════════════════════════════════════════════════════════════════════════════
 const MAIN_TABS = [
   { id: 'tahminler', label: 'Tahminler' },
-  { id: 'ozet', label: 'Özet' },
+  { id: 'golTahminleri', label: 'Gol Tahminleri' },
+  { id: 'golDagilimi', label: 'Gol Dağılımı' },
+  { id: 'kgSenaryolari', label: 'KG Senaryoları' },
+  { id: 'ilkYari', label: 'İlk Yarı' },
+  { id: 'riskAnalizi', label: 'Risk Analizi' },
+  { id: 'faktorAnalizi', label: 'Faktör Analizi' },
+  { id: 'formDurumu', label: 'Form Durumu' },
   { id: 'istatistikler', label: 'İstatistikler' },
   { id: 'karsilikli', label: 'Karşılıklı' },
 ];
@@ -1145,222 +1151,210 @@ const MatchAnalysisScreen = ({ match, onBack }) => {
   // ─────────────────────────────────────────────────────────────────────────────
   const renderTabs = () => (
     <View style={styles.tabsContainer}>
-      <View style={styles.mainTabs}>
-        {MAIN_TABS.map((tab, index) => (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.mainTabsScroll}
+      >
+        {MAIN_TABS.map((tab) => (
           <TouchableOpacity
             key={tab.id}
-            style={[styles.mainTab, activeTab === tab.id && styles.mainTabActive]}
-            onPress={() => handleTabChange(tab.id, index)}
+            style={[styles.scrollableTab, activeTab === tab.id && styles.scrollableTabActive]}
+            onPress={() => setActiveTab(tab.id)}
           >
             <Text style={[styles.mainTabText, activeTab === tab.id && styles.mainTabTextActive]}>
               {tab.label}
             </Text>
           </TouchableOpacity>
         ))}
-        <Animated.View
-          style={[styles.tabIndicator, { transform: [{ translateX: tabIndicatorAnim }] }]}
-        />
-      </View>
+      </ScrollView>
     </View>
   );
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // RENDER TAHMINLER TAB - ENHANCED
+  // RENDER TAHMINLER TAB
   // ─────────────────────────────────────────────────────────────────────────────
-  const renderTahminlerTab = () => (
-    <>
-      {/* Section 1: Main Prediction Card */}
-      <View style={styles.aiCard}>
-        <View style={styles.aiCardHeader}>
-          <View style={styles.aiCardTitleRow}>
-            <Ionicons name="sparkles" size={18} color={COLORS.accent} />
-            <Text style={styles.aiCardTitle}>AKILLI TAHMİN</Text>
-          </View>
-          {cachedData && hasAnalysis ? (
-            <View style={styles.analysisReadyBadge}>
-              <Ionicons name="checkmark-circle" size={14} color={COLORS.success} />
-              <Text style={styles.analysisReadyLabel}>Hazır</Text>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={styles.aiAnalyzeButton}
-              onPress={fetchAiAnalysis}
-              disabled={aiLoading}
-            >
-              {aiLoading ? (
-                <ActivityIndicator size="small" color={COLORS.accent} />
-              ) : (
-                <>
-                  <Ionicons name="analytics" size={16} color={COLORS.accent} />
-                  <Text style={styles.aiAnalyzeButtonText}>Analiz</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          )}
-        </View>
 
-        {/* Probability Section */}
-        {aiLoading ? (
-          <View style={styles.aiLoadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.accent} />
-            <Text style={styles.aiLoadingText}>Karşılaşma analiz ediliyor...</Text>
-            <Text style={styles.aiLoadingSubtext}>Bu işlem birkaç saniye sürebilir</Text>
-          </View>
-        ) : !hasAnalysis ? (
-          <View style={styles.aiLoadingContainer}>
-            <Ionicons name="analytics-outline" size={40} color={COLORS.gray500} />
-            <Text style={styles.aiLoadingText}>Analiz bekleniyor</Text>
-            <Text style={styles.aiLoadingSubtext}>Yukarıdaki butona basarak analiz başlatın</Text>
+  // Akıllı Tahmin Kartı
+  const renderAkilliTahminCard = () => (
+    <View style={styles.aiCard}>
+      <View style={styles.aiCardHeader}>
+        <View style={styles.aiCardTitleRow}>
+          <Ionicons name="sparkles" size={18} color={COLORS.accent} />
+          <Text style={styles.aiCardTitle}>AKILLI TAHMİN</Text>
+        </View>
+        {cachedData && hasAnalysis ? (
+          <View style={styles.analysisReadyBadge}>
+            <Ionicons name="checkmark-circle" size={14} color={COLORS.success} />
+            <Text style={styles.analysisReadyLabel}>Hazır</Text>
           </View>
         ) : (
-          <View style={styles.probabilitySection}>
-            {/* Visual Probability Bar */}
-            <View style={styles.probBarContainer}>
-              <View style={[styles.probBarSegment, { width: `${analysis.homeWinProb}%`, backgroundColor: COLORS.homeColor }]}>
-                {analysis.homeWinProb >= 15 && <Text style={styles.probBarText}>{analysis.homeWinProb}%</Text>}
-              </View>
-              <View style={[styles.probBarSegment, { width: `${analysis.drawProb}%`, backgroundColor: COLORS.warning }]}>
-                {analysis.drawProb >= 15 && <Text style={styles.probBarText}>{analysis.drawProb}%</Text>}
-              </View>
-              <View style={[styles.probBarSegment, { width: `${analysis.awayWinProb}%`, backgroundColor: COLORS.awayColor }]}>
-                {analysis.awayWinProb >= 15 && <Text style={styles.probBarText}>{analysis.awayWinProb}%</Text>}
-              </View>
-            </View>
-            <View style={styles.probLegend}>
-              <View style={styles.probLegendItem}>
-                <View style={[styles.probLegendDot, { backgroundColor: COLORS.homeColor }]} />
-                <Text style={styles.probLegendText}>{homeName}</Text>
-                <Text style={[styles.probLegendValue, { color: COLORS.homeColor }]}>{analysis.homeWinProb}%</Text>
-              </View>
-              <View style={styles.probLegendItem}>
-                <View style={[styles.probLegendDot, { backgroundColor: COLORS.warning }]} />
-                <Text style={styles.probLegendText}>Beraberlik</Text>
-                <Text style={[styles.probLegendValue, { color: COLORS.warning }]}>{analysis.drawProb}%</Text>
-              </View>
-              <View style={styles.probLegendItem}>
-                <View style={[styles.probLegendDot, { backgroundColor: COLORS.awayColor }]} />
-                <Text style={styles.probLegendText}>{awayName}</Text>
-                <Text style={[styles.probLegendValue, { color: COLORS.awayColor }]}>{analysis.awayWinProb}%</Text>
-              </View>
-            </View>
-            {/* Confidence Score */}
-            <View style={styles.confidenceRow}>
-              <Text style={styles.confidenceLabel}>Analiz Güveni</Text>
-              <View style={styles.confidenceStars}>
-                {[1, 2, 3, 4, 5].map(star => (
-                  <Ionicons
-                    key={star}
-                    name={star <= Math.round(analysis.confidence / 2) ? 'star' : 'star-outline'}
-                    size={14}
-                    color={COLORS.warning}
-                  />
-                ))}
-              </View>
-              <Text style={styles.confidenceValue}>{analysis.confidence}/10</Text>
-            </View>
-          </View>
-        )}
-
-        {hasAnalysis && (
-          <>
-            {/* Risk & Winner Row */}
-            <View style={styles.riskWinnerRow}>
-              {/* Risk Badge */}
-              <View style={styles.riskBadgeBox}>
-                <Text style={styles.riskBadgeLabel}>RİSK</Text>
-                <View style={[styles.riskBadgeInner, {
-                  borderColor: (analysis.bankoScore || analysis.confidence * 10) >= 70 ? COLORS.success :
-                               (analysis.bankoScore || analysis.confidence * 10) >= 50 ? COLORS.warning : COLORS.danger
-                }]}>
-                  <Text style={[styles.riskBadgeText, {
-                    color: (analysis.bankoScore || analysis.confidence * 10) >= 70 ? COLORS.success :
-                           (analysis.bankoScore || analysis.confidence * 10) >= 50 ? COLORS.warning : COLORS.danger
-                  }]}>
-                    {(analysis.bankoScore || analysis.confidence * 10) >= 70 ? 'DÜŞÜK' :
-                     (analysis.bankoScore || analysis.confidence * 10) >= 50 ? 'ORTA' : 'YÜKSEK'}
-                  </Text>
-                  <Text style={[styles.riskBadgePercent, {
-                    color: (analysis.bankoScore || analysis.confidence * 10) >= 70 ? COLORS.success :
-                           (analysis.bankoScore || analysis.confidence * 10) >= 50 ? COLORS.warning : COLORS.danger
-                  }]}>
-                    %{analysis.bankoScore || Math.round(analysis.confidence * 10)}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Winner Box */}
-              <View style={styles.winnerBox}>
-                <Text style={styles.winnerBoxLabel}>TAHMİN</Text>
-                {analysis.winner === 'ev' || analysis.winner === 'deplasman' ? (
-                  <View style={styles.winnerBoxContent}>
-                    {(analysis.winner === 'ev' ? homeLogo : awayLogo) && (
-                      <Image
-                        source={{ uri: analysis.winner === 'ev' ? homeLogo : awayLogo }}
-                        style={styles.winnerBoxLogo}
-                        resizeMode="contain"
-                      />
-                    )}
-                    <View style={styles.winnerBoxInfo}>
-                      <Text style={styles.winnerBoxTeam} numberOfLines={1}>
-                        {analysis.winner === 'ev' ? homeName : awayName}
-                      </Text>
-                      <View style={styles.winnerBoxBadge}>
-                        <Text style={styles.winnerBoxBadgeText}>
-                          {analysis.winner === 'ev' ? 'MS 1' : 'MS 2'}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                ) : (
-                  <View style={styles.winnerBoxContent}>
-                    <Ionicons name="swap-horizontal" size={28} color={COLORS.warning} />
-                    <View style={styles.winnerBoxInfo}>
-                      <Text style={[styles.winnerBoxTeam, { color: COLORS.warning }]}>Beraberlik</Text>
-                      <View style={[styles.winnerBoxBadge, { backgroundColor: 'rgba(255,149,0,0.2)', borderColor: COLORS.warning }]}>
-                        <Text style={[styles.winnerBoxBadgeText, { color: COLORS.warning }]}>MS X</Text>
-                      </View>
-                    </View>
-                  </View>
-                )}
-              </View>
-            </View>
-
-            {analysis.advice && (
-              <View style={styles.adviceSection}>
-                <View style={styles.adviceHeader}>
-                  <Ionicons name="bulb" size={18} color={COLORS.warning} />
-                  <Text style={styles.adviceTitle}>Uzman Tavsiyesi</Text>
-                </View>
-                <Text style={styles.adviceText}>{analysis.advice}</Text>
-              </View>
+          <TouchableOpacity
+            style={styles.aiAnalyzeButton}
+            onPress={fetchAiAnalysis}
+            disabled={aiLoading}
+          >
+            {aiLoading ? (
+              <ActivityIndicator size="small" color={COLORS.accent} />
+            ) : (
+              <>
+                <Ionicons name="analytics" size={16} color={COLORS.accent} />
+                <Text style={styles.aiAnalyzeButtonText}>Analiz</Text>
+              </>
             )}
-          </>
+          </TouchableOpacity>
         )}
       </View>
 
-      {/* Section 2: Gol Tahminleri - Enhanced */}
+      {aiLoading ? (
+        <View style={styles.aiLoadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.accent} />
+          <Text style={styles.aiLoadingText}>Karşılaşma analiz ediliyor...</Text>
+          <Text style={styles.aiLoadingSubtext}>Bu işlem birkaç saniye sürebilir</Text>
+        </View>
+      ) : !hasAnalysis ? (
+        <View style={styles.aiLoadingContainer}>
+          <Ionicons name="analytics-outline" size={40} color={COLORS.gray500} />
+          <Text style={styles.aiLoadingText}>Analiz bekleniyor</Text>
+          <Text style={styles.aiLoadingSubtext}>Yukarıdaki butona basarak analiz başlatın</Text>
+        </View>
+      ) : (
+        <View style={styles.probabilitySection}>
+          <View style={styles.probBarContainer}>
+            <View style={[styles.probBarSegment, { width: `${analysis.homeWinProb}%`, backgroundColor: COLORS.homeColor }]}>
+              {analysis.homeWinProb >= 15 && <Text style={styles.probBarText}>{analysis.homeWinProb}%</Text>}
+            </View>
+            <View style={[styles.probBarSegment, { width: `${analysis.drawProb}%`, backgroundColor: COLORS.warning }]}>
+              {analysis.drawProb >= 15 && <Text style={styles.probBarText}>{analysis.drawProb}%</Text>}
+            </View>
+            <View style={[styles.probBarSegment, { width: `${analysis.awayWinProb}%`, backgroundColor: COLORS.awayColor }]}>
+              {analysis.awayWinProb >= 15 && <Text style={styles.probBarText}>{analysis.awayWinProb}%</Text>}
+            </View>
+          </View>
+          <View style={styles.probLegend}>
+            <View style={styles.probLegendItem}>
+              <View style={[styles.probLegendDot, { backgroundColor: COLORS.homeColor }]} />
+              <Text style={styles.probLegendText}>{homeName}</Text>
+              <Text style={[styles.probLegendValue, { color: COLORS.homeColor }]}>{analysis.homeWinProb}%</Text>
+            </View>
+            <View style={styles.probLegendItem}>
+              <View style={[styles.probLegendDot, { backgroundColor: COLORS.warning }]} />
+              <Text style={styles.probLegendText}>Beraberlik</Text>
+              <Text style={[styles.probLegendValue, { color: COLORS.warning }]}>{analysis.drawProb}%</Text>
+            </View>
+            <View style={styles.probLegendItem}>
+              <View style={[styles.probLegendDot, { backgroundColor: COLORS.awayColor }]} />
+              <Text style={styles.probLegendText}>{awayName}</Text>
+              <Text style={[styles.probLegendValue, { color: COLORS.awayColor }]}>{analysis.awayWinProb}%</Text>
+            </View>
+          </View>
+          <View style={styles.confidenceRow}>
+            <Text style={styles.confidenceLabel}>Analiz Güveni</Text>
+            <View style={styles.confidenceStars}>
+              {[1, 2, 3, 4, 5].map(star => (
+                <Ionicons
+                  key={star}
+                  name={star <= Math.round(analysis.confidence / 2) ? 'star' : 'star-outline'}
+                  size={14}
+                  color={COLORS.warning}
+                />
+              ))}
+            </View>
+            <Text style={styles.confidenceValue}>{analysis.confidence}/10</Text>
+          </View>
+        </View>
+      )}
+
+      {hasAnalysis && (
+        <>
+          <View style={styles.riskWinnerRow}>
+            <View style={styles.riskBadgeBox}>
+              <Text style={styles.riskBadgeLabel}>RİSK</Text>
+              <View style={[styles.riskBadgeInner, {
+                borderColor: (analysis.bankoScore || analysis.confidence * 10) >= 70 ? COLORS.success :
+                             (analysis.bankoScore || analysis.confidence * 10) >= 50 ? COLORS.warning : COLORS.danger
+              }]}>
+                <Text style={[styles.riskBadgeText, {
+                  color: (analysis.bankoScore || analysis.confidence * 10) >= 70 ? COLORS.success :
+                         (analysis.bankoScore || analysis.confidence * 10) >= 50 ? COLORS.warning : COLORS.danger
+                }]}>
+                  {(analysis.bankoScore || analysis.confidence * 10) >= 70 ? 'DÜŞÜK' :
+                   (analysis.bankoScore || analysis.confidence * 10) >= 50 ? 'ORTA' : 'YÜKSEK'}
+                </Text>
+                <Text style={[styles.riskBadgePercent, {
+                  color: (analysis.bankoScore || analysis.confidence * 10) >= 70 ? COLORS.success :
+                         (analysis.bankoScore || analysis.confidence * 10) >= 50 ? COLORS.warning : COLORS.danger
+                }]}>
+                  %{analysis.bankoScore || Math.round(analysis.confidence * 10)}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.winnerBox}>
+              <Text style={styles.winnerBoxLabel}>TAHMİN</Text>
+              {analysis.winner === 'ev' || analysis.winner === 'deplasman' ? (
+                <View style={styles.winnerBoxContent}>
+                  {(analysis.winner === 'ev' ? homeLogo : awayLogo) && (
+                    <Image
+                      source={{ uri: analysis.winner === 'ev' ? homeLogo : awayLogo }}
+                      style={styles.winnerBoxLogo}
+                      resizeMode="contain"
+                    />
+                  )}
+                  <View style={styles.winnerBoxInfo}>
+                    <Text style={styles.winnerBoxTeam} numberOfLines={1}>
+                      {analysis.winner === 'ev' ? homeName : awayName}
+                    </Text>
+                    <View style={styles.winnerBoxBadge}>
+                      <Text style={styles.winnerBoxBadgeText}>
+                        {analysis.winner === 'ev' ? 'MS 1' : 'MS 2'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.winnerBoxContent}>
+                  <Ionicons name="swap-horizontal" size={28} color={COLORS.warning} />
+                  <View style={styles.winnerBoxInfo}>
+                    <Text style={[styles.winnerBoxTeam, { color: COLORS.warning }]}>Beraberlik</Text>
+                    <View style={[styles.winnerBoxBadge, { backgroundColor: 'rgba(255,149,0,0.2)', borderColor: COLORS.warning }]}>
+                      <Text style={[styles.winnerBoxBadgeText, { color: COLORS.warning }]}>MS X</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+            </View>
+          </View>
+          {analysis.advice && (
+            <View style={styles.adviceSection}>
+              <View style={styles.adviceHeader}>
+                <Ionicons name="bulb" size={18} color={COLORS.warning} />
+                <Text style={styles.adviceTitle}>Uzman Tavsiyesi</Text>
+              </View>
+              <Text style={styles.adviceText}>{analysis.advice}</Text>
+            </View>
+          )}
+        </>
+      )}
+    </View>
+  );
+
+  // Alt Tab İçerikleri
+  const renderGolTahminleri = () => (
+    <>
       {hasAnalysis && (
         <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="football" size={18} color={COLORS.accent} />
-            <Text style={styles.sectionTitle}>GOL TAHMİNLERİ</Text>
-          </View>
-
-          {/* Expected Goals Comparison */}
           <ExpectedGoalsComparison
             homeXG={analysis.expectedHomeGoals}
             awayXG={analysis.expectedAwayGoals}
             homeName={homeName}
             awayName={awayName}
           />
-
           <View style={styles.circularGrid}>
             <CircularProgress value={analysis.expectedGoals} label="Toplam xG" color={COLORS.accent} isNumber />
             <CircularProgress value={analysis.bttsProb} label="KG Var" color={COLORS.success} />
             <CircularProgress value={analysis.over25Prob} label="2.5 Üst" color={COLORS.homeColor} />
             <CircularProgress value={analysis.over15Prob || 70} label="1.5 Üst" color={COLORS.warning} />
           </View>
-
           <View style={styles.scoreSection}>
             <Text style={styles.scoreLabel}>En Olası Skor</Text>
             <View style={styles.mainScoreBox}>
@@ -1391,14 +1385,33 @@ const MatchAnalysisScreen = ({ match, onBack }) => {
           </View>
         </View>
       )}
-
-      {/* Section 2.5: Goal Distribution (Poisson) */}
-      {analysis.goalDistribution && (
+      {analysis.recommendedBets && analysis.recommendedBets.length > 0 && (
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="bar-chart" size={18} color={COLORS.accent} />
-            <Text style={styles.sectionTitle}>GOL DAĞILIMI</Text>
+            <Ionicons name="star" size={18} color={COLORS.accent} />
+            <Text style={styles.sectionTitle}>ÖNERİLER</Text>
           </View>
+          <View style={styles.betCardsRow}>
+            {analysis.recommendedBets.slice(0, 3).map((bet, index) => (
+              <BetCard
+                key={index}
+                type={bet.type}
+                confidence={bet.confidence}
+                reasoning={bet.reasoning}
+                risk={bet.risk}
+                isHot={index === 0 && bet.confidence >= 70}
+              />
+            ))}
+          </View>
+        </View>
+      )}
+    </>
+  );
+
+  const renderGolDagilimi = () => (
+    <>
+      {analysis.goalDistribution && (
+        <View style={styles.sectionCard}>
           <GoalDistributionChart
             distribution={analysis.goalDistribution.home}
             teamColor={COLORS.homeColor}
@@ -1411,25 +1424,35 @@ const MatchAnalysisScreen = ({ match, onBack }) => {
           />
         </View>
       )}
+      {!analysis.goalDistribution && (
+        <View style={styles.noDataContainer}>
+          <Ionicons name="bar-chart-outline" size={40} color={COLORS.gray500} />
+          <Text style={styles.noDataText}>Gol dağılımı verisi bulunamadı</Text>
+        </View>
+      )}
+    </>
+  );
 
-      {/* Section 2.6: BTTS Distribution */}
+  const renderKgSenaryolari = () => (
+    <>
       {analysis.bttsDistribution && (
         <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="git-compare" size={18} color={COLORS.accent} />
-            <Text style={styles.sectionTitle}>KG SENARYOLARI</Text>
-          </View>
           <BTTSDistribution distribution={analysis.bttsDistribution} />
         </View>
       )}
+      {!analysis.bttsDistribution && (
+        <View style={styles.noDataContainer}>
+          <Ionicons name="git-compare-outline" size={40} color={COLORS.gray500} />
+          <Text style={styles.noDataText}>KG senaryoları verisi bulunamadı</Text>
+        </View>
+      )}
+    </>
+  );
 
-      {/* Section 3: İlk Yarı Tahminleri */}
+  const renderIlkYari = () => (
+    <>
       {hasAnalysis && (
         <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="time" size={18} color={COLORS.accent} />
-            <Text style={styles.sectionTitle}>İLK YARI</Text>
-          </View>
           <View style={styles.htGrid}>
             <View style={styles.htItem}>
               <Text style={[styles.htPercent, { color: COLORS.homeColor }]}>{analysis.htHomeWinProb || 30}%</Text>
@@ -1463,26 +1486,24 @@ const MatchAnalysisScreen = ({ match, onBack }) => {
           </View>
         </View>
       )}
+    </>
+  );
 
-      {/* Section 3.5: Risk & Volatility */}
+  const renderRiskAnalizi = () => (
+    <>
       {hasAnalysis && (
         <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="warning" size={18} color={COLORS.accent} />
-            <Text style={styles.sectionTitle}>RİSK ANALİZİ</Text>
-          </View>
           <VolatilityGauge volatility={analysis.volatility} riskLevel={analysis.riskLevel} />
           <RiskFlagBadge flags={analysis.riskFlags} />
         </View>
       )}
+    </>
+  );
 
-      {/* Section 4: Faktör Analizi */}
+  const renderFaktorAnalizi = () => (
+    <>
       {analysis.factors && analysis.factors.length > 0 && (
         <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="analytics" size={18} color={COLORS.accent} />
-            <Text style={styles.sectionTitle}>FAKTÖR ANALİZİ</Text>
-          </View>
           {analysis.factors.map((factor, index) => (
             <FactorBar
               key={index}
@@ -1495,70 +1516,6 @@ const MatchAnalysisScreen = ({ match, onBack }) => {
           ))}
         </View>
       )}
-
-      {/* Section 5: Form Karşılaştırma */}
-      {(prediction?.homeForm || prediction?.awayForm) && (
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="trending-up" size={18} color={COLORS.accent} />
-            <Text style={styles.sectionTitle}>FORM DURUMU</Text>
-          </View>
-          <View style={styles.formComparison}>
-            <View style={styles.formTeam}>
-              <Text style={styles.formTeamName} numberOfLines={1}>{homeName}</Text>
-              <FormDots form={prediction?.homeForm || analysis.homeTeamAnalysis?.form || 'WWDLW'} />
-            </View>
-            <View style={styles.formTeam}>
-              <Text style={styles.formTeamName} numberOfLines={1}>{awayName}</Text>
-              <FormDots form={prediction?.awayForm || analysis.awayTeamAnalysis?.form || 'DLWWL'} />
-            </View>
-          </View>
-        </View>
-      )}
-
-      {/* Section 5.5: Trend Summary */}
-      {analysis.trendSummary && (
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="pulse" size={18} color={COLORS.accent} />
-            <Text style={styles.sectionTitle}>TREND ANALİZİ</Text>
-          </View>
-          <TrendIndicator trend={analysis.trendSummary.homeFormTrend} label={`${homeName} Form`} color={COLORS.homeColor} />
-          <TrendIndicator trend={analysis.trendSummary.awayFormTrend} label={`${awayName} Form`} color={COLORS.awayColor} />
-          <TrendIndicator trend={analysis.trendSummary.homeXGTrend} label={`${homeName} xG`} color={COLORS.homeColor} />
-          <TrendIndicator trend={analysis.trendSummary.awayXGTrend} label={`${awayName} xG`} color={COLORS.awayColor} />
-          {analysis.trendSummary.tacticalMatchupSummary && (
-            <View style={styles.tacticalSummaryBox}>
-              <Ionicons name="football" size={14} color={COLORS.accent} />
-              <Text style={styles.tacticalSummaryText}>{analysis.trendSummary.tacticalMatchupSummary}</Text>
-            </View>
-          )}
-        </View>
-      )}
-
-      {/* Section 6: Önerilen Analizler */}
-      {analysis.recommendedBets && analysis.recommendedBets.length > 0 && (
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="star" size={18} color={COLORS.accent} />
-            <Text style={styles.sectionTitle}>ÖNERİLER</Text>
-          </View>
-          <View style={styles.betCardsRow}>
-            {analysis.recommendedBets.slice(0, 3).map((bet, index) => (
-              <BetCard
-                key={index}
-                type={bet.type}
-                confidence={bet.confidence}
-                reasoning={bet.reasoning}
-                risk={bet.risk}
-                isHot={index === 0 && bet.confidence >= 70}
-              />
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* Section 7: Accordion Details */}
       {hasAnalysis && (analysis.homeTeamAnalysis?.strengths?.length > 0 || analysis.awayTeamAnalysis?.strengths?.length > 0) && (
         <AccordionSection title="Takım Güçlü/Zayıf Yönleri" icon="shield">
           <View style={styles.teamAnalysisSection}>
@@ -1596,7 +1553,43 @@ const MatchAnalysisScreen = ({ match, onBack }) => {
           </View>
         </AccordionSection>
       )}
+    </>
+  );
 
+  const renderFormDurumu = () => (
+    <>
+      {(prediction?.homeForm || prediction?.awayForm) && (
+        <View style={styles.sectionCard}>
+          <View style={styles.formComparison}>
+            <View style={styles.formTeam}>
+              <Text style={styles.formTeamName} numberOfLines={1}>{homeName}</Text>
+              <FormDots form={prediction?.homeForm || analysis.homeTeamAnalysis?.form || 'WWDLW'} />
+            </View>
+            <View style={styles.formTeam}>
+              <Text style={styles.formTeamName} numberOfLines={1}>{awayName}</Text>
+              <FormDots form={prediction?.awayForm || analysis.awayTeamAnalysis?.form || 'DLWWL'} />
+            </View>
+          </View>
+        </View>
+      )}
+      {analysis.trendSummary && (
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="pulse" size={18} color={COLORS.accent} />
+            <Text style={styles.sectionTitle}>TREND ANALİZİ</Text>
+          </View>
+          <TrendIndicator trend={analysis.trendSummary.homeFormTrend} label={`${homeName} Form`} color={COLORS.homeColor} />
+          <TrendIndicator trend={analysis.trendSummary.awayFormTrend} label={`${awayName} Form`} color={COLORS.awayColor} />
+          <TrendIndicator trend={analysis.trendSummary.homeXGTrend} label={`${homeName} xG`} color={COLORS.homeColor} />
+          <TrendIndicator trend={analysis.trendSummary.awayXGTrend} label={`${awayName} xG`} color={COLORS.awayColor} />
+          {analysis.trendSummary.tacticalMatchupSummary && (
+            <View style={styles.tacticalSummaryBox}>
+              <Ionicons name="football" size={14} color={COLORS.accent} />
+              <Text style={styles.tacticalSummaryText}>{analysis.trendSummary.tacticalMatchupSummary}</Text>
+            </View>
+          )}
+        </View>
+      )}
       <AccordionSection title="H2H Detayları" icon="swap-horizontal">
         {h2hData ? (
           <View>
@@ -1614,17 +1607,23 @@ const MatchAnalysisScreen = ({ match, onBack }) => {
     </>
   );
 
+  // Ana Tahminler Tab - TÜM bölümleri tek scroll'da göster
+  const renderTahminlerTab = () => (
+    <>
+      {renderAkilliTahminCard()}
+      {renderGolTahminleri()}
+      {renderGolDagilimi()}
+      {renderKgSenaryolari()}
+      {renderIlkYari()}
+      {renderRiskAnalizi()}
+      {renderFaktorAnalizi()}
+      {renderFormDurumu()}
+    </>
+  );
+
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER OTHER TABS
   // ─────────────────────────────────────────────────────────────────────────────
-  const renderOzetTab = () => (
-    <View style={styles.sectionCard}>
-      <Text style={styles.sectionTitle}>Maç Özeti</Text>
-      <Text style={styles.ozetText}>{homeName} vs {awayName}</Text>
-      <Text style={styles.ozetText}>Saat: {match.time || '00:00'} • {leagueName}</Text>
-    </View>
-  );
-
   const renderIstatistiklerTab = () => (
     <View style={styles.sectionCard}>
       <View style={styles.statsHeader}>
@@ -1679,8 +1678,20 @@ const MatchAnalysisScreen = ({ match, onBack }) => {
     switch (activeTab) {
       case 'tahminler':
         return renderTahminlerTab();
-      case 'ozet':
-        return renderOzetTab();
+      case 'golTahminleri':
+        return renderGolTahminleri();
+      case 'golDagilimi':
+        return renderGolDagilimi();
+      case 'kgSenaryolari':
+        return renderKgSenaryolari();
+      case 'ilkYari':
+        return renderIlkYari();
+      case 'riskAnalizi':
+        return renderRiskAnalizi();
+      case 'faktorAnalizi':
+        return renderFaktorAnalizi();
+      case 'formDurumu':
+        return renderFormDurumu();
       case 'istatistikler':
         return renderIstatistiklerTab();
       case 'karsilikli':
@@ -1757,14 +1768,13 @@ const styles = StyleSheet.create({
   vsText: { color: COLORS.gray400, fontSize: 18, fontWeight: '800', letterSpacing: 2 },
   matchTime: { color: COLORS.accent, fontSize: 16, fontWeight: '700', marginTop: 4 },
 
-  // Tabs
+  // Tabs (Scrollable)
   tabsContainer: { backgroundColor: COLORS.card, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  mainTabs: { flexDirection: 'row', position: 'relative' },
-  mainTab: { flex: 1, paddingVertical: 14, alignItems: 'center' },
-  mainTabActive: {},
+  mainTabsScroll: { paddingHorizontal: 8, gap: 4 },
+  scrollableTab: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  scrollableTabActive: { borderBottomColor: COLORS.accent },
   mainTabText: { color: COLORS.gray500, fontSize: 13, fontWeight: '600' },
   mainTabTextActive: { color: COLORS.accent },
-  tabIndicator: { position: 'absolute', bottom: 0, left: 0, width: SCREEN_WIDTH / MAIN_TABS.length, height: 3, backgroundColor: COLORS.accent, borderTopLeftRadius: 2, borderTopRightRadius: 2 },
 
   // Content
   contentScroll: { flex: 1 },
