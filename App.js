@@ -4735,7 +4735,7 @@ const WidgetsScreen = () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 const BottomTabBar = ({ activeTab, onTabPress }) => {
   const tabs = [
-    { id: 'home', icon: 'grid-outline', activeIcon: 'grid', label: 'Ana' },
+    { id: 'home', icon: 'football-outline', activeIcon: 'football', label: 'Ana' },
     { id: 'live', icon: 'radio-outline', activeIcon: 'radio', label: 'Canlı' },
     { id: 'widgets', icon: 'apps-outline', activeIcon: 'apps', label: 'Panellerim' },
     { id: 'profile', icon: 'person-outline', activeIcon: 'person', label: 'Profil' },
