@@ -10,11 +10,6 @@
     "extra": {
       "revenueCatApiKey": "test_GClyPBcnkdxiPCUwdJUxmnpDHgH"
     },
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0a0e13"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.goalwise.epinko"
@@ -25,7 +20,12 @@
         "backgroundColor": "#0a0e13"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.goalwise.epinko"
+      "package": "com.goalwise.epinko",
+      "splash": {
+        "image": "./assets/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#0a0e13"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"

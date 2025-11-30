@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AI_CACHE_PREFIX = 'ai_analysis_';
 const API_CACHE_PREFIX = '@api_cache_';
+const ONBOARDING_KEY = '@goalwise_onboarding_completed';
 const MATCH_FINISHED_STATUSES = ['FT', 'AET', 'PEN', 'CANC', 'ABD', 'AWD', 'WO'];
 
 // Cache süreleri (milisaniye)
@@ -51,6 +52,49 @@ let cacheStats = {
   misses: 0,
   saves: 0,
   apiCallsSaved: 0,
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ONBOARDING FONKSİYONLARI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Onboarding tamamlandı mı kontrol et
+ * @returns {Promise<boolean>} - Onboarding tamamlandıysa true
+ */
+export const hasCompletedOnboarding = async () => {
+  try {
+    const value = await AsyncStorage.getItem(ONBOARDING_KEY);
+    return value === 'true';
+  } catch (error) {
+    return false;
+  }
+};
+
+/**
+ * Onboarding tamamlandı olarak işaretle
+ * @returns {Promise<boolean>} - Başarılı mı
+ */
+export const setOnboardingCompleted = async () => {
+  try {
+    await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
+
+/**
+ * Onboarding durumunu sıfırla (test için)
+ * @returns {Promise<boolean>} - Başarılı mı
+ */
+export const resetOnboarding = async () => {
+  try {
+    await AsyncStorage.removeItem(ONBOARDING_KEY);
+    return true;
+  } catch (error) {
+    return false;
+  }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════

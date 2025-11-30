@@ -82,10 +82,8 @@ const CircularProgress = ({ percentage, size = 56, color }) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 const DisclaimerBanner = () => (
   <View style={styles.disclaimerBanner}>
-    <Ionicons name="warning" size={18} color={COLORS.warning} />
     <Text style={styles.disclaimerText}>
-      Bu tahminler yapay zeka tarafından eğlence amaçlı üretilmiştir.
-      Gerçek bahis tavsiyesi değildir. Finansal kararlarınızda bu verileri kullanmayınız.
+      AI tahminleri eğlence amaçlıdır, finansal tavsiye değildir.
     </Text>
   </View>
 );
@@ -1084,7 +1082,7 @@ const PredictionsScreen = () => {
   // Cache State
   const [cachedMatchIds, setCachedMatchIds] = useState(new Set());
 
-  const dateOptions = [-1, 0, 1];
+  const dateOptions = [-1, 0, 1, 2, 3, 4, 5]; // 7 günlük tarih aralığı
 
   // Helpers
   const getDateString = (offset = 0) => {
@@ -1093,18 +1091,23 @@ const PredictionsScreen = () => {
     return date.toISOString().split('T')[0];
   };
 
-  const formatDateLabel = (offset) => {
-    if (offset === -1) return 'Dün';
-    if (offset === 0) return 'Bugün';
-    if (offset === 1) return 'Yarın';
-    return '';
-  };
-
-  const formatShortDate = (offset) => {
+  // Date Tab Formatters
+  const formatDayShort = (offset) => {
+    const days = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
     const date = new Date();
     date.setDate(date.getDate() + offset);
-    const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-    return `${date.getDate()} ${months[date.getMonth()]}`;
+
+    if (offset === 0) return 'Bugün';
+    if (offset === -1) return 'Dün';
+    if (offset === 1) return 'Yarın';
+
+    return days[date.getDay()];
+  };
+
+  const formatDateNum = (offset) => {
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+    return `${date.getDate()}`;
   };
 
   // Locale detection
@@ -1315,32 +1318,37 @@ const PredictionsScreen = () => {
       {/* DISCLAIMER */}
       <DisclaimerBanner />
 
-      {/* DATE SELECTOR */}
-      <View style={styles.dateSelector}>
+      {/* DATE TABS */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.dateTabsContainer}
+        contentContainerStyle={styles.dateTabsContent}
+      >
         {dateOptions.map((offset) => (
           <TouchableOpacity
             key={offset}
             style={[
-              styles.dateButton,
-              selectedDateOffset === offset && styles.dateButtonActive,
+              styles.dateTab,
+              selectedDateOffset === offset && styles.dateTabActive
             ]}
             onPress={() => handleDateChange(offset)}
           >
             <Text style={[
-              styles.dateButtonLabel,
-              selectedDateOffset === offset && styles.dateButtonLabelActive,
+              styles.dateTabDay,
+              selectedDateOffset === offset && styles.dateTabDayActive
             ]}>
-              {formatDateLabel(offset)}
+              {formatDayShort(offset)}
             </Text>
             <Text style={[
-              styles.dateButtonDate,
-              selectedDateOffset === offset && styles.dateButtonDateActive,
+              styles.dateTabDate,
+              selectedDateOffset === offset && styles.dateTabDateActive
             ]}>
-              {formatShortDate(offset)}
+              {formatDateNum(offset)}
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
       {/* SEARCH BAR */}
       <View style={styles.searchContainer}>
@@ -1546,58 +1554,57 @@ const styles = StyleSheet.create({
 
   // Disclaimer
   disclaimerBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: 'rgba(255, 159, 10, 0.12)',
-    margin: 16,
-    marginBottom: 10,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 159, 10, 0.3)',
-    gap: 12,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
   },
   disclaimerText: {
-    flex: 1,
-    fontSize: 12,
-    lineHeight: 18,
-    color: COLORS.warning,
+    fontSize: 11,
+    color: COLORS.gray500,
+    textAlign: 'center',
   },
 
-  // Date Selector
-  dateSelector: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginBottom: 14,
-    gap: 10,
+  // Date Tabs (Horizontal Scroll)
+  dateTabsContainer: {
+    flexGrow: 0,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    marginBottom: 10,
   },
-  dateButton: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 12,
+  dateTabsContent: {
+    gap: 6,
+    paddingRight: 12,
+  },
+  dateTab: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
     backgroundColor: COLORS.card,
-    borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
+    alignItems: 'center',
+    minWidth: 48,
   },
-  dateButtonActive: {
+  dateTabActive: {
     backgroundColor: COLORS.accentDim,
     borderColor: COLORS.accent,
   },
-  dateButtonLabel: {
-    fontSize: 14,
-    fontWeight: '700',
+  dateTabDay: {
+    fontSize: 10,
+    fontWeight: '600',
     color: COLORS.gray400,
+    marginBottom: 1,
   },
-  dateButtonLabelActive: {
+  dateTabDayActive: {
     color: COLORS.accent,
   },
-  dateButtonDate: {
+  dateTabDate: {
     fontSize: 12,
-    color: COLORS.gray500,
-    marginTop: 3,
+    fontWeight: '700',
+    color: COLORS.white,
   },
-  dateButtonDateActive: {
+  dateTabDateActive: {
     color: COLORS.accent,
   },
 

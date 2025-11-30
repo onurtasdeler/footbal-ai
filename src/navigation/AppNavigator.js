@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
 import { View, Platform, StyleSheet, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -7,6 +7,9 @@ import { Ionicons } from '@expo/vector-icons';
 
 // Theme
 import { COLORS } from '../theme/colors';
+
+// Services
+import { hasCompletedOnboarding } from '../services/cacheService';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // LAZY LOADED SCREENS
@@ -18,6 +21,8 @@ const ProfileScreen = lazy(() => import('../screens/ProfileScreen'));
 const MatchAnalysisScreen = lazy(() => import('../screens/MatchAnalysisScreen'));
 const PredictionsScreen = lazy(() => import('../screens/PredictionsScreen'));
 const PaywallScreen = lazy(() => import('../screens/PaywallScreen'));
+const SplashScreen = lazy(() => import('../screens/SplashScreen'));
+const OnboardingScreen = lazy(() => import('../screens/OnboardingScreen'));
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -52,6 +57,8 @@ const LazyProfileScreen = withSuspense(ProfileScreen);
 const LazyMatchAnalysisScreen = withSuspense(MatchAnalysisScreen);
 const LazyPredictionsScreen = withSuspense(PredictionsScreen);
 const LazyPaywallScreen = withSuspense(PaywallScreen);
+const LazySplashScreen = withSuspense(SplashScreen);
+const LazyOnboardingScreen = withSuspense(OnboardingScreen);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HOME STACK
@@ -187,26 +194,77 @@ const MainTabs = () => (
 // ═══════════════════════════════════════════════════════════════════════════════
 const RootStack = createNativeStackNavigator();
 
-const AppNavigator = () => (
-  <NavigationContainer>
-    <RootStack.Navigator
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: COLORS.bg },
-      }}
-    >
-      <RootStack.Screen name="Main" component={MainTabs} />
-      <RootStack.Screen
-        name="Paywall"
-        component={LazyPaywallScreen}
-        options={{
-          presentation: 'transparentModal',
-          animation: 'fade',
+const AppNavigator = () => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    checkOnboardingStatus();
+  }, []);
+
+  const checkOnboardingStatus = async () => {
+    try {
+      // TEST MODE: Her zaman splash/onboarding göster
+      // Production'da bu satırı kaldır ve alttakini aç
+      setShowOnboarding(true);
+
+      // const completed = await hasCompletedOnboarding();
+      // setShowOnboarding(!completed);
+    } catch (error) {
+      setShowOnboarding(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Show loading while checking onboarding status
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={COLORS.accent} />
+      </View>
+    );
+  }
+
+  return (
+    <NavigationContainer>
+      <RootStack.Navigator
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: COLORS.bg },
         }}
-      />
-    </RootStack.Navigator>
-  </NavigationContainer>
-);
+        initialRouteName={showOnboarding ? 'Splash' : 'Main'}
+      >
+        {/* Splash & Onboarding - Only shown if not completed */}
+        <RootStack.Screen
+          name="Splash"
+          component={LazySplashScreen}
+          options={{
+            animation: 'fade',
+          }}
+        />
+        <RootStack.Screen
+          name="Onboarding"
+          component={LazyOnboardingScreen}
+          options={{
+            animation: 'slide_from_right',
+          }}
+        />
+
+        {/* Main App */}
+        <RootStack.Screen name="Main" component={MainTabs} />
+        <RootStack.Screen
+          name="Paywall"
+          component={LazyPaywallScreen}
+          options={{
+            presentation: 'transparentModal',
+            animation: 'fade',
+          }}
+        />
+      </RootStack.Navigator>
+    </NavigationContainer>
+  );
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // STYLES

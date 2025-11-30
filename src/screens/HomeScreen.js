@@ -11,8 +11,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
-  Modal,
-  Switch,
   TextInput,
   Pressable,
   StatusBar
@@ -55,7 +53,7 @@ const HomeScreen = ({ navigation }) => {
   const searchInputRef = useRef(null);
   const [activeFilter, setActiveFilter] = useState('Tümü');
   const [selectedDateOffset, setSelectedDateOffset] = useState(0);
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  // showDatePicker state kaldırıldı - artık inline date tabs kullanılıyor
   const [userCountry, setUserCountry] = useState(null);
   // sortedLeagues artık useMemo ile hesaplanıyor (aşağıda)
   
@@ -71,7 +69,26 @@ const HomeScreen = ({ navigation }) => {
   const [analyzedMatchIds, setAnalyzedMatchIds] = useState([]);
 
   const filters = ['Tümü', 'Canlı', 'Favoriler', 'Analizler'];
-  const dateOptions = [-1, 0, 1]; // Sadece Dün, Bugün, Yarın
+  const dateOptions = [-1, 0, 1, 2, 3, 4, 5]; // 7 günlük tarih aralığı
+
+  // Date Tab Formatters
+  const formatDayShort = (offset) => {
+    const days = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+
+    if (offset === 0) return 'Bugün';
+    if (offset === -1) return 'Dün';
+    if (offset === 1) return 'Yarın';
+
+    return days[date.getDay()];
+  };
+
+  const formatDateNum = (offset) => {
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+    return `${date.getDate()}`;
+  };
 
   // ─────────────────────────────────────────────────────────────────────────────
   // HELPERS
@@ -308,12 +325,7 @@ const HomeScreen = ({ navigation }) => {
     <View style={styles.screen}>
       {/* HEADER */}
       <View style={[styles.bultenHeader, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity
-          style={styles.headerIconBtn}
-          onPress={() => setShowDatePicker(true)}
-        >
-          <Ionicons name="calendar-outline" size={20} color={COLORS.white} />
-        </TouchableOpacity>
+        <View style={styles.headerIconBtn} />
         <Text style={styles.appTitle}>Goalwise</Text>
         <TouchableOpacity
           style={[styles.proBadge, isPro && styles.proBadgeActive]}
@@ -331,6 +343,38 @@ const HomeScreen = ({ navigation }) => {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Date Tabs */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.dateTabsContainer}
+        contentContainerStyle={styles.dateTabsContent}
+      >
+        {dateOptions.map((offset) => (
+          <TouchableOpacity
+            key={offset}
+            style={[
+              styles.dateTab,
+              selectedDateOffset === offset && styles.dateTabActive
+            ]}
+            onPress={() => handleDateChange(offset)}
+          >
+            <Text style={[
+              styles.dateTabDay,
+              selectedDateOffset === offset && styles.dateTabDayActive
+            ]}>
+              {formatDayShort(offset)}
+            </Text>
+            <Text style={[
+              styles.dateTabDate,
+              selectedDateOffset === offset && styles.dateTabDateActive
+            ]}>
+              {formatDateNum(offset)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
@@ -546,58 +590,6 @@ const HomeScreen = ({ navigation }) => {
         </ScrollView>
       )}
 
-      {/* DATE PICKER BOTTOM SHEET */}
-      <Modal
-        visible={showDatePicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowDatePicker(false)}
-      >
-        <View style={styles.bottomSheetOverlay}>
-          <Pressable
-            style={styles.bottomSheetDismiss}
-            onPress={() => setShowDatePicker(false)}
-          />
-          <View style={styles.bottomSheetContent}>
-            <View style={styles.bottomSheetHandle} />
-            <Text style={styles.bottomSheetTitle}>Tarih Seçin</Text>
-            <View style={styles.dateCardsRow}>
-              {dateOptions.map((offset) => (
-                <TouchableOpacity
-                  key={offset}
-                  style={[
-                    styles.dateCard,
-                    selectedDateOffset === offset && styles.dateCardActive,
-                  ]}
-                  onPress={() => {
-                    handleDateChange(offset);
-                    setShowDatePicker(false);
-                  }}
-                >
-                  <Text style={[
-                    styles.dateCardLabel,
-                    selectedDateOffset === offset && styles.dateCardLabelActive,
-                  ]}>
-                    {formatDateLabel(offset)}
-                  </Text>
-                  <Text style={[
-                    styles.dateCardDate,
-                    selectedDateOffset === offset && styles.dateCardDateActive,
-                  ]}>
-                    {formatShortDate(offset)}
-                  </Text>
-                  {selectedDateOffset === offset && (
-                    <View style={styles.dateCardCheck}>
-                      <Ionicons name="checkmark-circle" size={20} color={COLORS.accent} />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </View>
-      </Modal>
-
     </View>
   );
 };
@@ -660,6 +652,48 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Date Tabs
+  dateTabsContainer: {
+    flexGrow: 0,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    marginBottom: 0,
+  },
+  dateTabsContent: {
+    gap: 6,
+    paddingRight: 12,
+  },
+  dateTab: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    minWidth: 48,
+  },
+  dateTabActive: {
+    backgroundColor: COLORS.accentDim,
+    borderColor: COLORS.accent,
+  },
+  dateTabDay: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.gray400,
+    marginBottom: 1,
+  },
+  dateTabDayActive: {
+    color: COLORS.accent,
+  },
+  dateTabDate: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  dateTabDateActive: {
+    color: COLORS.accent,
   },
   // Search
   searchContainer: {
@@ -915,74 +949,6 @@ const styles = StyleSheet.create({
   favoriteBtn: {
     padding: 8,
     marginLeft: 4,
-  },
-  // Bottom Sheet Modal
-  bottomSheetOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  bottomSheetDismiss: {
-    flex: 1,
-  },
-  bottomSheetContent: {
-    height: '50%',
-    backgroundColor: COLORS.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    alignItems: 'center',
-  },
-  bottomSheetHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: COLORS.gray600,
-    borderRadius: 2,
-    marginBottom: 20,
-  },
-  bottomSheetTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.white,
-    marginBottom: 32,
-  },
-  dateCardsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  dateCard: {
-    width: 100,
-    paddingVertical: 24,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    backgroundColor: COLORS.bg,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  dateCardActive: {
-    backgroundColor: COLORS.accentDim,
-    borderColor: COLORS.accent,
-  },
-  dateCardLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.white,
-    marginBottom: 8,
-  },
-  dateCardLabelActive: {
-    color: COLORS.accent,
-  },
-  dateCardDate: {
-    fontSize: 13,
-    color: COLORS.gray500,
-  },
-  dateCardDateActive: {
-    color: COLORS.accent,
-  },
-  dateCardCheck: {
-    marginTop: 12,
   },
   // Filter Panel
   filterPanelOverlay: {
