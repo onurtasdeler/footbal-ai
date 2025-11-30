@@ -65,7 +65,7 @@ const HomeScreen = ({ onMatchPress }) => {
   const [favoriteMatchIds, setFavoriteMatchIds] = useState([]);
   const [analyzedMatchIds, setAnalyzedMatchIds] = useState([]);
 
-  const filters = ['Tümü', 'Favoriler', 'Analiz Edilenler'];
+  const filters = ['Tümü', 'Favoriler', 'Analizler'];
   const dateOptions = [-3, -2, -1, 0, 1, 2, 3];
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -253,7 +253,7 @@ const HomeScreen = ({ onMatchPress }) => {
     if (activeFilter === 'Favoriler') {
       return filtered.filter(m => favoriteMatchIds.includes(m.id));
     }
-    if (activeFilter === 'Analiz Edilenler') {
+    if (activeFilter === 'Analizler') {
       return filtered.filter(m => analyzedMatchIds.includes(m.id));
     }
 
