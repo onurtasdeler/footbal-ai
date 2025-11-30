@@ -272,34 +272,20 @@ const HomeScreen = ({ onMatchPress }) => {
 
   return (
     <View style={styles.screen}>
-      {/* OLD HEADER DESIGN */}
+      {/* HEADER */}
       <View style={styles.bultenHeader}>
         <View style={styles.bultenHeaderLeft}>
-          <TouchableOpacity style={styles.menuButton}>
-            <Ionicons name="menu" size={24} color={COLORS.white} />
-          </TouchableOpacity>
-          <Text style={styles.bultenTitle}>Bülten</Text>
-        </View>
-        <View style={styles.bultenHeaderRight}>
-          <TouchableOpacity style={styles.headerIconBtn}>
-            <Ionicons name="radio" size={22} color={COLORS.accent} />
-          </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerIconBtn}
             onPress={() => setShowDatePicker(true)}
           >
             <Ionicons name="calendar-outline" size={22} color={COLORS.white} />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.headerIconBtn}
-            onPress={() => setShowFilterPanel(true)}
-          >
-            <Ionicons name="options-outline" size={22} color={COLORS.white} />
-            {(hideFinished || onlyNotStarted || onlyDraws || selectedLeagues.length > 0) && (
-              <View style={[styles.notificationBadge, { backgroundColor: COLORS.accent }]}>
-                <Ionicons name="checkmark" size={10} color={COLORS.white} />
-              </View>
-            )}
+          <Text style={styles.bultenTitle}>Bülten</Text>
+        </View>
+        <View style={styles.bultenHeaderRight}>
+          <TouchableOpacity style={styles.headerIconBtn}>
+            <Ionicons name="trophy" size={22} color="#F4B43A" />
           </TouchableOpacity>
         </View>
       </View>
@@ -335,29 +321,6 @@ const HomeScreen = ({ onMatchPress }) => {
             </TouchableOpacity>
           )}
         </Pressable>
-      </View>
-
-      {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
-        {filters.map((filter) => (
-          <TouchableOpacity
-            key={filter}
-            style={[
-              styles.filterTab,
-              activeFilter === filter && styles.filterTabActive,
-            ]}
-            onPress={() => setActiveFilter(filter)}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                activeFilter === filter && styles.filterTextActive,
-              ]}
-            >
-              {filter}
-            </Text>
-          </TouchableOpacity>
-        ))}
       </View>
 
       {loading ? (
@@ -548,59 +511,6 @@ const HomeScreen = ({ onMatchPress }) => {
         </TouchableOpacity>
       </Modal>
 
-      {/* Filter Panel Modal */}
-      <Modal
-        visible={showFilterPanel}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowFilterPanel(false)}
-      >
-        <View style={styles.filterPanelOverlay}>
-          <TouchableOpacity
-            style={styles.filterPanelDismiss}
-            activeOpacity={1}
-            onPress={() => setShowFilterPanel(false)}
-          />
-          <View style={styles.filterPanelContent}>
-             <View style={styles.filterPanelHeader}>
-              <Text style={styles.filterPanelTitle}>Filtreler</Text>
-              <TouchableOpacity onPress={() => setShowFilterPanel(false)}>
-                <Ionicons name="close" size={24} color={COLORS.gray500} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.filterPanelBody}>
-               <View style={styles.filterRow}>
-                  <Text style={styles.filterLabel}>Biten Maçları Gizle</Text>
-                  <Switch
-                    value={hideFinished}
-                    onValueChange={setHideFinished}
-                    trackColor={{ false: COLORS.gray700, true: COLORS.accentDim }}
-                    thumbColor={hideFinished ? COLORS.accent : COLORS.gray500}
-                  />
-                </View>
-                <View style={styles.filterRow}>
-                  <Text style={styles.filterLabel}>Sadece Başlamamış</Text>
-                  <Switch
-                    value={onlyNotStarted}
-                    onValueChange={setOnlyNotStarted}
-                    trackColor={{ false: COLORS.gray700, true: COLORS.accentDim }}
-                    thumbColor={onlyNotStarted ? COLORS.accent : COLORS.gray500}
-                  />
-                </View>
-                <View style={styles.filterRow}>
-                   <Text style={styles.filterLabel}>Sadece Beraberlik</Text>
-                   <Switch
-                    value={onlyDraws}
-                    onValueChange={setOnlyDraws}
-                    trackColor={{ false: COLORS.gray700, true: COLORS.accentDim }}
-                    thumbColor={onlyDraws ? COLORS.accent : COLORS.gray500}
-                  />
-                </View>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };
