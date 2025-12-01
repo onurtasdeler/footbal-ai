@@ -1082,6 +1082,7 @@ const PredictionsScreen = () => {
   // Rate Limit State
   const [rateLimitError, setRateLimitError] = useState(null);
   const [showRateLimitPaywall, setShowRateLimitPaywall] = useState(false);
+  const [showProPaywall, setShowProPaywall] = useState(false);
   const [showRateLimitInfo, setShowRateLimitInfo] = useState(false);
 
   const dateOptions = [-1, 0, 1, 2, 3, 4, 5]; // 7 günlük tarih aralığı
@@ -1257,6 +1258,12 @@ const PredictionsScreen = () => {
 
   // Handle prediction request
   const handleGetPrediction = async (match) => {
+    // PRO check - show paywall if not subscribed
+    if (!isPro) {
+      setShowProPaywall(true);
+      return;
+    }
+
     setSelectedMatch(match);
     setShowPredictionPage(true);
     setPredictionLoading(true);
@@ -1297,20 +1304,6 @@ const PredictionsScreen = () => {
       setCurrentPredictions(null);
     }, 300); // Animasyon bitmesini bekle
   };
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // PRO CHECK - Tüm hooks'lardan sonra
-  // ─────────────────────────────────────────────────────────────────────────────
-  if (!isPro) {
-    return (
-      <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
-        <PaywallScreen
-          visible={true}
-          onClose={() => {}}
-        />
-      </View>
-    );
-  }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -1560,6 +1553,16 @@ const PredictionsScreen = () => {
           visible={showRateLimitPaywall}
           onClose={() => {
             setShowRateLimitPaywall(false);
+          }}
+        />
+      )}
+
+      {/* PRO PAYWALL - Tahmin detayına tıklandığında */}
+      {showProPaywall && (
+        <PaywallScreen
+          visible={showProPaywall}
+          onClose={() => {
+            setShowProPaywall(false);
           }}
         />
       )}
