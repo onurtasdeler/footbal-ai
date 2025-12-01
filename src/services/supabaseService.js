@@ -330,7 +330,7 @@ export const getFixturesCache = async (date = null) => {
       fixture_count: data.fixture_count,
     };
   } catch (error) {
-    console.error('[SupabaseCache] getFixturesCache error:', error);
+    __DEV__ && console.error('[SupabaseCache] getFixturesCache error:', error);
     return null;
   }
 };
@@ -362,7 +362,7 @@ export const getStandingsCache = async (leagueId, season = null) => {
       updated_at: data.updated_at,
     };
   } catch (error) {
-    console.error('[SupabaseCache] getStandingsCache error:', error);
+    __DEV__ && console.error('[SupabaseCache] getStandingsCache error:', error);
     return null;
   }
 };
@@ -395,7 +395,7 @@ export const getLeaguesCache = async () => {
       count: data.length,
     };
   } catch (error) {
-    console.error('[SupabaseCache] getLeaguesCache error:', error);
+    __DEV__ && console.error('[SupabaseCache] getLeaguesCache error:', error);
     return null;
   }
 };
@@ -423,7 +423,7 @@ export const getTeamCache = async (teamId) => {
       updated_at: data.updated_at,
     };
   } catch (error) {
-    console.error('[SupabaseCache] getTeamCache error:', error);
+    __DEV__ && console.error('[SupabaseCache] getTeamCache error:', error);
     return null;
   }
 };
@@ -454,7 +454,7 @@ export const getMultipleTeamsCache = async (teamIds) => {
 
     return result;
   } catch (error) {
-    console.error('[SupabaseCache] getMultipleTeamsCache error:', error);
+    __DEV__ && console.error('[SupabaseCache] getMultipleTeamsCache error:', error);
     return {};
   }
 };
@@ -486,7 +486,7 @@ export const getInjuriesCache = async (leagueId, season = null) => {
       updated_at: data.updated_at,
     };
   } catch (error) {
-    console.error('[SupabaseCache] getInjuriesCache error:', error);
+    __DEV__ && console.error('[SupabaseCache] getInjuriesCache error:', error);
     return null;
   }
 };
@@ -517,7 +517,7 @@ export const getSyncLogs = async (syncType = null, limit = 10) => {
 
     return data || [];
   } catch (error) {
-    console.error('[SupabaseCache] getSyncLogs error:', error);
+    __DEV__ && console.error('[SupabaseCache] getSyncLogs error:', error);
     return [];
   }
 };

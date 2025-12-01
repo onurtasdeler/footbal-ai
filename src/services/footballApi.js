@@ -177,11 +177,11 @@ export const getTodayFixtures = async (timezone = 'Europe/Istanbul') => {
   try {
     const cached = await getFixturesCache(today);
     if (cached && !cached.is_stale && cached.data.length > 0) {
-      console.log(`[FootballAPI] Supabase cache hit for fixtures: ${today}`);
+      __DEV__ && console.log(`[FootballAPI] Supabase cache hit for fixtures: ${today}`);
       return cached.data;
     }
   } catch (e) {
-    console.warn('[FootballAPI] Supabase cache failed, falling back to API:', e.message);
+    __DEV__ && console.warn('[FootballAPI] Supabase cache failed, falling back to API:', e.message);
   }
 
   // 2. Fallback to direct API call (Edge Function)
@@ -212,11 +212,11 @@ export const getFixturesByDate = async (date, timezone = 'Europe/Istanbul') => {
   try {
     const cached = await getFixturesCache(date);
     if (cached && !cached.is_stale && cached.data.length > 0) {
-      console.log(`[FootballAPI] Supabase cache hit for fixtures: ${date}`);
+      __DEV__ && console.log(`[FootballAPI] Supabase cache hit for fixtures: ${date}`);
       return cached.data;
     }
   } catch (e) {
-    console.warn('[FootballAPI] Supabase cache failed, falling back to API:', e.message);
+    __DEV__ && console.warn('[FootballAPI] Supabase cache failed, falling back to API:', e.message);
   }
 
   // 2. Fallback to direct API call (Edge Function)
@@ -328,11 +328,11 @@ export const getLeagues = async (options = {}) => {
     try {
       const cached = await getLeaguesCache();
       if (cached && !cached.is_stale && cached.data.length > 0) {
-        console.log(`[FootballAPI] Supabase cache hit for leagues: ${cached.count} leagues`);
+        __DEV__ && console.log(`[FootballAPI] Supabase cache hit for leagues: ${cached.count} leagues`);
         return cached.data;
       }
     } catch (e) {
-      console.warn('[FootballAPI] Supabase cache failed, falling back to API:', e.message);
+      __DEV__ && console.warn('[FootballAPI] Supabase cache failed, falling back to API:', e.message);
     }
   }
 
@@ -370,12 +370,12 @@ export const getStandings = async (leagueId, season) => {
   try {
     const cached = await getStandingsCache(leagueId, season);
     if (cached && !cached.is_stale && cached.data) {
-      console.log(`[FootballAPI] Supabase cache hit for standings: league ${leagueId}`);
+      __DEV__ && console.log(`[FootballAPI] Supabase cache hit for standings: league ${leagueId}`);
       // Return as array to match API response format
       return [cached.data];
     }
   } catch (e) {
-    console.warn('[FootballAPI] Supabase cache failed, falling back to API:', e.message);
+    __DEV__ && console.warn('[FootballAPI] Supabase cache failed, falling back to API:', e.message);
   }
 
   // 2. Fallback to direct API call (Edge Function)
@@ -398,12 +398,12 @@ export const getTeamInfo = async (teamId) => {
   try {
     const cached = await getTeamCache(teamId);
     if (cached && !cached.is_stale && cached.data) {
-      console.log(`[FootballAPI] Supabase cache hit for team: ${teamId}`);
+      __DEV__ && console.log(`[FootballAPI] Supabase cache hit for team: ${teamId}`);
       // Return as array to match API response format
       return [cached.data];
     }
   } catch (e) {
-    console.warn('[FootballAPI] Supabase cache failed, falling back to API:', e.message);
+    __DEV__ && console.warn('[FootballAPI] Supabase cache failed, falling back to API:', e.message);
   }
 
   // 2. Fallback to direct API call (Edge Function)
@@ -502,11 +502,11 @@ export const getInjuries = async (leagueId, season) => {
   try {
     const cached = await getInjuriesCache(leagueId, season);
     if (cached && !cached.is_stale && cached.data) {
-      console.log(`[FootballAPI] Supabase cache hit for injuries: league ${leagueId}`);
+      __DEV__ && console.log(`[FootballAPI] Supabase cache hit for injuries: league ${leagueId}`);
       return cached.data;
     }
   } catch (e) {
-    console.warn('[FootballAPI] Supabase cache failed, falling back to API:', e.message);
+    __DEV__ && console.warn('[FootballAPI] Supabase cache failed, falling back to API:', e.message);
   }
 
   // 2. Fallback to direct API call (Edge Function)

@@ -14,7 +14,7 @@ try {
   analytics = require('@react-native-firebase/analytics').default;
   isFirebaseAvailable = true;
 } catch (error) {
-  console.log('[Analytics] Firebase not available, using mock mode');
+  __DEV__ && console.log('[Analytics] Firebase not available, using mock mode');
 }
 
 // Helper to log or mock
@@ -23,7 +23,7 @@ const logEvent = async (eventName, params = {}) => {
     try {
       await analytics().logEvent(eventName, params);
     } catch (error) {
-      console.warn(`[Analytics] Error logging ${eventName}:`, error.message);
+      __DEV__ && console.warn(`[Analytics] Error logging ${eventName}:`, error.message);
     }
   } else {
     // Mock mode - log to console in development
@@ -42,7 +42,7 @@ export const logScreenView = async (screenName, screenClass) => {
         screen_class: screenClass || screenName,
       });
     } catch (error) {
-      console.warn('[Analytics] Screen view error:', error.message);
+      __DEV__ && console.warn('[Analytics] Screen view error:', error.message);
     }
   } else if (__DEV__) {
     console.log(`[Analytics Mock] Screen: ${screenName}`);
@@ -104,7 +104,7 @@ export const logSearch = async (searchTerm) => {
         search_term: searchTerm,
       });
     } catch (error) {
-      console.warn('[Analytics] Search error:', error.message);
+      __DEV__ && console.warn('[Analytics] Search error:', error.message);
     }
   } else if (__DEV__) {
     console.log(`[Analytics Mock] Search: ${searchTerm}`);
@@ -139,7 +139,7 @@ export const logAppOpen = async () => {
     try {
       await analytics().logAppOpen();
     } catch (error) {
-      console.warn('[Analytics] App open error:', error.message);
+      __DEV__ && console.warn('[Analytics] App open error:', error.message);
     }
   } else if (__DEV__) {
     console.log('[Analytics Mock] App opened');
@@ -152,7 +152,7 @@ export const setUserProperty = async (name, value) => {
     try {
       await analytics().setUserProperty(name, value);
     } catch (error) {
-      console.warn('[Analytics] Set user property error:', error.message);
+      __DEV__ && console.warn('[Analytics] Set user property error:', error.message);
     }
   } else if (__DEV__) {
     console.log(`[Analytics Mock] User property: ${name}=${value}`);
@@ -165,7 +165,7 @@ export const setUserId = async (userId) => {
     try {
       await analytics().setUserId(userId);
     } catch (error) {
-      console.warn('[Analytics] Set user id error:', error.message);
+      __DEV__ && console.warn('[Analytics] Set user id error:', error.message);
     }
   } else if (__DEV__) {
     console.log(`[Analytics Mock] User ID: ${userId}`);
