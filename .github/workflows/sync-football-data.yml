@@ -1,0 +1,194 @@
+# =====================================================
+# Sync Football Data - Scheduled Workflow
+# Calls Supabase Edge Function to sync API-Football data
+# =====================================================
+
+name: Sync Football Data
+
+on:
+  schedule:
+    # Her saat başı fixtures sync (UTC)
+    - cron: '0 * * * *'
+    # Her 6 saatte standings sync (UTC: 00, 06, 12, 18)
+    - cron: '0 */6 * * *'
+    # Gece 00:00 UTC'de leagues sync (Türkiye 03:00)
+    - cron: '0 0 * * *'
+    # Her 2 saatte injuries sync
+    - cron: '0 */2 * * *'
+
+  # Manuel tetikleme için
+  workflow_dispatch:
+    inputs:
+      sync_type:
+        description: 'Sync type to run'
+        required: true
+        default: 'fixtures'
+        type: choice
+        options:
+          - fixtures
+          - standings
+          - leagues
+          - teams
+          - injuries
+          - all
+
+jobs:
+  sync-fixtures:
+    # Sadece saatlik cron veya manuel fixtures seçimi
+    if: github.event.schedule == '0 * * * *' || (github.event_name == 'workflow_dispatch' && github.event.inputs.sync_type == 'fixtures')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync Fixtures
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            '${{ secrets.SUPABASE_URL }}/functions/v1/sync-football-data' \
+            -H 'Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}' \
+            -H 'Content-Type: application/json' \
+            -d '{"type": "fixtures"}')
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Fixtures sync failed with status $http_code"
+            exit 1
+          fi
+
+  sync-standings:
+    # Her 6 saatte veya manuel standings seçimi
+    if: github.event.schedule == '0 */6 * * *' || (github.event_name == 'workflow_dispatch' && github.event.inputs.sync_type == 'standings')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync Standings
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            '${{ secrets.SUPABASE_URL }}/functions/v1/sync-football-data' \
+            -H 'Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}' \
+            -H 'Content-Type: application/json' \
+            -d '{"type": "standings"}')
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Standings sync failed with status $http_code"
+            exit 1
+          fi
+
+  sync-leagues:
+    # Günde 1 kez veya manuel leagues seçimi
+    if: github.event.schedule == '0 0 * * *' || (github.event_name == 'workflow_dispatch' && github.event.inputs.sync_type == 'leagues')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync Leagues
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            '${{ secrets.SUPABASE_URL }}/functions/v1/sync-football-data' \
+            -H 'Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}' \
+            -H 'Content-Type: application/json' \
+            -d '{"type": "leagues"}')
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Leagues sync failed with status $http_code"
+            exit 1
+          fi
+
+      - name: Sync Teams (after leagues)
+        run: |
+          # Teams sync leagues sync sonrası
+          sleep 5
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            '${{ secrets.SUPABASE_URL }}/functions/v1/sync-football-data' \
+            -H 'Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}' \
+            -H 'Content-Type: application/json' \
+            -d '{"type": "teams"}')
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+  sync-injuries:
+    # Her 2 saatte veya manuel injuries seçimi
+    if: github.event.schedule == '0 */2 * * *' || (github.event_name == 'workflow_dispatch' && github.event.inputs.sync_type == 'injuries')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync Injuries
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            '${{ secrets.SUPABASE_URL }}/functions/v1/sync-football-data' \
+            -H 'Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}' \
+            -H 'Content-Type: application/json' \
+            -d '{"type": "injuries"}')
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Injuries sync failed with status $http_code"
+            exit 1
+          fi
+
+  sync-all:
+    # Sadece manuel "all" seçimi
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.sync_type == 'all'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync All Data
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            '${{ secrets.SUPABASE_URL }}/functions/v1/sync-football-data' \
+            -H 'Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}' \
+            -H 'Content-Type: application/json' \
+            -d '{"type": "all"}')
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Full sync failed with status $http_code"
+            exit 1
+          fi
+
+  sync-teams-manual:
+    # Sadece manuel teams seçimi
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.sync_type == 'teams'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync Teams
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            '${{ secrets.SUPABASE_URL }}/functions/v1/sync-football-data' \
+            -H 'Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}' \
+            -H 'Content-Type: application/json' \
+            -d '{"type": "teams"}')
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Teams sync failed with status $http_code"
+            exit 1
+          fi
