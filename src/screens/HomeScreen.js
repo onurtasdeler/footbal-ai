@@ -333,16 +333,12 @@ const HomeScreen = ({ navigation }) => {
       <View style={[styles.bultenHeader, { paddingTop: insets.top + 8 }]}>
         <View style={styles.headerIconBtn} />
         <Text style={styles.appTitle}>Goalwise</Text>
-        {/* PRO badge - only show for non-subscribers */}
-        {!isPro ? (
-          <TouchableOpacity
-            style={styles.proBadge}
-            onPress={() => navigation.navigate('Paywall')}
-            activeOpacity={0.7}
-          >
+        {/* PRO badge - only show for PRO subscribers */}
+        {isPro ? (
+          <View style={styles.proBadge}>
             <Ionicons name="trophy" size={16} color="#F4B43A" />
             <Text style={styles.proText}>PRO</Text>
-          </TouchableOpacity>
+          </View>
         ) : (
           <View style={styles.headerIconBtn} />
         )}

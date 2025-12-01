@@ -204,12 +204,9 @@ const AppNavigator = () => {
 
   const checkOnboardingStatus = async () => {
     try {
-      // TEST MODE: Her zaman splash/onboarding göster
-      // Production'da bu satırı kaldır ve alttakini aç
-      setShowOnboarding(true);
-
-      // const completed = await hasCompletedOnboarding();
-      // setShowOnboarding(!completed);
+      // Production: Check if user has completed onboarding
+      const completed = await hasCompletedOnboarding();
+      setShowOnboarding(!completed);
     } catch (error) {
       setShowOnboarding(false);
     } finally {

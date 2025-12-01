@@ -7,6 +7,11 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0e13"
+    },
     "extra": {
       "revenueCatApiKey": "test_GClyPBcnkdxiPCUwdJUxmnpDHgH"
     },
