@@ -9,10 +9,10 @@
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "extra": {
+      "revenueCatApiKey": "test_GClyPBcnkdxiPCUwdJUxmnpDHgH",
       "eas": {
-        "projectId": "goalwise"
-      },
-      "revenueCatApiKey": "test_GClyPBcnkdxiPCUwdJUxmnpDHgH"
+        "projectId": "d43bf147-1caf-4d73-a3e6-d07be6e6c13f"
+      }
     },
     "ios": {
       "supportsTablet": true,
