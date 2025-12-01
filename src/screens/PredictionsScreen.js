@@ -1301,17 +1301,16 @@ const PredictionsScreen = () => {
   // ─────────────────────────────────────────────────────────────────────────────
   // PRO CHECK - Tüm hooks'lardan sonra
   // ─────────────────────────────────────────────────────────────────────────────
-  // TODO: Test sonrası geri aç
-  // if (!isPro) {
-  //   return (
-  //     <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
-  //       <PaywallScreen
-  //         visible={true}
-  //         onClose={() => {}}
-  //       />
-  //     </View>
-  //   );
-  // }
+  if (!isPro) {
+    return (
+      <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
+        <PaywallScreen
+          visible={true}
+          onClose={() => {}}
+        />
+      </View>
+    );
+  }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER

@@ -1134,15 +1134,14 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
   // ─────────────────────────────────────────────────────────────────────────────
   // PRO CHECK - Tüm hooks'lardan sonra
   // ─────────────────────────────────────────────────────────────────────────────
-  // TODO: Test sonrası geri aç
-  // if (!isPro) {
-  //   return (
-  //     <PaywallScreen
-  //       visible={true}
-  //       onClose={() => navigation.goBack()}
-  //     />
-  //   );
-  // }
+  if (!isPro) {
+    return (
+      <PaywallScreen
+        visible={true}
+        onClose={() => navigation.goBack()}
+      />
+    );
+  }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER HEADER

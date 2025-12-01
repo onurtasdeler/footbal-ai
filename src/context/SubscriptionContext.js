@@ -17,7 +17,7 @@ import RevenueCat, {
 
 // DEV MODE: Set to true to bypass PRO check in Expo Go for testing
 // Set to false to test paywall flow in Expo Go
-const DEV_MODE_PRO_BYPASS = false; // TODO: Test sonrası true yap
+const DEV_MODE_PRO_BYPASS = false; // Production: false | Test: true
 
 const SubscriptionContext = createContext(null);
 
