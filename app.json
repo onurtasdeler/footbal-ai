@@ -2,12 +2,16 @@
   "expo": {
     "name": "Goalwise",
     "slug": "goalwise",
+    "owner": "goalwin",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "extra": {
+      "eas": {
+        "projectId": "goalwise"
+      },
       "revenueCatApiKey": "test_GClyPBcnkdxiPCUwdJUxmnpDHgH"
     },
     "ios": {
