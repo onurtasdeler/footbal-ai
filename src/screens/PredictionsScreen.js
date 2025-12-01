@@ -27,10 +27,12 @@ import * as Localization from 'expo-localization';
 import footballApi from '../services/footballApi';
 import { getBettingPredictions, getCachedMatchIds, cleanOldPredictionCache } from '../services/bettingPredictions';
 import { RISK_LEVELS, BETTING_CATEGORIES } from '../data/bettingTypes';
-import supabaseService from '../services/supabaseService';
+// supabaseService removed - Edge Function handles caching
 import { COLORS } from '../theme/colors';
 import { useSubscription } from '../context/SubscriptionContext';
 import PaywallScreen from './PaywallScreen';
+import { t } from '../i18n';
+import { PredictionLoadingAnimation } from '../components/loading';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -83,7 +85,7 @@ const CircularProgress = ({ percentage, size = 56, color }) => {
 const DisclaimerBanner = () => (
   <View style={styles.disclaimerBanner}>
     <Text style={styles.disclaimerText}>
-      AI tahminleri eğlence amaçlıdır, finansal tavsiye değildir.
+      {t('predictions.disclaimerBanner')}
     </Text>
   </View>
 );
@@ -221,15 +223,15 @@ const getPlayerPosition = (formation, playerIndex) => {
 // PREDICTION DETAIL PAGE (iddaa Oran Analizi Tarzı Framework)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Tab Types
-const DETAIL_TABS = [
-  { id: 'tahminler', label: 'Tahminler', icon: 'analytics' },
-  { id: 'analiz', label: 'Analiz', icon: 'stats-chart' },
-  { id: 'istatistik', label: 'İstatistik', icon: 'bar-chart' },
-  { id: 'kadro', label: 'Kadro', icon: 'people' },
-  { id: 'h2h', label: 'H2H', icon: 'swap-horizontal' },
-  { id: 'kartkorner', label: 'Kart/Korner', icon: 'card' },
-  { id: 'sakatlık', label: 'Sakat/Cezalı', icon: 'medkit' },
+// Tab Types - Dynamic function for i18n support
+const getDetailTabs = () => [
+  { id: 'tahminler', label: t('predictions.tabs.predictions'), icon: 'analytics' },
+  { id: 'analiz', label: t('predictions.tabs.analysis'), icon: 'stats-chart' },
+  { id: 'istatistik', label: t('predictions.tabs.statistics'), icon: 'bar-chart' },
+  { id: 'kadro', label: t('predictions.tabs.lineup'), icon: 'people' },
+  { id: 'h2h', label: t('predictions.tabs.h2h'), icon: 'swap-horizontal' },
+  { id: 'kartkorner', label: t('predictions.tabs.cardCorner'), icon: 'card' },
+  { id: 'sakatlık', label: t('predictions.tabs.injuries'), icon: 'medkit' },
 ];
 
 // Odds-style Grid Card
@@ -416,7 +418,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
             <Image source={{ uri: match.league.flag || match.league.logo }} style={styles.headerLeagueLogo} />
           )}
           <Text style={styles.headerLeagueName} numberOfLines={1}>
-            {match?.league?.name || 'Maç Tahmini'}
+            {match?.league?.name || t('predictions.matchPrediction')}
           </Text>
         </View>
         <TouchableOpacity style={styles.headerInfoBtn} onPress={() => setShowInfoModal(true)}>
@@ -441,7 +443,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
               <Image source={{ uri: match.home.logo }} style={styles.heroTeamLogo} resizeMode="contain" />
             )}
             <Text style={styles.heroTeamName} numberOfLines={1}>
-              {match?.home?.short || match?.home?.name?.substring(0, 3).toUpperCase() || 'EV'}
+              {match?.home?.short || match?.home?.name?.substring(0, 3).toUpperCase() || t('predictions.home')}
             </Text>
           </View>
 
@@ -450,7 +452,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
             <Text style={styles.heroTime}>{match?.time}</Text>
             <View style={styles.heroAIBadge}>
               <Ionicons name="sparkles" size={12} color={COLORS.accent} />
-              <Text style={styles.heroAIText}>AI Tahmin</Text>
+              <Text style={styles.heroAIText}>{t('predictions.aiPrediction')}</Text>
             </View>
           </View>
 
@@ -460,7 +462,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
               <Image source={{ uri: match.away.logo }} style={styles.heroTeamLogo} resizeMode="contain" />
             )}
             <Text style={styles.heroTeamName} numberOfLines={1}>
-              {match?.away?.short || match?.away?.name?.substring(0, 3).toUpperCase() || 'DEP'}
+              {match?.away?.short || match?.away?.name?.substring(0, 3).toUpperCase() || t('predictions.away')}
             </Text>
           </View>
         </ImageBackground>
@@ -469,7 +471,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
       {/* Tab Navigation - Below Pitch */}
       <View style={styles.tabNavigation}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScrollContent}>
-          {DETAIL_TABS.map((tab) => (
+          {getDetailTabs().map((tab) => (
             <TouchableOpacity
               key={tab.id}
               style={[styles.tabButton, activeTab === tab.id && styles.tabButtonActive]}
@@ -491,10 +493,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
 
       {/* Content */}
       {loading ? (
-        <View style={styles.detailLoadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
-          <Text style={styles.detailLoadingText}>Tahminler hesaplanıyor...</Text>
-        </View>
+        <PredictionLoadingAnimation compact />
       ) : predictions ? (
         <ScrollView
           style={styles.detailScrollView}
@@ -509,7 +508,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
                 <View style={styles.topPickCompact}>
                   <View style={styles.topPickCompactHeader}>
                     <Ionicons name="star" size={14} color={COLORS.warning} />
-                    <Text style={styles.topPickCompactLabel}>En İyi:</Text>
+                    <Text style={styles.topPickCompactLabel}>{t('predictions.topPick')}</Text>
                     <Text style={styles.topPickCompactValue}>{predictions.topPick.betName}</Text>
                     <Text style={styles.topPickCompactConf}>%{predictions.topPick.confidence}</Text>
                   </View>
@@ -517,7 +516,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
               )}
 
               {/* Odds Grid */}
-              <SectionHeaderWithInfo title="Bahis Tahminleri" onInfoPress={() => setShowInfoModal(true)} />
+              <SectionHeaderWithInfo title={t('predictions.sections.bettingPredictions')} onInfoPress={() => setShowInfoModal(true)} />
               <View style={styles.oddsGrid}>
                 {predictions.predictions?.slice(0, 6).map((pred, idx) => (
                   <OddsGridCard key={idx} prediction={pred} isHighlighted={idx === 0} />
@@ -527,7 +526,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
               {/* Remaining predictions if more than 6 */}
               {predictions.predictions?.length > 6 && (
                 <>
-                  <SectionHeaderWithInfo title="Diğer Tahminler" onInfoPress={() => setShowInfoModal(true)} />
+                  <SectionHeaderWithInfo title={t('predictions.sections.otherPredictions')} onInfoPress={() => setShowInfoModal(true)} />
                   <View style={styles.oddsGrid}>
                     {predictions.predictions?.slice(6).map((pred, idx) => (
                       <OddsGridCard key={idx + 6} prediction={pred} isHighlighted={false} />
@@ -539,7 +538,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
               {/* Tahmin Detayları - Individual prediction reasonings */}
               {predictions.predictions?.some(p => p.reasoning) && (
                 <>
-                  <SectionHeaderWithInfo title="Tahmin Detayları" onInfoPress={() => setShowInfoModal(true)} />
+                  <SectionHeaderWithInfo title={t('predictions.sections.predictionDetails')} onInfoPress={() => setShowInfoModal(true)} />
                   {predictions.predictions?.filter(p => p.reasoning).map((pred, idx) => (
                     <View key={idx} style={styles.reasoningItem}>
                       <View style={styles.reasoningItemHeader}>
@@ -557,9 +556,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
               {/* Explanation Text */}
               <View style={styles.explanationBox}>
                 <Text style={styles.explanationText}>
-                  Bu bölümde gördüğünüz tahminler, yapay zeka analizi ile hazırlanmıştır.
-                  Sadece eğlence amaçlı bilgi sunmak amacıyla hazırlanmıştır ve herhangi bir
-                  bahis tavsiyesi içermemektedir.
+                  {t('predictions.predictionExplanation')}
                 </Text>
               </View>
             </>
@@ -568,7 +565,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
           {/* TAB: Analiz */}
           {activeTab === 'analiz' && (
             <>
-              <SectionHeaderWithInfo title="AI Maç Analizi" onInfoPress={() => setShowInfoModal(true)} />
+              <SectionHeaderWithInfo title={t('predictions.sections.aiMatchAnalysis')} onInfoPress={() => setShowInfoModal(true)} />
 
               {predictions.summary && (
                 <View style={styles.analysisBox}>
@@ -580,7 +577,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
                 <View style={styles.analysisBox}>
                   <View style={styles.analysisBoxHeader}>
                     <Ionicons name="bulb" size={16} color={COLORS.warning} />
-                    <Text style={styles.analysisBoxTitle}>Öne Çıkan Tahmin Analizi</Text>
+                    <Text style={styles.analysisBoxTitle}>{t('predictions.featuredPrediction')}</Text>
                   </View>
                   <Text style={styles.analysisText}>{predictions.topPick.reasoning}</Text>
                 </View>
@@ -598,37 +595,37 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
           {/* TAB: İstatistik */}
           {activeTab === 'istatistik' && stats && (
             <>
-              <SectionHeaderWithInfo title="Tahmin İstatistikleri" onInfoPress={() => setShowInfoModal(true)} />
+              <SectionHeaderWithInfo title={t('predictions.sections.predictionStats')} onInfoPress={() => setShowInfoModal(true)} />
 
               <View style={styles.statsOverview}>
                 <View style={styles.statsOverviewItem}>
                   <Text style={styles.statsOverviewValue}>{stats.total}</Text>
-                  <Text style={styles.statsOverviewLabel}>Toplam Tahmin</Text>
+                  <Text style={styles.statsOverviewLabel}>{t('predictions.stats.totalPredictions')}</Text>
                 </View>
                 <View style={styles.statsOverviewItem}>
                   <Text style={[styles.statsOverviewValue, { color: COLORS.accent }]}>%{stats.avgConf}</Text>
-                  <Text style={styles.statsOverviewLabel}>Ort. Güven</Text>
+                  <Text style={styles.statsOverviewLabel}>{t('predictions.confidence')}</Text>
                 </View>
               </View>
 
               <View style={styles.explanationBox}>
-                <Text style={styles.explanationTitle}>Güven Seviyesi Dağılımı:</Text>
+                <Text style={styles.explanationTitle}>{t('predictions.confidenceDistribution')}</Text>
                 <Text style={styles.explanationText}>
-                  Bu maç için toplam {stats.total} tahmin üretildi. Bu tahminler aşağıdaki gibi sonuçlanmıştır.
+                  {t('predictions.confidenceDistributionText').replace('{count}', stats.total)}
                 </Text>
               </View>
 
               <View style={styles.statsList}>
-                <StatListItem label="Yüksek Güven (≥70%)" percentage={Math.round(stats.highConf / stats.total * 100)} count={stats.highConf} />
-                <StatListItem label="Orta Güven (50-69%)" percentage={Math.round(stats.medConf / stats.total * 100)} count={stats.medConf} />
-                <StatListItem label="Düşük Güven (<50%)" percentage={Math.round(stats.lowConf / stats.total * 100)} count={stats.lowConf} />
+                <StatListItem label={t('predictions.stats.highConfidence')} percentage={Math.round(stats.highConf / stats.total * 100)} count={stats.highConf} />
+                <StatListItem label={t('predictions.stats.mediumConfidence')} percentage={Math.round(stats.medConf / stats.total * 100)} count={stats.medConf} />
+                <StatListItem label={t('predictions.stats.lowConfidence')} percentage={Math.round(stats.lowConf / stats.total * 100)} count={stats.lowConf} />
               </View>
 
-              <SectionHeaderWithInfo title="Risk Dağılımı" onInfoPress={() => setShowInfoModal(true)} />
+              <SectionHeaderWithInfo title={t('predictions.sections.riskDistribution')} onInfoPress={() => setShowInfoModal(true)} />
               <View style={styles.statsList}>
-                <StatListItem label="Düşük Risk" percentage={Math.round(stats.riskCounts.dusuk / stats.total * 100)} count={stats.riskCounts.dusuk} />
-                <StatListItem label="Orta Risk" percentage={Math.round(stats.riskCounts.orta / stats.total * 100)} count={stats.riskCounts.orta} />
-                <StatListItem label="Yüksek Risk" percentage={Math.round((stats.riskCounts.yuksek + stats.riskCounts.cok_yuksek) / stats.total * 100)} count={stats.riskCounts.yuksek + stats.riskCounts.cok_yuksek} />
+                <StatListItem label={t('predictions.stats.lowRisk')} percentage={Math.round(stats.riskCounts.dusuk / stats.total * 100)} count={stats.riskCounts.dusuk} />
+                <StatListItem label={t('predictions.stats.mediumRisk')} percentage={Math.round(stats.riskCounts.orta / stats.total * 100)} count={stats.riskCounts.orta} />
+                <StatListItem label={t('predictions.stats.highRisk')} percentage={Math.round((stats.riskCounts.yuksek + stats.riskCounts.cok_yuksek) / stats.total * 100)} count={stats.riskCounts.yuksek + stats.riskCounts.cok_yuksek} />
               </View>
             </>
           )}
@@ -639,7 +636,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
               {tabLoading.kadro ? (
                 <View style={styles.tabLoadingContainer}>
                   <ActivityIndicator size="large" color={COLORS.accent} />
-                  <Text style={styles.tabLoadingText}>Kadro bilgisi yükleniyor...</Text>
+                  <Text style={styles.tabLoadingText}>{t('predictions.lineup.loading')}</Text>
                 </View>
               ) : lineups && lineups.length > 0 ? (
                 <>
@@ -652,7 +649,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
                         )}
                         <View style={styles.lineupTeamInfo}>
                           <Text style={styles.lineupTeamName}>{teamLineup.team?.name}</Text>
-                          <Text style={styles.lineupFormation}>Formasyon: {teamLineup.formation ? `1-${teamLineup.formation}` : 'Bilinmiyor'}</Text>
+                          <Text style={styles.lineupFormation}>{t('predictions.lineup.formation')}: {teamLineup.formation ? `1-${teamLineup.formation}` : t('predictions.lineup.unknown')}</Text>
                         </View>
                       </View>
 
@@ -692,7 +689,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
                                   <Text style={styles.pitchPlayerNumber}>{player?.number || idx + 1}</Text>
                                 </View>
                                 <Text style={styles.pitchPlayerName} numberOfLines={1}>
-                                  {player?.name?.split(' ').pop() || 'Oyuncu'}
+                                  {player?.name?.split(' ').pop() || t('predictions.lineup.player')}
                                 </Text>
                               </View>
                             );
@@ -704,7 +701,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
                       {teamLineup.coach && (
                         <View style={styles.coachRow}>
                           <Ionicons name="person" size={16} color={COLORS.accent} />
-                          <Text style={styles.coachLabel}>Teknik Direktör:</Text>
+                          <Text style={styles.coachLabel}>{t('predictions.coach')}</Text>
                           <Text style={styles.coachName}>{teamLineup.coach.name}</Text>
                         </View>
                       )}
@@ -712,7 +709,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
                       {/* Substitutes */}
                       {teamLineup.substitutes && teamLineup.substitutes.length > 0 && (
                         <View style={styles.substitutesSection}>
-                          <Text style={styles.substitutesTitle}>Yedekler</Text>
+                          <Text style={styles.substitutesTitle}>{t('predictions.lineup.substitutes')}</Text>
                           <View style={styles.substitutesList}>
                             {teamLineup.substitutes.slice(0, 7).map((sub, subIdx) => (
                               <View key={subIdx} style={styles.substituteItem}>
@@ -730,8 +727,8 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
               ) : (
                 <View style={styles.noDataContainer}>
                   <Ionicons name="people-outline" size={48} color={COLORS.gray600} />
-                  <Text style={styles.noDataText}>Kadro bilgisi henüz açıklanmadı</Text>
-                  <Text style={styles.noDataSubtext}>Maç saatine yakın tekrar kontrol edin</Text>
+                  <Text style={styles.noDataText}>{t('predictions.lineupNotAnnounced')}</Text>
+                  <Text style={styles.noDataSubtext}>{t('predictions.lineupCheckLater')}</Text>
                 </View>
               )}
             </>
@@ -743,7 +740,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
               {tabLoading.h2h ? (
                 <View style={styles.tabLoadingContainer}>
                   <ActivityIndicator size="large" color={COLORS.accent} />
-                  <Text style={styles.tabLoadingText}>Karşılaşma geçmişi yükleniyor...</Text>
+                  <Text style={styles.tabLoadingText}>{t('predictions.h2hTab.loading')}</Text>
                 </View>
               ) : h2hData && h2hData.length > 0 ? (
                 <>
@@ -771,14 +768,14 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
 
                   {/* Goal Averages */}
                   <View style={styles.h2hGoalAvg}>
-                    <Text style={styles.h2hGoalAvgLabel}>Maç Başı Gol Ort:</Text>
+                    <Text style={styles.h2hGoalAvgLabel}>{t('predictions.goalsPerMatch')}</Text>
                     <Text style={styles.h2hGoalAvgValue}>
                       {(h2hData.reduce((sum, m) => sum + (m.goals?.home || 0) + (m.goals?.away || 0), 0) / h2hData.length).toFixed(1)}
                     </Text>
                   </View>
 
                   {/* Match List */}
-                  <SectionHeaderWithInfo title="Son Karşılaşmalar" onInfoPress={() => setShowInfoModal(true)} />
+                  <SectionHeaderWithInfo title={t('predictions.sections.recentMatches')} onInfoPress={() => setShowInfoModal(true)} />
                   {h2hData.slice(0, 10).map((h2hMatch, idx) => (
                     <View key={idx} style={styles.h2hMatchCard}>
                       <View style={styles.h2hMatchDate}>
@@ -812,8 +809,8 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
               ) : (
                 <View style={styles.noDataContainer}>
                   <Ionicons name="swap-horizontal-outline" size={48} color={COLORS.gray600} />
-                  <Text style={styles.noDataText}>Karşılaşma geçmişi bulunamadı</Text>
-                  <Text style={styles.noDataSubtext}>Bu takımlar daha önce karşılaşmamış olabilir</Text>
+                  <Text style={styles.noDataText}>{t('predictions.noH2HHistory')}</Text>
+                  <Text style={styles.noDataSubtext}>{t('predictions.teamsNotPlayedBefore')}</Text>
                 </View>
               )}
             </>
@@ -825,12 +822,12 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
               {tabLoading.kartkorner ? (
                 <View style={styles.tabLoadingContainer}>
                   <ActivityIndicator size="large" color={COLORS.accent} />
-                  <Text style={styles.tabLoadingText}>İstatistikler yükleniyor...</Text>
+                  <Text style={styles.tabLoadingText}>{t('predictions.cardCornerTab.loading')}</Text>
                 </View>
               ) : cardCornerStats && cardCornerStats.length > 0 ? (
                 <>
                   {/* Cards Section */}
-                  <SectionHeaderWithInfo title="Kart İstatistikleri" onInfoPress={() => setShowInfoModal(true)} />
+                  <SectionHeaderWithInfo title={t('predictions.sections.cardStats')} onInfoPress={() => setShowInfoModal(true)} />
                   <View style={styles.cardCornerGrid}>
                     {cardCornerStats.map((teamStats, teamIdx) => {
                       const yellowCards = teamStats.statistics?.find(s => s.type === 'Yellow Cards')?.value || 0;
@@ -849,17 +846,17 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
                             <View style={styles.cardCornerStatItem}>
                               <View style={[styles.cardIcon, { backgroundColor: '#FFD500' }]} />
                               <Text style={styles.cardCornerStatValue}>{yellowCards}</Text>
-                              <Text style={styles.cardCornerStatLabel}>Sarı</Text>
+                              <Text style={styles.cardCornerStatLabel}>{t('predictions.yellowCard')}</Text>
                             </View>
                             <View style={styles.cardCornerStatItem}>
                               <View style={[styles.cardIcon, { backgroundColor: '#FF453A' }]} />
                               <Text style={styles.cardCornerStatValue}>{redCards}</Text>
-                              <Text style={styles.cardCornerStatLabel}>Kırmızı</Text>
+                              <Text style={styles.cardCornerStatLabel}>{t('predictions.redCard')}</Text>
                             </View>
                             <View style={styles.cardCornerStatItem}>
                               <Ionicons name="warning" size={16} color={COLORS.gray400} />
                               <Text style={styles.cardCornerStatValue}>{fouls}</Text>
-                              <Text style={styles.cardCornerStatLabel}>Faul</Text>
+                              <Text style={styles.cardCornerStatLabel}>{t('predictions.cardCornerTab.foul')}</Text>
                             </View>
                           </View>
                         </View>
@@ -868,7 +865,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
                   </View>
 
                   {/* Corners Section */}
-                  <SectionHeaderWithInfo title="Korner İstatistikleri" onInfoPress={() => setShowInfoModal(true)} />
+                  <SectionHeaderWithInfo title={t('predictions.sections.cornerStats')} onInfoPress={() => setShowInfoModal(true)} />
                   <View style={styles.cornerComparison}>
                     {cardCornerStats.map((teamStats, teamIdx) => {
                       const corners = teamStats.statistics?.find(s => s.type === 'Corner Kicks')?.value || 0;
@@ -885,16 +882,16 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
                   </View>
 
                   {/* Other Stats */}
-                  <SectionHeaderWithInfo title="Diğer İstatistikler" onInfoPress={() => setShowInfoModal(true)} />
+                  <SectionHeaderWithInfo title={t('predictions.sections.otherStats')} onInfoPress={() => setShowInfoModal(true)} />
                   <View style={styles.otherStatsGrid}>
                     {['Ball Possession', 'Total Shots', 'Shots on Goal', 'Offsides'].map((statType) => {
                       const homeValue = cardCornerStats[0]?.statistics?.find(s => s.type === statType)?.value || 0;
                       const awayValue = cardCornerStats[1]?.statistics?.find(s => s.type === statType)?.value || 0;
                       const statLabels = {
-                        'Ball Possession': 'Top Hakimiyeti',
-                        'Total Shots': 'Toplam Şut',
-                        'Shots on Goal': 'İsabetli Şut',
-                        'Offsides': 'Ofsayt'
+                        'Ball Possession': t('predictions.cardCornerTab.ballPossession'),
+                        'Total Shots': t('predictions.cardCornerTab.totalShots'),
+                        'Shots on Goal': t('predictions.cardCornerTab.shotsOnGoal'),
+                        'Offsides': t('predictions.cardCornerTab.offsides')
                       };
 
                       return (
@@ -910,8 +907,8 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
               ) : (
                 <View style={styles.noDataContainer}>
                   <Ionicons name="card-outline" size={48} color={COLORS.gray600} />
-                  <Text style={styles.noDataText}>İstatistik verisi bulunamadı</Text>
-                  <Text style={styles.noDataSubtext}>Maç başladıktan sonra istatistikler görünecek</Text>
+                  <Text style={styles.noDataText}>{t('predictions.statsNotFound')}</Text>
+                  <Text style={styles.noDataSubtext}>{t('predictions.statsAfterMatch')}</Text>
                 </View>
               )}
             </>
@@ -923,7 +920,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
               {tabLoading['sakatlık'] ? (
                 <View style={styles.tabLoadingContainer}>
                   <ActivityIndicator size="large" color={COLORS.accent} />
-                  <Text style={styles.tabLoadingText}>Sakatlık bilgileri yükleniyor...</Text>
+                  <Text style={styles.tabLoadingText}>{t('predictions.injuriesTab.loading')}</Text>
                 </View>
               ) : (
                 <>
@@ -989,10 +986,10 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
                                       styles.injuryTypeText,
                                       { color: injury.player?.reason?.includes('Kart') || injury.player?.reason?.includes('Suspen') ? '#FF453A' : '#FF9F0A' }
                                     ]}>
-                                      {injury.player?.reason?.includes('Kart') || injury.player?.reason?.includes('Suspen') ? 'Cezalı' : 'Sakat'}
+                                      {injury.player?.reason?.includes('Kart') || injury.player?.reason?.includes('Suspen') ? t('predictions.injuriesTab.suspended') : t('predictions.injuriesTab.injured')}
                                     </Text>
                                   </View>
-                                  <Text style={styles.injuryReason} numberOfLines={2}>{injury.player?.reason || 'Belirtilmemiş'}</Text>
+                                  <Text style={styles.injuryReason} numberOfLines={2}>{injury.player?.reason || t('predictions.injuriesTab.notSpecified')}</Text>
                                 </View>
                               </View>
                             ))}
@@ -1003,7 +1000,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
                         {isExpanded && teamInjuries.length === 0 && (
                           <View style={styles.noInjuryContainer}>
                             <Ionicons name="checkmark-circle" size={20} color={COLORS.success} />
-                            <Text style={styles.noInjuryText}>Sakat veya cezalı oyuncu yok</Text>
+                            <Text style={styles.noInjuryText}>{t('predictions.injuriesTab.noInjuries')}</Text>
                           </View>
                         )}
                       </View>
@@ -1017,7 +1014,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
           {/* Minimal Disclaimer */}
           <View style={styles.detailDisclaimerMinimal}>
             <Ionicons name="information-circle-outline" size={14} color={COLORS.gray500} />
-            <Text style={styles.detailDisclaimerMinimalText}>Eğlence amaçlı • Finansal tavsiye değildir</Text>
+            <Text style={styles.detailDisclaimerMinimalText}>{t('predictions.entertainmentDisclaimer')}</Text>
           </View>
 
           <View style={{ height: 100 }} />
@@ -1025,8 +1022,8 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
       ) : (
         <View style={styles.detailErrorContainer}>
           <Ionicons name="alert-circle-outline" size={56} color={COLORS.gray500} />
-          <Text style={styles.detailErrorText}>Tahmin alınamadı</Text>
-          <Text style={styles.detailErrorSubtext}>Lütfen tekrar deneyin</Text>
+          <Text style={styles.detailErrorText}>{t('predictions.predictionFailed')}</Text>
+          <Text style={styles.detailErrorSubtext}>{t('predictions.tryAgain')}</Text>
         </View>
       )}
 
@@ -1034,15 +1031,12 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
       <Modal visible={showInfoModal} transparent animationType="fade">
         <Pressable style={styles.infoModalOverlay} onPress={() => setShowInfoModal(false)}>
           <View style={styles.infoModalContent}>
-            <Text style={styles.infoModalTitle}>Bilgi</Text>
+            <Text style={styles.infoModalTitle}>{t('paywall.info')}</Text>
             <Text style={styles.infoModalText}>
-              Bu tahminler maç verileri analiz edilerek üretilmiştir.
-              Güven oranları ve risk seviyeleri, analiz sonuçlarına dayalı tahminlerdir.
-              {'\n\n'}
-              Gerçek bahis tavsiyesi değildir. Finansal kararlarınızda bu verileri kullanmayınız.
+              {t('predictions.detailDisclaimer')}
             </Text>
             <TouchableOpacity style={styles.infoModalBtn} onPress={() => setShowInfoModal(false)}>
-              <Text style={styles.infoModalBtnText}>Tamam</Text>
+              <Text style={styles.infoModalBtnText}>{t('common.ok')}</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -1082,6 +1076,14 @@ const PredictionsScreen = () => {
   // Cache State
   const [cachedMatchIds, setCachedMatchIds] = useState(new Set());
 
+  // Disclaimer Modal State
+  const [showDisclaimerModal, setShowDisclaimerModal] = useState(false);
+
+  // Rate Limit State
+  const [rateLimitError, setRateLimitError] = useState(null);
+  const [showRateLimitPaywall, setShowRateLimitPaywall] = useState(false);
+  const [showRateLimitInfo, setShowRateLimitInfo] = useState(false);
+
   const dateOptions = [-1, 0, 1, 2, 3, 4, 5]; // 7 günlük tarih aralığı
 
   // Helpers
@@ -1093,13 +1095,21 @@ const PredictionsScreen = () => {
 
   // Date Tab Formatters
   const formatDayShort = (offset) => {
-    const days = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+    const days = [
+      t('predictions.days.sun'),
+      t('predictions.days.mon'),
+      t('predictions.days.tue'),
+      t('predictions.days.wed'),
+      t('predictions.days.thu'),
+      t('predictions.days.fri'),
+      t('predictions.days.sat')
+    ];
     const date = new Date();
     date.setDate(date.getDate() + offset);
 
-    if (offset === 0) return 'Bugün';
-    if (offset === -1) return 'Dün';
-    if (offset === 1) return 'Yarın';
+    if (offset === 0) return t('predictions.today');
+    if (offset === -1) return t('predictions.yesterday');
+    if (offset === 1) return t('predictions.tomorrow');
 
     return days[date.getDay()];
   };
@@ -1251,27 +1261,27 @@ const PredictionsScreen = () => {
     setShowPredictionPage(true);
     setPredictionLoading(true);
     setCurrentPredictions(null);
+    setRateLimitError(null);
 
     try {
-      // 1. Önce Supabase'den paylaşımlı cache kontrol
-      const sharedPrediction = await supabaseService.getSharedPrediction(match.id);
-      if (sharedPrediction) {
-        setCurrentPredictions(sharedPrediction);
-        setPredictionLoading(false);
-        return; // Claude API çağrısı yok!
-      }
-
-      // 2. Supabase'de yoksa Claude API çağır
+      // Edge Function handles: rate limiting + Supabase cache + Claude API
       const predictions = await getBettingPredictions(match);
-      setCurrentPredictions(predictions);
 
-      // 3. Sonucu Supabase'e kaydet (diğer kullanıcılar için)
       if (predictions) {
-        const matchDate = match.date || new Date().toISOString().split('T')[0];
-        await supabaseService.saveSharedPrediction(match.id, predictions, matchDate);
+        // Check for rate limit error
+        if (predictions.rateLimitExceeded) {
+          setRateLimitError(predictions.rateLimitMessage);
+          setShowPredictionPage(false); // Sayfayı kapat - kullanıcı detay sayfasına girmemeli
+          setShowRateLimitInfo(true); // Ana seviyede info modal göster
+          setPredictionLoading(false);
+          return; // İşlemi durdur
+        } else {
+          setRateLimitError(null);
+          setCurrentPredictions(predictions);
+        }
       }
 
-      // 4. Cache güncelle
+      // Cache güncelle (local AsyncStorage cache)
       await refreshCachedMatchIds();
     } catch (error) {
       setCurrentPredictions(null);
@@ -1291,16 +1301,17 @@ const PredictionsScreen = () => {
   // ─────────────────────────────────────────────────────────────────────────────
   // PRO CHECK - Tüm hooks'lardan sonra
   // ─────────────────────────────────────────────────────────────────────────────
-  if (!isPro) {
-    return (
-      <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
-        <PaywallScreen
-          visible={true}
-          onClose={() => {}}
-        />
-      </View>
-    );
-  }
+  // TODO: Test sonrası geri aç
+  // if (!isPro) {
+  //   return (
+  //     <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
+  //       <PaywallScreen
+  //         visible={true}
+  //         onClose={() => {}}
+  //       />
+  //     </View>
+  //   );
+  // }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -1309,8 +1320,8 @@ const PredictionsScreen = () => {
     <View style={styles.screen}>
       {/* HEADER */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Text style={styles.headerTitle}>Tahminler</Text>
-        <TouchableOpacity style={styles.infoButton}>
+        <Text style={styles.headerTitle}>{t('predictions.title')}</Text>
+        <TouchableOpacity style={styles.infoButton} onPress={() => setShowDisclaimerModal(true)}>
           <Ionicons name="help-circle-outline" size={24} color={COLORS.gray400} />
         </TouchableOpacity>
       </View>
@@ -1360,7 +1371,7 @@ const PredictionsScreen = () => {
           <TextInput
             ref={searchInputRef}
             style={styles.searchInput}
-            placeholder="Takım veya lig ara..."
+            placeholder={t('predictions.searchPlaceholder')}
             placeholderTextColor={COLORS.gray500}
             value={searchText}
             onChangeText={setSearchText}
@@ -1385,10 +1396,7 @@ const PredictionsScreen = () => {
 
       {/* CONTENT */}
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
-          <Text style={styles.loadingText}>Maçlar yükleniyor...</Text>
-        </View>
+        <PredictionLoadingAnimation />
       ) : (
         <ScrollView
           style={styles.matchesScroll}
@@ -1405,7 +1413,7 @@ const PredictionsScreen = () => {
             {sortedLeagues.length === 0 ? (
               <View style={styles.noMatchesBox}>
                 <Ionicons name="football-outline" size={40} color={COLORS.gray700} />
-                <Text style={styles.noMatchesText}>Maç bulunamadı</Text>
+                <Text style={styles.noMatchesText}>{t('predictions.noMatches')}</Text>
               </View>
             ) : (
               sortedLeagues.map(([leagueKey, league]) => {
@@ -1475,7 +1483,7 @@ const PredictionsScreen = () => {
                                   )}
                                 </View>
                                 <Text style={styles.teamNameText} numberOfLines={1}>
-                                  {match.away?.name || 'Deplasman'}
+                                  {match.away?.name || t('predictions.away')}
                                 </Text>
                               </View>
                             </View>
@@ -1486,7 +1494,7 @@ const PredictionsScreen = () => {
                                 onPress={() => handleGetPrediction(match)}
                               >
                                 <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
-                                <Text style={styles.cachedButtonText}>Hazır</Text>
+                                <Text style={styles.cachedButtonText}>{t('predictions.cached')}</Text>
                               </TouchableOpacity>
                             ) : (
                               <TouchableOpacity
@@ -1494,7 +1502,7 @@ const PredictionsScreen = () => {
                                 onPress={() => handleGetPrediction(match)}
                               >
                                 <Ionicons name="analytics" size={16} color={COLORS.accent} />
-                                <Text style={styles.predictButtonText}>Tahmin</Text>
+                                <Text style={styles.predictButtonText}>{t('predictions.predictButton')}</Text>
                               </TouchableOpacity>
                             )}
                           </View>
@@ -1518,6 +1526,87 @@ const PredictionsScreen = () => {
         loading={predictionLoading}
         onClose={closePredictionPage}
       />
+
+      {/* RATE LIMIT INFO MODAL - Parent seviyede, detay sayfası AÇILMADAN gösterilir */}
+      <Modal visible={showRateLimitInfo} transparent animationType="none">
+        <View style={styles.rateLimitModalOverlay}>
+          <View style={styles.rateLimitModalContent}>
+            <View style={styles.rateLimitIconCircle}>
+              <Ionicons name="lock-closed" size={32} color="#FF6B35" />
+            </View>
+            <Text style={styles.rateLimitModalTitle}>
+              {t('predictions.rateLimitModal.title')}
+            </Text>
+            <Text style={styles.rateLimitModalMessage}>
+              {t('predictions.rateLimitModal.message')}
+            </Text>
+            <TouchableOpacity
+              style={styles.rateLimitModalButton}
+              onPress={() => {
+                setShowRateLimitInfo(false);
+                setShowRateLimitPaywall(true);
+              }}
+            >
+              <Text style={styles.rateLimitModalButtonText}>
+                {t('predictions.rateLimitModal.button')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* RATE LIMIT PAYWALL - Info modal kapandıktan sonra açılır */}
+      {showRateLimitPaywall && (
+        <PaywallScreen
+          visible={showRateLimitPaywall}
+          onClose={() => {
+            setShowRateLimitPaywall(false);
+          }}
+        />
+      )}
+
+      {/* DISCLAIMER MODAL */}
+      <Modal
+        visible={showDisclaimerModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDisclaimerModal(false)}
+      >
+        <Pressable
+          style={styles.disclaimerModalOverlay}
+          onPress={() => setShowDisclaimerModal(false)}
+        >
+          <View style={styles.disclaimerModalContent}>
+            <View style={styles.disclaimerModalHeader}>
+              <Ionicons name="information-circle" size={28} color={COLORS.accent} />
+              <Text style={styles.disclaimerModalTitle}>{t('predictions.disclaimerTitle')}</Text>
+            </View>
+
+            <Text style={styles.disclaimerModalText}>
+              {t('predictions.disclaimer.paragraph1')} <Text style={styles.disclaimerBold}>{t('predictions.disclaimer.paragraph1Bold')}</Text>.
+            </Text>
+
+            <Text style={styles.disclaimerModalText}>
+              {t('predictions.disclaimer.paragraph2Start')} <Text style={styles.disclaimerBold}>{t('predictions.disclaimer.paragraph2Bold')}</Text>{t('predictions.disclaimer.paragraph2End')}
+            </Text>
+
+            <Text style={styles.disclaimerModalText}>
+              {t('predictions.disclaimer.paragraph3Start')} <Text style={styles.disclaimerBold}>{t('predictions.disclaimer.paragraph3Bold')}</Text>{t('predictions.disclaimer.paragraph3End')}
+            </Text>
+
+            <Text style={styles.disclaimerModalSmall}>
+              {t('predictions.disclaimer.paragraph4')}
+            </Text>
+
+            <TouchableOpacity
+              style={styles.disclaimerModalButton}
+              onPress={() => setShowDisclaimerModal(false)}
+            >
+              <Text style={styles.disclaimerModalButtonText}>{t('predictions.disclaimer.iUnderstand')}</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -1563,6 +1652,25 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.gray500,
     textAlign: 'center',
+  },
+
+  // Rate Limit Banner
+  rateLimitBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.3)',
+  },
+  rateLimitText: {
+    color: '#FF6B35',
+    fontSize: 13,
+    fontWeight: '500',
+    marginLeft: 8,
+    flex: 1,
   },
 
   // Date Tabs (Horizontal Scroll)
@@ -3137,6 +3245,119 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     color: COLORS.gray400,
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // DISCLAIMER MODAL STYLES
+  // ═══════════════════════════════════════════════════════════════════════════════
+  disclaimerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  disclaimerModalContent: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 24,
+    maxWidth: 360,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  disclaimerModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
+  },
+  disclaimerModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  disclaimerModalText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: COLORS.gray300,
+    marginBottom: 12,
+  },
+  disclaimerBold: {
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  disclaimerModalSmall: {
+    fontSize: 12,
+    color: COLORS.gray500,
+    marginTop: 8,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  disclaimerModalButton: {
+    backgroundColor: COLORS.accent,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  disclaimerModalButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+
+  // Rate Limit Info Modal
+  rateLimitModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 1.0)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rateLimitModalContent: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    marginHorizontal: 32,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.3)',
+  },
+  rateLimitIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rateLimitModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginTop: 20,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  rateLimitModalMessage: {
+    fontSize: 14,
+    color: COLORS.gray400,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+    paddingHorizontal: 8,
+  },
+  rateLimitModalButton: {
+    backgroundColor: '#FF6B35',
+    paddingHorizontal: 48,
+    paddingVertical: 14,
+    borderRadius: 12,
+    width: '100%',
+  },
+  rateLimitModalButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
 

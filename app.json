@@ -12,7 +12,15 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.goalwise.epinko"
+      "bundleIdentifier": "com.goalwise.epinko",
+      "buildNumber": "1",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        },
+        "UIBackgroundModes": []
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,6 +29,8 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.goalwise.epinko",
+      "versionCode": 1,
+      "googleServicesFile": "./google-services.json",
       "splash": {
         "image": "./assets/splash-icon.png",
         "resizeMode": "contain",
@@ -31,7 +41,8 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-localization"
+      "expo-localization",
+      "expo-dev-client"
     ]
   }
 }

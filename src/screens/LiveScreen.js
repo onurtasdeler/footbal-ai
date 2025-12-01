@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import footballApi from '../services/footballApi';
 import { useSmartPolling, useAppState, POLLING_INTERVALS } from '../services/pollingService';
 import { COLORS } from '../theme/colors';
+import { t } from '../i18n';
 
 const LiveScreen = ({ navigation }) => {
   // Safe area insets for proper header positioning
@@ -38,7 +39,7 @@ const LiveScreen = ({ navigation }) => {
         const status = match.statusText || match.status;
         if (min >= 85) return 1000 + min;
         if (min >= 75) return 800 + min;
-        if (status === 'Devre Arası' || status === 'HT') return 500;
+        if (status === 'HT') return 500;
         if (min >= 45) return 400 + min;
         return min;
       };
@@ -239,7 +240,7 @@ const LiveScreen = ({ navigation }) => {
           </View>
           <View style={premiumStyles.heroPossessionLabels}>
             <Text style={premiumStyles.heroPossessionText}>{possession}%</Text>
-            <Text style={premiumStyles.heroPossessionLabel}>TOP KONTROLÜ</Text>
+            <Text style={premiumStyles.heroPossessionLabel}>{t('live.ballPossession')}</Text>
             <Text style={premiumStyles.heroPossessionText}>{100 - possession}%</Text>
           </View>
         </View>
@@ -357,7 +358,7 @@ const LiveScreen = ({ navigation }) => {
         <View style={premiumStyles.loadingPulse}>
           <Ionicons name="radio" size={32} color={COLORS.accent} />
         </View>
-        <Text style={premiumStyles.loadingText}>Canlı maçlar yükleniyor...</Text>
+        <Text style={premiumStyles.loadingText}>{t('live.loading')}</Text>
       </View>
     );
   }
@@ -382,7 +383,7 @@ const LiveScreen = ({ navigation }) => {
         {/* Header */}
         <Animated.View style={[premiumStyles.header, { opacity: fadeAnim, paddingTop: insets.top + 8 }]}>
           <View style={premiumStyles.headerLeft}>
-            <Text style={premiumStyles.headerTitle}>Canlı</Text>
+            <Text style={premiumStyles.headerTitle}>{t('live.title')}</Text>
             <View style={premiumStyles.headerBadge}>
               <Animated.View style={[premiumStyles.headerPulseDot, { transform: [{ scale: pulseAnim }] }]} />
               <Text style={premiumStyles.headerBadgeText}>{sortedMatches.length}</Text>
@@ -401,7 +402,7 @@ const LiveScreen = ({ navigation }) => {
         {/* Section Title */}
         {regularMatches.length > 0 && (
           <Text style={premiumStyles.sectionTitle}>
-            {heroMatch ? 'DİĞER MAÇLAR' : 'CANLI MAÇLAR'}
+            {heroMatch ? t('live.otherMatches') : t('live.liveMatches')}
           </Text>
         )}
 
@@ -416,8 +417,8 @@ const LiveScreen = ({ navigation }) => {
             <View style={premiumStyles.emptyIconContainer}>
               <Ionicons name="radio-outline" size={48} color={COLORS.gray600} />
             </View>
-            <Text style={premiumStyles.emptyTitle}>Şu an canlı maç yok</Text>
-            <Text style={premiumStyles.emptySubtitle}>Maçlar başladığında burada görünecek</Text>
+            <Text style={premiumStyles.emptyTitle}>{t('live.noMatches')}</Text>
+            <Text style={premiumStyles.emptySubtitle}>{t('live.matchesWillAppear')}</Text>
           </View>
         )}
 

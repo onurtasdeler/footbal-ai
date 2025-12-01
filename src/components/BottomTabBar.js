@@ -7,13 +7,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
+import { t } from '../i18n';
 
 const BottomTabBar = ({ activeTab, onTabPress }) => {
   const tabs = [
-    { id: 'home', icon: 'football-outline', activeIcon: 'football', label: 'Ana' },
-    { id: 'live', icon: 'radio-outline', activeIcon: 'radio', label: 'Canlı' },
-    { id: 'predictions', icon: 'analytics-outline', activeIcon: 'analytics', label: 'Tahmin' },
-    { id: 'profile', icon: 'person-outline', activeIcon: 'person', label: 'Profil' },
+    { id: 'home', icon: 'football-outline', activeIcon: 'football', label: t('navigation.home') },
+    { id: 'live', icon: 'radio-outline', activeIcon: 'radio', label: t('navigation.live') },
+    { id: 'predictions', icon: 'analytics-outline', activeIcon: 'analytics', label: t('navigation.predictions') },
+    { id: 'profile', icon: 'person-outline', activeIcon: 'person', label: t('navigation.profile') },
   ];
 
   return (

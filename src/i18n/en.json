@@ -1,0 +1,454 @@
+{
+  "navigation": {
+    "home": "Home",
+    "live": "Live",
+    "predictions": "Predictions",
+    "profile": "Profile"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "ok": "OK",
+    "save": "Save",
+    "close": "Close",
+    "back": "Back",
+    "next": "Continue",
+    "skip": "Skip",
+    "start": "Start",
+    "player": "Player",
+    "risk": "Risk",
+    "lowRisk": "Low",
+    "mediumRisk": "Medium",
+    "highRisk": "High"
+  },
+  "home": {
+    "title": "Goalwise",
+    "all": "All",
+    "live": "Live",
+    "liveLabel": "LIVE",
+    "favorites": "Favorites",
+    "analyses": "Analyses",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "tomorrow": "Tomorrow",
+    "searchPlaceholder": "Search team or league...",
+    "noMatches": "No matches found today",
+    "homeTeam": "Home",
+    "awayTeam": "Away",
+    "unknownLeague": "Unknown League",
+    "days": {
+      "sun": "Sun",
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat"
+    },
+    "daysLong": {
+      "sun": "Sunday",
+      "mon": "Monday",
+      "tue": "Tuesday",
+      "wed": "Wednesday",
+      "thu": "Thursday",
+      "fri": "Friday",
+      "sat": "Saturday"
+    },
+    "months": {
+      "jan": "Jan",
+      "feb": "Feb",
+      "mar": "Mar",
+      "apr": "Apr",
+      "may": "May",
+      "jun": "Jun",
+      "jul": "Jul",
+      "aug": "Aug",
+      "sep": "Sep",
+      "oct": "Oct",
+      "nov": "Nov",
+      "dec": "Dec"
+    }
+  },
+  "live": {
+    "title": "Live",
+    "loading": "Loading live matches...",
+    "noMatches": "No live matches right now",
+    "matchesWillAppear": "Matches will appear here when they start",
+    "otherMatches": "OTHER MATCHES",
+    "liveMatches": "LIVE MATCHES",
+    "ballPossession": "POSSESSION",
+    "halftime": "Halftime"
+  },
+  "splash": {
+    "subtitle": "AI-Powered Match Analysis"
+  },
+  "onboarding": {
+    "new": "NEW",
+    "live": "LIVE",
+    "page1": {
+      "title": "Smart Predictions",
+      "subtitle": "Professional match analysis powered by AI",
+      "feature1Title": "85%+ Accuracy",
+      "feature1Subtitle": "High accuracy rate",
+      "feature2Title": "100+ Daily Analysis",
+      "feature2Subtitle": "All leagues included",
+      "feature3Title": "Reliable Data",
+      "feature3Subtitle": "Real-time statistics"
+    },
+    "page2": {
+      "title": "Live Tracking",
+      "subtitle": "Live scores and detailed match statistics",
+      "feature1Title": "Instant Notifications",
+      "feature1Subtitle": "Goals and key events",
+      "feature2Title": "Detailed Statistics",
+      "feature2Subtitle": "Shots, passes, possession",
+      "feature3Title": "Minute by Minute",
+      "feature3Subtitle": "Live match tracking"
+    },
+    "goal": "GOAL!"
+  },
+  "profile": {
+    "title": "Profile",
+    "upgradeTitle": "Upgrade to PRO",
+    "upgradeSubtitle": "Unlimited AI predictions • Ad-free experience",
+    "account": "ACCOUNT",
+    "restorePurchases": "Restore Purchases",
+    "restoreInProgress": "Checking your previous purchases...",
+    "settings": "SETTINGS",
+    "settingsTitle": "Settings",
+    "settingsComingSoon": "Settings page coming soon.",
+    "language": "Language",
+    "selectLanguage": "Select Language",
+    "support": "SUPPORT",
+    "supportTitle": "Support",
+    "emailSubject": "App Support",
+    "rateUs": "Rate Us",
+    "rateUsMessage": "If you like our app, please leave a review in the store!",
+    "later": "Later",
+    "rate": "Rate",
+    "legal": "LEGAL",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfService": "Terms of Service",
+    "appVersion": "AI Match Analysis v1.0.0",
+    "copyright": "© 2024 All Rights Reserved",
+    "languages": {
+      "tr": "Türkçe",
+      "en": "English"
+    }
+  },
+  "paywall": {
+    "title": "GOALWISE PRO",
+    "subtitle": "Win with Professional Analysis",
+    "features": {
+      "detailedAnalysis": "Detailed Match Analysis",
+      "adFree": "Ad-Free Experience",
+      "detailedPrediction": "Detailed Prediction Analysis",
+      "liveTracking": "Live Match Tracking"
+    },
+    "selectPlan": "Select Plan",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "perWeek": "/week",
+    "perMonth": "/month",
+    "mostPopular": "MOST POPULAR",
+    "savings": "Save 33%",
+    "upgradeToPro": "Upgrade to PRO",
+    "restorePurchase": "Restore Purchase",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfUse": "Terms of Use",
+    "disclaimer": "Subscription automatically renews. You can cancel anytime from App Store settings.",
+    "purchaseSuccess": "Your Goalwise PRO subscription is now active. Enjoy premium features!",
+    "purchaseError": "Purchase failed. Please try again.",
+    "unexpectedError": "An unexpected error occurred. Please try again.",
+    "restoreSuccess": "Your subscription has been restored successfully.",
+    "restoreNoSubscription": "No active subscription found to restore.",
+    "restoreError": "Restore failed.",
+    "info": "Info"
+  },
+  "liveMatchDetail": {
+    "loading": "Loading live match...",
+    "matchEnded": "Match Ended",
+    "lastUpdate": "Last update",
+    "lineups": "LINEUPS",
+    "events": "MATCH EVENTS",
+    "statistics": "STATISTICS",
+    "noEvents": "No match events yet",
+    "stats": {
+      "possession": "Ball Possession",
+      "totalShots": "Total Shots",
+      "shotsOnTarget": "Shots on Target",
+      "corners": "Corners",
+      "fouls": "Fouls",
+      "yellowCards": "Yellow Cards"
+    }
+  },
+  "matchAnalysis": {
+    "dailyLimit": "Daily Limit",
+    "rateLimitModal": {
+      "title": "Daily Analysis Limit Reached",
+      "message": "Free users can view 3 match analyses per day. Upgrade to PRO for unlimited access.",
+      "button": "OK"
+    },
+    "loading": "Loading match data...",
+    "aiAnalyzing": "AI is analyzing the match...",
+    "smartPrediction": "SMART ANALYSIS",
+    "ready": "Ready",
+    "analyze": "Analyze",
+    "analyzingMatch": "Analyzing match...",
+    "analysisWait": "This may take a few seconds",
+    "awaitingAnalysis": "Awaiting analysis",
+    "startAnalysisHint": "Press the button above to start analysis",
+    "analysisConfidence": "Analysis Confidence",
+    "riskLabel": "RISK",
+    "predictionLabel": "PREDICTION",
+    "drawResult": "Draw",
+    "recentMatches": "Recent Matches",
+    "matches": "matches",
+    "noMatchData": "No match data found",
+    "keyPlayer": "Key:",
+    "winsAbbr": "W",
+    "tabs": {
+      "predictions": "Analyses",
+      "goalPredictions": "Goal Predictions",
+      "goalDistribution": "Goal Distribution",
+      "bttsScenarios": "BTTS Scenarios",
+      "firstHalf": "First Half",
+      "riskAnalysis": "Risk Analysis",
+      "factorAnalysis": "Factor Analysis",
+      "formStatus": "Form Status",
+      "statistics": "Statistics",
+      "headToHead": "Head to Head"
+    },
+    "banko": "SURE BET",
+    "mediumRisk": "MEDIUM RISK",
+    "risky": "RISKY",
+    "recommendation": "TIP",
+    "categories": {
+      "form": "Form Status",
+      "h2h": "Head to Head",
+      "squad": "Squad Status",
+      "tactics": "Tactical Fit",
+      "motivation": "Motivation",
+      "referee": "Referee Impact",
+      "weather": "Weather",
+      "market": "Market Analysis"
+    },
+    "goalDist": {
+      "bothScore": "Both Score",
+      "onlyHome": "Home Only",
+      "onlyAway": "Away Only",
+      "noGoals": "No Goals"
+    },
+    "risk": {
+      "low": "LOW",
+      "medium": "MEDIUM",
+      "high": "HIGH"
+    },
+    "riskFlags": {
+      "derbyVolatility": "Derby Volatility",
+      "weather": "Weather:",
+      "homeFatigue": "Home Fatigue:",
+      "awayFatigue": "Away Fatigue:",
+      "marketDisagreement": "Market Disagree"
+    },
+    "trend": "Stable",
+    "sections": {
+      "likelyScore": "Most Likely Score",
+      "alternativeScores": "Alternative Scores",
+      "recommendations": "RECOMMENDATIONS",
+      "teamAnalysis": "Team Strengths/Weaknesses",
+      "trendAnalysis": "TREND ANALYSIS",
+      "h2hDetails": "H2H Details",
+      "expertAdvice": "Expert Advice"
+    },
+    "firstHalf": {
+      "homeAhead": "HOME AHEAD",
+      "draw": "DRAW",
+      "awayAhead": "AWAY AHEAD",
+      "over05": "HT Over 0.5:",
+      "over15": "HT Over 1.5:"
+    },
+    "labels": {
+      "totalXG": "Total xG",
+      "btts": "BTTS Yes",
+      "over25": "Over 2.5",
+      "over15": "Over 1.5"
+    },
+    "h2h": {
+      "draws": "Draws:",
+      "avgGoals": "Avg Goals:"
+    },
+    "stats": {
+      "home": "Home",
+      "away": "Away",
+      "comparison": "Comparison",
+      "wins": "Wins",
+      "draws": "Draws",
+      "possession": "Possession",
+      "totalShots": "Total Shots",
+      "corners": "Corners"
+    },
+    "errors": {
+      "noGoalDistribution": "No goal distribution data found",
+      "noBTTSScenarios": "No BTTS scenarios data found",
+      "noH2HData": "No H2H data found"
+    }
+  },
+  "predictions": {
+    "dailyLimit": "Daily Limit",
+    "rateLimitModal": {
+      "title": "Daily Analysis Limit Reached",
+      "message": "Free users can view 3 match analyses per day. Upgrade to PRO for unlimited access.",
+      "button": "OK"
+    },
+    "title": "Predictions",
+    "loading": "Loading today's matches...",
+    "noMatches": "No matches found today",
+    "analyzed": "analyzed",
+    "analyzing": "Analyzing...",
+    "matchResult": "Match Result",
+    "totalGoals": "Total Goals",
+    "btts": "BTTS Yes",
+    "halftimeResult": "First Half",
+    "confidence": "Confidence",
+    "days": {
+      "sun": "Sun",
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat"
+    },
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "tomorrow": "Tomorrow",
+    "disclaimer": {
+      "title": "About AI Predictions",
+      "content": "This app provides AI-powered match predictions. Predictions are for entertainment and informational purposes only.\n\nThey should not be used for betting or financial decisions. Results are not guaranteed and users act at their own responsibility.\n\nApp developers cannot be held responsible for any loss or damage based on predictions.",
+      "iUnderstand": "I Understand"
+    },
+    "disclaimerBanner": "AI predictions are for entertainment purposes only, not financial advice.",
+    "searchPlaceholder": "Search team or league...",
+    "predictButton": "Predict",
+    "matchPrediction": "Match Prediction",
+    "aiPrediction": "AI Prediction",
+    "home": "HOME",
+    "away": "AWAY",
+    "calculatingPredictions": "Calculating predictions...",
+    "predictionFailed": "Failed to get prediction",
+    "tabs": {
+      "predictions": "Predictions",
+      "analysis": "Analysis",
+      "statistics": "Statistics",
+      "lineup": "Lineup",
+      "h2h": "H2H",
+      "cardCorner": "Card/Corner",
+      "injuries": "Injured/Suspended"
+    },
+    "sections": {
+      "bettingPredictions": "Betting Predictions",
+      "otherPredictions": "Other Predictions",
+      "predictionDetails": "Prediction Details",
+      "aiMatchAnalysis": "AI Match Analysis",
+      "predictionStats": "Prediction Statistics",
+      "riskDistribution": "Risk Distribution",
+      "recentMatches": "Recent Matches",
+      "cardStats": "Card Statistics",
+      "cornerStats": "Corner Statistics",
+      "otherStats": "Other Statistics"
+    },
+    "stats": {
+      "totalPredictions": "Total Predictions",
+      "highConfidence": "High Confidence (≥70%)",
+      "mediumConfidence": "Medium Confidence (50-69%)",
+      "lowConfidence": "Low Confidence (<50%)",
+      "lowRisk": "Low Risk",
+      "mediumRisk": "Medium Risk",
+      "highRisk": "High Risk"
+    },
+    "analysis": {
+      "featuredPrediction": "Featured Prediction Analysis"
+    },
+    "lineup": {
+      "loading": "Loading lineup info...",
+      "formation": "Formation",
+      "unknown": "Unknown",
+      "substitutes": "Substitutes",
+      "player": "Player"
+    },
+    "h2hTab": {
+      "loading": "Loading match history..."
+    },
+    "cardCornerTab": {
+      "loading": "Loading statistics...",
+      "totalShots": "Total Shots",
+      "shotsOnGoal": "Shots on Goal",
+      "foul": "Foul",
+      "ballPossession": "Ball Possession",
+      "offsides": "Offsides"
+    },
+    "injuriesTab": {
+      "loading": "Loading injury information...",
+      "injured": "Injured",
+      "suspended": "Suspended",
+      "notSpecified": "Not specified",
+      "noInjuries": "No injured or suspended players"
+    },
+    "cached": "Ready",
+    "topPick": "Best:",
+    "predictionExplanation": "The predictions you see in this section are prepared using artificial intelligence analysis. They are provided for entertainment purposes only and do not contain any betting advice.",
+    "featuredPrediction": "Featured Prediction Analysis",
+    "confidenceDistribution": "Confidence Level Distribution:",
+    "confidenceDistributionText": "A total of {count} predictions were generated for this match. These predictions resulted as follows.",
+    "coach": "Coach:",
+    "lineupNotAnnounced": "Lineup not announced yet",
+    "lineupCheckLater": "Check again close to match time",
+    "goalsPerMatch": "Goals per match avg:",
+    "noH2HHistory": "No head-to-head history found",
+    "teamsNotPlayedBefore": "These teams may not have played before",
+    "yellowCard": "Yellow",
+    "redCard": "Red",
+    "statsNotFound": "Statistics data not found",
+    "statsAfterMatch": "Statistics will appear after the match starts",
+    "entertainmentDisclaimer": "For entertainment • Not financial advice",
+    "tryAgain": "Please try again",
+    "detailDisclaimer": "These predictions are generated by analyzing match data. Confidence rates and risk levels are predictions based on analysis results. Not actual betting advice. Do not use this data for financial decisions.",
+    "away": "Away",
+    "disclaimerTitle": "Disclaimer",
+    "disclaimer": {
+      "title": "About AI Predictions",
+      "content": "This app provides AI-powered match predictions. Predictions are for entertainment and informational purposes only.\n\nThey should not be used for betting or financial decisions. Results are not guaranteed and users act at their own responsibility.\n\nApp developers cannot be held responsible for any loss or damage based on predictions.",
+      "iUnderstand": "I Understand",
+      "paragraph1": "All predictions in this application are generated by artificial intelligence (AI) using statistical data",
+      "paragraph1Bold": "for entertainment purposes only",
+      "paragraph2Start": "The information provided is",
+      "paragraph2Bold": "absolutely not financial, investment or betting advice",
+      "paragraph2End": ". It is recommended to seek professional advice before making any betting or financial decision.",
+      "paragraph3Start": "App developers are",
+      "paragraph3Bold": "not responsible in any way",
+      "paragraph3End": " for decisions made by users based on these predictions or any resulting losses.",
+      "paragraph4": "If you are under 18, you cannot gamble. Play responsibly."
+    }
+  },
+  "loading": {
+    "predictions": {
+      "calculating": "Calculating predictions...",
+      "analyzingForm": "Analyzing form data...",
+      "comparing": "Making comparisons...",
+      "aiRunning": "Running AI model...",
+      "ready": "ready",
+      "form": "Form",
+      "h2h": "H2H",
+      "tactics": "Tactics"
+    },
+    "analysis": {
+      "analyzing": "Analyzing...",
+      "collectingData": "Collecting team data...",
+      "comparingStats": "Comparing statistics...",
+      "aiEvaluating": "AI is evaluating..."
+    }
+  }
+}

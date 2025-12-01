@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import footballApi from '../services/footballApi';
 import { useSmartPolling, useAppState, POLLING_INTERVALS } from '../services/pollingService';
 import { COLORS } from '../theme/colors';
+import { t } from '../i18n';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // FORMATION POSITIONS
@@ -188,7 +189,7 @@ const EventItem = ({ event, homeTeamId }) => {
         <Text style={styles.eventMinute}>
           {minute}'{extraTime ? `+${extraTime}` : ''}
         </Text>
-        <Text style={styles.eventPlayer}>{event.player?.name || 'Oyuncu'}</Text>
+        <Text style={styles.eventPlayer}>{event.player?.name || t('common.player')}</Text>
         {event.assist?.name && (
           <Text style={styles.eventAssist}>
             {event.type === 'subst' ? `↓ ${event.assist.name}` : `(${event.assist.name})`}
@@ -281,12 +282,12 @@ const LiveMatchDetailScreen = ({ route, navigation }) => {
         };
 
         setStats([
-          { label: 'Top Kontrolü', home: getStat(homeStats, 'Ball Possession'), away: getStat(awayStats, 'Ball Possession'), isPercent: true },
-          { label: 'Toplam Şut', home: getStat(homeStats, 'Total Shots'), away: getStat(awayStats, 'Total Shots') },
-          { label: 'İsabetli Şut', home: getStat(homeStats, 'Shots on Goal'), away: getStat(awayStats, 'Shots on Goal') },
-          { label: 'Korner', home: getStat(homeStats, 'Corner Kicks'), away: getStat(awayStats, 'Corner Kicks') },
-          { label: 'Faul', home: getStat(homeStats, 'Fouls'), away: getStat(awayStats, 'Fouls') },
-          { label: 'Sarı Kart', home: getStat(homeStats, 'Yellow Cards'), away: getStat(awayStats, 'Yellow Cards') },
+          { label: t('liveMatchDetail.stats.possession'), home: getStat(homeStats, 'Ball Possession'), away: getStat(awayStats, 'Ball Possession'), isPercent: true },
+          { label: t('liveMatchDetail.stats.totalShots'), home: getStat(homeStats, 'Total Shots'), away: getStat(awayStats, 'Total Shots') },
+          { label: t('liveMatchDetail.stats.shotsOnTarget'), home: getStat(homeStats, 'Shots on Goal'), away: getStat(awayStats, 'Shots on Goal') },
+          { label: t('liveMatchDetail.stats.corners'), home: getStat(homeStats, 'Corner Kicks'), away: getStat(awayStats, 'Corner Kicks') },
+          { label: t('liveMatchDetail.stats.fouls'), home: getStat(homeStats, 'Fouls'), away: getStat(awayStats, 'Fouls') },
+          { label: t('liveMatchDetail.stats.yellowCards'), home: getStat(homeStats, 'Yellow Cards'), away: getStat(awayStats, 'Yellow Cards') },
         ]);
       }
 
@@ -377,7 +378,7 @@ const LiveMatchDetailScreen = ({ route, navigation }) => {
         <View style={styles.loadingPulse}>
           <Ionicons name="football" size={32} color={COLORS.accent} />
         </View>
-        <Text style={styles.loadingText}>Canlı maç yükleniyor...</Text>
+        <Text style={styles.loadingText}>{t('liveMatchDetail.loading')}</Text>
       </View>
     );
   }
@@ -441,14 +442,14 @@ const LiveMatchDetailScreen = ({ route, navigation }) => {
                 </View>
               ) : isFinished ? (
                 <View style={styles.heroFinishedBadge}>
-                  <Text style={styles.heroFinishedText}>Maç Sona Erdi</Text>
+                  <Text style={styles.heroFinishedText}>{t('liveMatchDetail.matchEnded')}</Text>
                 </View>
               ) : (
                 <Text style={styles.heroStatusText}>{statusText}</Text>
               )}
               {lastUpdated && (
                 <Text style={styles.lastUpdatedText}>
-                  Son güncelleme: {lastUpdated.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  {t('liveMatchDetail.lastUpdate')}: {lastUpdated.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </Text>
               )}
             </View>
@@ -464,7 +465,7 @@ const LiveMatchDetailScreen = ({ route, navigation }) => {
         {/* Football Pitch - Lineup Visualization */}
         {lineups && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>KADRO DİZİLİŞİ</Text>
+            <Text style={styles.sectionTitle}>{t('liveMatchDetail.lineups')}</Text>
             <FootballPitch homeLineup={lineups.home} awayLineup={lineups.away} />
           </View>
         )}
@@ -472,7 +473,7 @@ const LiveMatchDetailScreen = ({ route, navigation }) => {
         {/* Events Timeline */}
         {events.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>MAÇ OLAYLARI</Text>
+            <Text style={styles.sectionTitle}>{t('liveMatchDetail.events')}</Text>
             <View style={styles.eventsContainer}>
               {events.slice(0, 10).map((event, index) => (
                 <EventItem key={index} event={event} homeTeamId={homeTeamId} />
@@ -484,7 +485,7 @@ const LiveMatchDetailScreen = ({ route, navigation }) => {
         {/* Stats Section */}
         {stats && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>İSTATİSTİKLER</Text>
+            <Text style={styles.sectionTitle}>{t('liveMatchDetail.statistics')}</Text>
             <View style={styles.statsContainer}>
               <View style={styles.statsHeader}>
                 <Text style={styles.statsHeaderTeam}>{homeShort}</Text>
@@ -501,7 +502,7 @@ const LiveMatchDetailScreen = ({ route, navigation }) => {
         {events.length === 0 && !loading && (
           <View style={styles.emptyEvents}>
             <Ionicons name="time-outline" size={32} color={COLORS.gray600} />
-            <Text style={styles.emptyEventsText}>Henüz maç olayı yok</Text>
+            <Text style={styles.emptyEventsText}>{t('liveMatchDetail.noEvents')}</Text>
           </View>
         )}
 

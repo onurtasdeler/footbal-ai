@@ -23,6 +23,7 @@ import footballApi from '../services/footballApi';
 import { getAnalyzedFixtureIds } from '../services/cacheService';
 import { useIsPro } from '../context/SubscriptionContext';
 import { COLORS } from '../theme/colors';
+import { t, getLanguage } from '../i18n';
 
 const LOCALE_TO_COUNTRY = {
   'tr': 'Turkey', 'en': 'England', 'de': 'Germany', 'es': 'Spain', 'fr': 'France',
@@ -51,7 +52,7 @@ const HomeScreen = ({ navigation }) => {
   const [error, setError] = useState(null);
   const [searchText, setSearchText] = useState('');
   const searchInputRef = useRef(null);
-  const [activeFilter, setActiveFilter] = useState('Tümü');
+  const [activeFilter, setActiveFilter] = useState('all');
   const [selectedDateOffset, setSelectedDateOffset] = useState(0);
   // showDatePicker state kaldırıldı - artık inline date tabs kullanılıyor
   const [userCountry, setUserCountry] = useState(null);
@@ -68,20 +69,25 @@ const HomeScreen = ({ navigation }) => {
   const [favoriteMatchIds, setFavoriteMatchIds] = useState([]);
   const [analyzedMatchIds, setAnalyzedMatchIds] = useState([]);
 
-  const filters = ['Tümü', 'Canlı', 'Favoriler', 'Analizler'];
+  const filters = [
+    { id: 'all', label: t('home.all') },
+    { id: 'live', label: t('home.live') },
+    { id: 'favorites', label: t('home.favorites') },
+    { id: 'analyses', label: t('home.analyses') }
+  ];
   const dateOptions = [-1, 0, 1, 2, 3, 4, 5]; // 7 günlük tarih aralığı
 
   // Date Tab Formatters
   const formatDayShort = (offset) => {
-    const days = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+    const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
     const date = new Date();
     date.setDate(date.getDate() + offset);
 
-    if (offset === 0) return 'Bugün';
-    if (offset === -1) return 'Dün';
-    if (offset === 1) return 'Yarın';
+    if (offset === 0) return t('home.today');
+    if (offset === -1) return t('home.yesterday');
+    if (offset === 1) return t('home.tomorrow');
 
-    return days[date.getDay()];
+    return t(`home.days.${dayKeys[date.getDay()]}`);
   };
 
   const formatDateNum = (offset) => {
@@ -101,9 +107,9 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const formatDateLabel = (offset) => {
-    if (offset === -1) return 'Dün';
-    if (offset === 0) return 'Bugün';
-    if (offset === 1) return 'Yarın';
+    if (offset === -1) return t('home.yesterday');
+    if (offset === 0) return t('home.today');
+    if (offset === 1) return t('home.tomorrow');
     const date = new Date();
     date.setDate(date.getDate() + offset);
     return `${date.getDate()}/${date.getMonth() + 1}`;
@@ -112,16 +118,16 @@ const HomeScreen = ({ navigation }) => {
   const formatDateDisplay = (offset) => {
     const date = new Date();
     date.setDate(date.getDate() + offset);
-    const days = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
-    const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-    return `${date.getDate()} ${months[date.getMonth()]}, ${days[date.getDay()]}`;
+    const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    const monthKeys = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    return `${date.getDate()} ${t(`home.months.${monthKeys[date.getMonth()]}`)}, ${t(`home.daysLong.${dayKeys[date.getDay()]}`)}`;
   };
 
   const formatShortDate = (offset) => {
     const date = new Date();
     date.setDate(date.getDate() + offset);
-    const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-    return `${date.getDate()} ${months[date.getMonth()]}`;
+    const monthKeys = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    return `${date.getDate()} ${t(`home.months.${monthKeys[date.getMonth()]}`)}`;
   };
 
   useEffect(() => {
@@ -199,7 +205,7 @@ const HomeScreen = ({ navigation }) => {
           if (!grouped[leagueKey]) {
             grouped[leagueKey] = {
               id: leagueId,
-              name: match.league?.name || 'Bilinmeyen Lig',
+              name: match.league?.name || t('home.unknownLeague'),
               country: match.league?.country || '',
               flag: match.league?.flag,
               logo: match.league?.logo,
@@ -298,13 +304,13 @@ const HomeScreen = ({ navigation }) => {
     }
 
     // Tab Filters
-    if (activeFilter === 'Canlı') {
+    if (activeFilter === 'live') {
       return filtered.filter(m => m.isLive === true);
     }
-    if (activeFilter === 'Favoriler') {
+    if (activeFilter === 'favorites') {
       return filtered.filter(m => favoriteMatchIds.includes(m.id));
     }
-    if (activeFilter === 'Analizler') {
+    if (activeFilter === 'analyses') {
       return filtered.filter(m => analyzedMatchIds.includes(m.id));
     }
 
@@ -327,21 +333,19 @@ const HomeScreen = ({ navigation }) => {
       <View style={[styles.bultenHeader, { paddingTop: insets.top + 8 }]}>
         <View style={styles.headerIconBtn} />
         <Text style={styles.appTitle}>Goalwise</Text>
-        <TouchableOpacity
-          style={[styles.proBadge, isPro && styles.proBadgeActive]}
-          onPress={isPro ? undefined : () => navigation.navigate('Paywall')}
-          activeOpacity={isPro ? 1 : 0.7}
-          disabled={isPro}
-        >
-          <Ionicons
-            name={isPro ? "checkmark-circle" : "trophy"}
-            size={16}
-            color={isPro ? "#00d4aa" : "#F4B43A"}
-          />
-          <Text style={[styles.proText, isPro && styles.proTextActive]}>
-            {isPro ? "PRO" : "PRO"}
-          </Text>
-        </TouchableOpacity>
+        {/* PRO badge - only show for non-subscribers */}
+        {!isPro ? (
+          <TouchableOpacity
+            style={styles.proBadge}
+            onPress={() => navigation.navigate('Paywall')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="trophy" size={16} color="#F4B43A" />
+            <Text style={styles.proText}>PRO</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.headerIconBtn} />
+        )}
       </View>
 
       {/* Date Tabs */}
@@ -386,7 +390,7 @@ const HomeScreen = ({ navigation }) => {
           <TextInput
             ref={searchInputRef}
             style={styles.searchInput}
-            placeholder="Takım veya lig ara..."
+            placeholder={t('home.searchPlaceholder')}
             placeholderTextColor={COLORS.gray500}
             value={searchText}
             onChangeText={setSearchText}
@@ -413,30 +417,30 @@ const HomeScreen = ({ navigation }) => {
       <View style={styles.filterContainer}>
         {filters.map((filter) => (
           <TouchableOpacity
-            key={filter}
+            key={filter.id}
             style={[
               styles.filterTab,
-              activeFilter === filter && styles.filterTabActive,
-              filter === 'Canlı' && styles.filterTabLive,
-              filter === 'Canlı' && activeFilter === filter && styles.filterTabLiveActive,
+              activeFilter === filter.id && styles.filterTabActive,
+              filter.id === 'live' && styles.filterTabLive,
+              filter.id === 'live' && activeFilter === filter.id && styles.filterTabLiveActive,
             ]}
-            onPress={() => setActiveFilter(filter)}
+            onPress={() => setActiveFilter(filter.id)}
           >
-            {filter === 'Canlı' && (
+            {filter.id === 'live' && (
               <View style={[
                 styles.liveIndicator,
-                activeFilter === filter && styles.liveIndicatorActive,
+                activeFilter === filter.id && styles.liveIndicatorActive,
               ]} />
             )}
             <Text
               style={[
                 styles.filterText,
-                activeFilter === filter && styles.filterTextActive,
-                filter === 'Canlı' && styles.filterTextLive,
-                filter === 'Canlı' && activeFilter === filter && styles.filterTextLiveActive,
+                activeFilter === filter.id && styles.filterTextActive,
+                filter.id === 'live' && styles.filterTextLive,
+                filter.id === 'live' && activeFilter === filter.id && styles.filterTextLiveActive,
               ]}
             >
-              {filter}
+              {filter.label}
             </Text>
           </TouchableOpacity>
         ))}
@@ -445,7 +449,7 @@ const HomeScreen = ({ navigation }) => {
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.accent} />
-          <Text style={styles.loadingText}>Yükleniyor...</Text>
+          <Text style={styles.loadingText}>{t('common.loading')}</Text>
         </View>
       ) : (
         <ScrollView
@@ -464,7 +468,7 @@ const HomeScreen = ({ navigation }) => {
                <View style={styles.noMatchesBox}>
                <Ionicons name="football-outline" size={40} color={COLORS.gray700} />
                <Text style={styles.noMatchesText}>
-                 Bugün maç bulunamadı
+                 {t('home.noMatches')}
                </Text>
              </View>
             ) : (
@@ -519,7 +523,7 @@ const HomeScreen = ({ navigation }) => {
                                 <View style={styles.liveTimeBadge}>
                                   <View style={styles.liveBadgeTop}>
                                     <View style={styles.liveDotPulse} />
-                                    <Text style={styles.liveLabel}>CANLI</Text>
+                                    <Text style={styles.liveLabel}>{t('home.liveLabel')}</Text>
                                   </View>
                                   <Text style={styles.liveMinuteText}>{match.minute}'</Text>
                                 </View>
@@ -538,7 +542,7 @@ const HomeScreen = ({ navigation }) => {
                                   )}
                                 </View>
                                 <Text style={styles.teamNameText} numberOfLines={1}>
-                                  {match.home?.name || 'Ev Sahibi'}
+                                  {match.home?.name || t('home.homeTeam')}
                                 </Text>
                               </View>
                               <View style={styles.teamRow}>
@@ -550,7 +554,7 @@ const HomeScreen = ({ navigation }) => {
                                   )}
                                 </View>
                                 <Text style={styles.teamNameText} numberOfLines={1}>
-                                  {match.away?.name || 'Deplasman'}
+                                  {match.away?.name || t('home.awayTeam')}
                                 </Text>
                               </View>
                             </View>
@@ -636,12 +640,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#F4B43A',
     letterSpacing: 0.5,
-  },
-  proBadgeActive: {
-    backgroundColor: 'rgba(0, 212, 170, 0.15)',
-  },
-  proTextActive: {
-    color: '#00d4aa',
   },
   notificationBadge: {
     position: 'absolute',

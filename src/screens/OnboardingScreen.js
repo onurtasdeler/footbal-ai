@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../theme/colors';
 import { setOnboardingCompleted } from '../services/cacheService';
+import { t } from '../i18n';
 
 const { width, height } = Dimensions.get('window');
 
@@ -125,7 +126,7 @@ const GoalAnimation = ({ isActive }) => {
       </Animated.View>
 
       <Animated.View style={[styles.goalTextContainer, { opacity: goalTextOpacity, transform: [{ scale: goalTextScale }] }]}>
-        <Text style={styles.goalText}>GOL!</Text>
+        <Text style={styles.goalText}>{t('onboarding.goal')}</Text>
       </Animated.View>
     </View>
   );
@@ -177,7 +178,7 @@ const LiveScoreAnimation = ({ isActive }) => {
       <View style={styles.matchCard}>
         <Animated.View style={[styles.liveIndicator, { opacity: liveOpacity }]}>
           <View style={styles.liveDot} />
-          <Text style={styles.liveText}>CANLI</Text>
+          <Text style={styles.liveText}>{t('onboarding.live')}</Text>
         </Animated.View>
 
         <View style={styles.teamsContainer}>
@@ -317,26 +318,26 @@ const OnboardingScreen = ({ navigation }) => {
   const pages = [
     {
       id: 1,
-      badge: 'YENİ',
+      badge: t('onboarding.new'),
       badgeColors: [COLORS.accent, '#00b894'],
-      title: 'Akıllı Tahminler',
-      subtitle: 'Yapay zeka destekli profesyonel maç analizleri',
+      title: t('onboarding.page1.title'),
+      subtitle: t('onboarding.page1.subtitle'),
       features: [
-        { icon: 'trending-up', title: '%85+ İsabet', subtitle: 'Yüksek doğruluk oranı', color: COLORS.accent },
-        { icon: 'analytics', title: '100+ Günlük Analiz', subtitle: 'Tüm ligler dahil', color: COLORS.warning },
-        { icon: 'shield-checkmark', title: 'Güvenilir Veriler', subtitle: 'Gerçek zamanlı istatistik', color: COLORS.success },
+        { icon: 'trending-up', title: t('onboarding.page1.feature1Title'), subtitle: t('onboarding.page1.feature1Subtitle'), color: COLORS.accent },
+        { icon: 'analytics', title: t('onboarding.page1.feature2Title'), subtitle: t('onboarding.page1.feature2Subtitle'), color: COLORS.warning },
+        { icon: 'shield-checkmark', title: t('onboarding.page1.feature3Title'), subtitle: t('onboarding.page1.feature3Subtitle'), color: COLORS.success },
       ],
     },
     {
       id: 2,
-      badge: 'CANLI',
+      badge: t('onboarding.live'),
       badgeColors: [COLORS.liveRed, '#ff6b6b'],
-      title: 'Anlık Takip',
-      subtitle: 'Canlı skorlar ve detaylı maç istatistikleri',
+      title: t('onboarding.page2.title'),
+      subtitle: t('onboarding.page2.subtitle'),
       features: [
-        { icon: 'flash', title: 'Anlık Bildirim', subtitle: 'Gol ve önemli olaylar', color: COLORS.liveRed },
-        { icon: 'stats-chart', title: 'Detaylı İstatistik', subtitle: 'Şut, pas, top hakimiyeti', color: COLORS.homeTeam },
-        { icon: 'time', title: 'Dakika Dakika', subtitle: 'Canlı maç takibi', color: COLORS.accent },
+        { icon: 'flash', title: t('onboarding.page2.feature1Title'), subtitle: t('onboarding.page2.feature1Subtitle'), color: COLORS.liveRed },
+        { icon: 'stats-chart', title: t('onboarding.page2.feature2Title'), subtitle: t('onboarding.page2.feature2Subtitle'), color: COLORS.homeTeam },
+        { icon: 'time', title: t('onboarding.page2.feature3Title'), subtitle: t('onboarding.page2.feature3Subtitle'), color: COLORS.accent },
       ],
     },
   ];
@@ -375,7 +376,7 @@ const OnboardingScreen = ({ navigation }) => {
 
       {/* Skip */}
       <TouchableOpacity style={[styles.skipButton, { top: insets.top + 10 }]} onPress={handleSkip}>
-        <Text style={styles.skipText}>Atla</Text>
+        <Text style={styles.skipText}>{t('common.skip')}</Text>
       </TouchableOpacity>
 
       {/* Pages */}
@@ -411,7 +412,7 @@ const OnboardingScreen = ({ navigation }) => {
               end={{ x: 1, y: 0 }}
             >
               <Text style={styles.actionButtonText}>
-                {currentPage === pages.length - 1 ? 'Başla' : 'Devam'}
+                {currentPage === pages.length - 1 ? t('common.start') : t('common.next')}
               </Text>
               <Ionicons
                 name={currentPage === pages.length - 1 ? 'rocket' : 'arrow-forward'}

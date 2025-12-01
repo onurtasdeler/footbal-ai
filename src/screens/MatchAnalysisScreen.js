@@ -12,6 +12,7 @@ import {
   ImageBackground,
   Platform,
   StatusBar,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,9 +20,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import footballApi from '../services/footballApi';
 import claudeAi from '../services/claudeAi';
 import cacheService from '../services/cacheService';
-import supabaseService from '../services/supabaseService';
 import { useSubscription } from '../context/SubscriptionContext';
 import PaywallScreen from './PaywallScreen';
+import { t } from '../i18n';
+import { AnalysisLoadingAnimation } from '../components/loading';
 
 // Stadium background image
 const STADIUM_BG = require('../../assets/images/stad.jpg');
@@ -84,19 +86,19 @@ const COLORS = {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// MAIN TABS
+// MAIN TABS - Dynamic for i18n
 // ═══════════════════════════════════════════════════════════════════════════════
-const MAIN_TABS = [
-  { id: 'tahminler', label: 'Tahminler' },
-  { id: 'golTahminleri', label: 'Gol Tahminleri' },
-  { id: 'golDagilimi', label: 'Gol Dağılımı' },
-  { id: 'kgSenaryolari', label: 'KG Senaryoları' },
-  { id: 'ilkYari', label: 'İlk Yarı' },
-  { id: 'riskAnalizi', label: 'Risk Analizi' },
-  { id: 'faktorAnalizi', label: 'Faktör Analizi' },
-  { id: 'formDurumu', label: 'Form Durumu' },
-  { id: 'istatistikler', label: 'İstatistikler' },
-  { id: 'karsilikli', label: 'Karşılıklı' },
+const getMainTabs = () => [
+  { id: 'tahminler', label: t('matchAnalysis.tabs.predictions') },
+  { id: 'golTahminleri', label: t('matchAnalysis.tabs.goalPredictions') },
+  { id: 'golDagilimi', label: t('matchAnalysis.tabs.goalDistribution') },
+  { id: 'kgSenaryolari', label: t('matchAnalysis.tabs.bttsScenarios') },
+  { id: 'ilkYari', label: t('matchAnalysis.tabs.firstHalf') },
+  { id: 'riskAnalizi', label: t('matchAnalysis.tabs.riskAnalysis') },
+  { id: 'faktorAnalizi', label: t('matchAnalysis.tabs.factorAnalysis') },
+  { id: 'formDurumu', label: t('matchAnalysis.tabs.formStatus') },
+  { id: 'istatistikler', label: t('matchAnalysis.tabs.statistics') },
+  { id: 'karsilikli', label: t('matchAnalysis.tabs.headToHead') },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -190,14 +192,14 @@ const FactorBar = ({ category, text, impact, weight, color }) => {
   });
 
   const categoryLabels = {
-    form: 'Form Durumu',
-    h2h: 'Karşılıklı Sonuçlar',
-    kadro: 'Kadro Durumu',
-    taktik: 'Taktiksel Uyum',
-    motivasyon: 'Motivasyon',
-    hakem: 'Hakem Etkisi',
-    hava: 'Hava Durumu',
-    market: 'Piyasa Analizi',
+    form: t('matchAnalysis.categories.form'),
+    h2h: t('matchAnalysis.categories.h2h'),
+    kadro: t('matchAnalysis.categories.squad'),
+    taktik: t('matchAnalysis.categories.tactics'),
+    motivasyon: t('matchAnalysis.categories.motivation'),
+    hakem: t('matchAnalysis.categories.referee'),
+    hava: t('matchAnalysis.categories.weather'),
+    market: t('matchAnalysis.categories.market'),
   };
 
   return (
@@ -340,7 +342,7 @@ const BetCard = ({ type, confidence, reasoning, risk, isHot = false }) => {
       {/* Hot indicator */}
       {isHot && (
         <View style={betCardStyles.hotIndicator}>
-          <Text style={betCardStyles.hotText}>🔥 ÖNERİ</Text>
+          <Text style={betCardStyles.hotText}>🔥 {t('matchAnalysis.recommendation')}</Text>
         </View>
       )}
 
@@ -363,7 +365,7 @@ const BetCard = ({ type, confidence, reasoning, risk, isHot = false }) => {
       <View style={betCardStyles.riskRow}>
         <View style={[betCardStyles.riskDot, { backgroundColor: getRiskColor() }]} />
         <Text style={[betCardStyles.riskText, { color: getRiskColor() }]}>
-          {risk || 'Orta'} Risk
+          {risk || t('common.mediumRisk')} {t('common.risk')}
         </Text>
       </View>
 
@@ -534,9 +536,9 @@ const BankoBadge = ({ confidence, pulseAnim }) => {
   };
 
   const getBadgeText = () => {
-    if (confidence >= 70) return 'BANKO MAÇ';
-    if (confidence >= 50) return 'ORTA RİSK';
-    return 'RİSKLİ';
+    if (confidence >= 70) return t('matchAnalysis.banko');
+    if (confidence >= 50) return t('matchAnalysis.mediumRisk');
+    return t('matchAnalysis.risky');
   };
 
   return (
@@ -608,10 +610,10 @@ const BTTSDistribution = ({ distribution }) => {
   if (!distribution) return null;
 
   const segments = [
-    { key: 'bothScore', label: 'Her İkisi Gol', color: COLORS.success, value: distribution.bothScore || 0 },
-    { key: 'onlyHomeScores', label: 'Sadece Ev', color: COLORS.homeColor, value: distribution.onlyHomeScores || 0 },
-    { key: 'onlyAwayScores', label: 'Sadece Dep', color: COLORS.awayColor, value: distribution.onlyAwayScores || 0 },
-    { key: 'noGoals', label: 'Golsüz', color: COLORS.gray600, value: distribution.noGoals || 0 },
+    { key: 'bothScore', label: t('matchAnalysis.goalDist.bothScore'), color: COLORS.success, value: distribution.bothScore || 0 },
+    { key: 'onlyHomeScores', label: t('matchAnalysis.goalDist.onlyHome'), color: COLORS.homeColor, value: distribution.onlyHomeScores || 0 },
+    { key: 'onlyAwayScores', label: t('matchAnalysis.goalDist.onlyAway'), color: COLORS.awayColor, value: distribution.onlyAwayScores || 0 },
+    { key: 'noGoals', label: t('matchAnalysis.goalDist.noGoals'), color: COLORS.gray600, value: distribution.noGoals || 0 },
   ];
 
   return (
@@ -671,9 +673,9 @@ const VolatilityGauge = ({ volatility, riskLevel }) => {
 
   const getRiskText = () => {
     if (riskLevel) return riskLevel.toUpperCase();
-    if (percentage <= 35) return 'DÜŞÜK';
-    if (percentage <= 65) return 'ORTA';
-    return 'YÜKSEK';
+    if (percentage <= 35) return t('matchAnalysis.risk.low');
+    if (percentage <= 65) return t('matchAnalysis.risk.medium');
+    return t('matchAnalysis.risk.high');
   };
 
   return (
@@ -691,9 +693,9 @@ const VolatilityGauge = ({ volatility, riskLevel }) => {
           </View>
         </View>
         <View style={volatilityStyles.labelsRow}>
-          <Text style={volatilityStyles.labelText}>Düşük</Text>
-          <Text style={volatilityStyles.labelText}>Orta</Text>
-          <Text style={volatilityStyles.labelText}>Yüksek</Text>
+          <Text style={volatilityStyles.labelText}>{t('common.lowRisk')}</Text>
+          <Text style={volatilityStyles.labelText}>{t('common.mediumRisk')}</Text>
+          <Text style={volatilityStyles.labelText}>{t('common.highRisk')}</Text>
         </View>
       </View>
       <View style={volatilityStyles.valueContainer}>
@@ -741,7 +743,7 @@ const TrendIndicator = ({ trend, label, color }) => {
       <Text style={[trendStyles.label, color && { color }]}>{label}</Text>
       <View style={trendStyles.trendBox}>
         <Ionicons name={getTrendIcon()} size={14} color={getTrendColor()} />
-        <Text style={[trendStyles.trendText, { color: getTrendColor() }]}>{trend || 'Stabil'}</Text>
+        <Text style={[trendStyles.trendText, { color: getTrendColor() }]}>{trend || t('matchAnalysis.trend')}</Text>
       </View>
     </View>
   );
@@ -763,19 +765,19 @@ const RiskFlagBadge = ({ flags }) => {
   const activeFlags = [];
 
   if (flags.highDerbyVolatility) {
-    activeFlags.push({ icon: 'flame', text: 'Derbi Volatilitesi', color: COLORS.danger });
+    activeFlags.push({ icon: 'flame', text: t('matchAnalysis.riskFlags.derbyVolatility'), color: COLORS.danger });
   }
   if (flags.weatherImpact && flags.weatherImpact !== 'düşük') {
-    activeFlags.push({ icon: 'rainy', text: `Hava: ${flags.weatherImpact}`, color: flags.weatherImpact === 'yüksek' ? COLORS.danger : COLORS.warning });
+    activeFlags.push({ icon: 'rainy', text: `${t('matchAnalysis.riskFlags.weather')} ${flags.weatherImpact}`, color: flags.weatherImpact === 'yüksek' ? COLORS.danger : COLORS.warning });
   }
   if (flags.fatigueRiskHome && flags.fatigueRiskHome !== 'düşük') {
-    activeFlags.push({ icon: 'fitness', text: `Ev Yorgunluk: ${flags.fatigueRiskHome}`, color: COLORS.homeColor });
+    activeFlags.push({ icon: 'fitness', text: `${t('matchAnalysis.riskFlags.homeFatigue')} ${flags.fatigueRiskHome}`, color: COLORS.homeColor });
   }
   if (flags.fatigueRiskAway && flags.fatigueRiskAway !== 'düşük') {
-    activeFlags.push({ icon: 'fitness', text: `Dep Yorgunluk: ${flags.fatigueRiskAway}`, color: COLORS.awayColor });
+    activeFlags.push({ icon: 'fitness', text: `${t('matchAnalysis.riskFlags.awayFatigue')} ${flags.fatigueRiskAway}`, color: COLORS.awayColor });
   }
   if (flags.marketDisagreement) {
-    activeFlags.push({ icon: 'alert-circle', text: 'Piyasa Uyumsuz', color: COLORS.warning });
+    activeFlags.push({ icon: 'alert-circle', text: t('matchAnalysis.riskFlags.marketDisagreement'), color: COLORS.warning });
   }
 
   if (activeFlags.length === 0) return null;
@@ -892,6 +894,9 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [cachedData, setCachedData] = useState(false);
+  const [rateLimitError, setRateLimitError] = useState(null);
+  const [showRateLimitPaywall, setShowRateLimitPaywall] = useState(false);
+  const [showRateLimitInfo, setShowRateLimitInfo] = useState(false);
 
   // Parse match data
   const isApiData = typeof match.home === 'object';
@@ -1053,34 +1058,27 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
       // Small delay to ensure prediction data is available
       const timer = setTimeout(() => {
         fetchAiAnalysis();
-      }, 1000);
+      }, 300);
       return () => clearTimeout(timer);
     }
   }, [loading, hasAnalysis, cachedData, aiLoading]);
 
-  // Analysis handler with shared cache (Supabase) + local cache
+  // Analysis handler - Edge Function handles Supabase caching with language support
   const fetchAiAnalysis = async () => {
     if (aiLoading) return;
 
-    // If already have cached data, don't fetch again
+    // If already have cached data in memory, don't fetch again
     if (cachedData && aiAnalysis) {
       return;
     }
 
     setAiLoading(true);
     try {
-      // 1. First check Supabase for shared analysis (all users share this cache)
-      const sharedAnalysis = await supabaseService.getSharedAnalysis(fixtureId);
-      if (sharedAnalysis) {
-        setAiAnalysis(sharedAnalysis);
-        setCachedData(true);
-        // Also save to local cache for offline access
-        await cacheService.saveAnalysis(fixtureId, sharedAnalysis, match.date, match.status || 'NS');
-        setAiLoading(false);
-        return; // No Claude API call needed!
-      }
-
-      // 2. Not in Supabase - call Claude API
+      // Call Edge Function - it handles:
+      // 1. Rate limiting (IP-based, 3 matches/day)
+      // 2. Supabase cache check (with language parameter)
+      // 3. Claude API call if not cached
+      // 4. Saving to Supabase cache (with language)
       const analysisData = {
         home: match.home,
         away: match.away,
@@ -1098,14 +1096,19 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
 
       const result = await claudeAi.analyzeMatch(analysisData);
       if (result) {
-        setAiAnalysis(result);
+        // Check for rate limit error
+        if (result.rateLimitExceeded) {
+          setRateLimitError(result.rateLimitMessage);
+          setShowRateLimitInfo(true); // Önce info modal göster, paywall sonra
+          setAiAnalysis(result); // Still set the default analysis
+        } else {
+          setRateLimitError(null);
+          setAiAnalysis(result);
+          setCachedData(true);
 
-        // 3. Save to Supabase (so other users can access it)
-        await supabaseService.saveSharedAnalysis(fixtureId, result, match.date);
-
-        // 4. Also save to local cache (for offline access)
-        await cacheService.saveAnalysis(fixtureId, result, match.date, match.status || 'NS');
-        setCachedData(true);
+          // Save to local cache for offline access only
+          await cacheService.saveAnalysis(fixtureId, result, match.date, match.status || 'NS');
+        }
       }
     } catch (error) {
       // Silent fail - don't log to console
@@ -1131,14 +1134,15 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
   // ─────────────────────────────────────────────────────────────────────────────
   // PRO CHECK - Tüm hooks'lardan sonra
   // ─────────────────────────────────────────────────────────────────────────────
-  if (!isPro) {
-    return (
-      <PaywallScreen
-        visible={true}
-        onClose={() => navigation.goBack()}
-      />
-    );
-  }
+  // TODO: Test sonrası geri aç
+  // if (!isPro) {
+  //   return (
+  //     <PaywallScreen
+  //       visible={true}
+  //       onClose={() => navigation.goBack()}
+  //     />
+  //   );
+  // }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER HEADER
@@ -1152,7 +1156,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
         </TouchableOpacity>
         <View style={styles.leagueContainer}>
           {leagueLogo && <Image source={{ uri: leagueLogo }} style={styles.leagueLogo} resizeMode="contain" />}
-          <Text style={styles.leagueName} numberOfLines={1}>{leagueName || 'Lig'}</Text>
+          <Text style={styles.leagueName} numberOfLines={1}>{leagueName || t('home.unknownLeague')}</Text>
         </View>
         <TouchableOpacity style={styles.favoriteButton}>
           <Ionicons name="star-outline" size={22} color={COLORS.gray400} />
@@ -1167,7 +1171,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
               <Ionicons name="football" size={32} color={COLORS.gray600} />
             )}
           </View>
-          <Text style={styles.teamName} numberOfLines={2}>{homeName || 'Ev Sahibi'}</Text>
+          <Text style={styles.teamName} numberOfLines={2}>{homeName || t('home.homeTeam')}</Text>
         </View>
         <View style={styles.vsContainer}>
           <Text style={styles.vsText}>VS</Text>
@@ -1181,7 +1185,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
               <Ionicons name="football" size={32} color={COLORS.gray600} />
             )}
           </View>
-          <Text style={styles.teamName} numberOfLines={2}>{awayName || 'Deplasman'}</Text>
+          <Text style={styles.teamName} numberOfLines={2}>{awayName || t('home.awayTeam')}</Text>
         </View>
       </View>
     </ImageBackground>
@@ -1197,7 +1201,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.mainTabsScroll}
       >
-        {MAIN_TABS.map((tab) => (
+        {getMainTabs().map((tab) => (
           <TouchableOpacity
             key={tab.id}
             style={[styles.scrollableTab, activeTab === tab.id && styles.scrollableTabActive]}
@@ -1222,12 +1226,12 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
       <View style={styles.aiCardHeader}>
         <View style={styles.aiCardTitleRow}>
           <Ionicons name="sparkles" size={18} color={COLORS.accent} />
-          <Text style={styles.aiCardTitle}>AKILLI TAHMİN</Text>
+          <Text style={styles.aiCardTitle}>{t('matchAnalysis.smartPrediction')}</Text>
         </View>
         {cachedData && hasAnalysis ? (
           <View style={styles.analysisReadyBadge}>
             <Ionicons name="checkmark-circle" size={14} color={COLORS.success} />
-            <Text style={styles.analysisReadyLabel}>Hazır</Text>
+            <Text style={styles.analysisReadyLabel}>{t('matchAnalysis.ready')}</Text>
           </View>
         ) : (
           <TouchableOpacity
@@ -1240,26 +1244,53 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
             ) : (
               <>
                 <Ionicons name="analytics" size={16} color={COLORS.accent} />
-                <Text style={styles.aiAnalyzeButtonText}>Analiz</Text>
+                <Text style={styles.aiAnalyzeButtonText}>{t('matchAnalysis.analyze')}</Text>
               </>
             )}
           </TouchableOpacity>
         )}
       </View>
 
-      {aiLoading ? (
-        <View style={styles.aiLoadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
-          <Text style={styles.aiLoadingText}>Karşılaşma analiz ediliyor...</Text>
-          <Text style={styles.aiLoadingSubtext}>Bu işlem birkaç saniye sürebilir</Text>
+      {/* Rate Limit Info Modal - Önce bu gösterilir */}
+      <Modal visible={showRateLimitInfo} transparent animationType="none">
+        <View style={styles.rateLimitModalOverlay}>
+          <View style={styles.rateLimitModalContent}>
+            <View style={styles.rateLimitIconCircle}>
+              <Ionicons name="lock-closed" size={32} color="#FF6B35" />
+            </View>
+            <Text style={styles.rateLimitModalTitle}>
+              {t('matchAnalysis.rateLimitModal.title')}
+            </Text>
+            <Text style={styles.rateLimitModalMessage}>
+              {t('matchAnalysis.rateLimitModal.message')}
+            </Text>
+            <TouchableOpacity
+              style={styles.rateLimitModalButton}
+              onPress={() => {
+                setShowRateLimitInfo(false);
+                setShowRateLimitPaywall(true);
+              }}
+            >
+              <Text style={styles.rateLimitModalButtonText}>
+                {t('matchAnalysis.rateLimitModal.button')}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      ) : !hasAnalysis ? (
-        <View style={styles.aiLoadingContainer}>
-          <Ionicons name="analytics-outline" size={40} color={COLORS.gray500} />
-          <Text style={styles.aiLoadingText}>Analiz bekleniyor</Text>
-          <Text style={styles.aiLoadingSubtext}>Yukarıdaki butona basarak analiz başlatın</Text>
-        </View>
-      ) : (
+      </Modal>
+
+      {/* Rate Limit Paywall - Info modal kapandıktan sonra açılır */}
+      {showRateLimitPaywall && (
+        <PaywallScreen
+          visible={showRateLimitPaywall}
+          onClose={() => {
+            setShowRateLimitPaywall(false);
+            navigation.goBack();
+          }}
+        />
+      )}
+
+      {hasAnalysis && (
         <View style={styles.probabilitySection}>
           <View style={styles.probBarContainer}>
             <View style={[styles.probBarSegment, { width: `${analysis.homeWinProb}%`, backgroundColor: COLORS.homeColor }]}>
@@ -1280,7 +1311,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
             </View>
             <View style={styles.probLegendItem}>
               <View style={[styles.probLegendDot, { backgroundColor: COLORS.warning }]} />
-              <Text style={styles.probLegendText}>Beraberlik</Text>
+              <Text style={styles.probLegendText}>{t('matchAnalysis.drawResult')}</Text>
               <Text style={[styles.probLegendValue, { color: COLORS.warning }]}>{analysis.drawProb}%</Text>
             </View>
             <View style={styles.probLegendItem}>
@@ -1290,7 +1321,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
             </View>
           </View>
           <View style={styles.confidenceRow}>
-            <Text style={styles.confidenceLabel}>Analiz Güveni</Text>
+            <Text style={styles.confidenceLabel}>{t('matchAnalysis.analysisConfidence')}</Text>
             <View style={styles.confidenceStars}>
               {[1, 2, 3, 4, 5].map(star => (
                 <Ionicons
@@ -1310,7 +1341,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
         <>
           <View style={styles.riskWinnerRow}>
             <View style={styles.riskBadgeBox}>
-              <Text style={styles.riskBadgeLabel}>RİSK</Text>
+              <Text style={styles.riskBadgeLabel}>{t('matchAnalysis.riskLabel')}</Text>
               <View style={[styles.riskBadgeInner, {
                 borderColor: (analysis.bankoScore || analysis.confidence * 10) >= 70 ? COLORS.success :
                              (analysis.bankoScore || analysis.confidence * 10) >= 50 ? COLORS.warning : COLORS.danger
@@ -1319,8 +1350,8 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
                   color: (analysis.bankoScore || analysis.confidence * 10) >= 70 ? COLORS.success :
                          (analysis.bankoScore || analysis.confidence * 10) >= 50 ? COLORS.warning : COLORS.danger
                 }]}>
-                  {(analysis.bankoScore || analysis.confidence * 10) >= 70 ? 'DÜŞÜK' :
-                   (analysis.bankoScore || analysis.confidence * 10) >= 50 ? 'ORTA' : 'YÜKSEK'}
+                  {(analysis.bankoScore || analysis.confidence * 10) >= 70 ? t('matchAnalysis.risk.low') :
+                   (analysis.bankoScore || analysis.confidence * 10) >= 50 ? t('matchAnalysis.risk.medium') : t('matchAnalysis.risk.high')}
                 </Text>
                 <Text style={[styles.riskBadgePercent, {
                   color: (analysis.bankoScore || analysis.confidence * 10) >= 70 ? COLORS.success :
@@ -1331,7 +1362,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
               </View>
             </View>
             <View style={styles.winnerBox}>
-              <Text style={styles.winnerBoxLabel}>TAHMİN</Text>
+              <Text style={styles.winnerBoxLabel}>{t('matchAnalysis.predictionLabel')}</Text>
               {analysis.winner === 'ev' || analysis.winner === 'deplasman' ? (
                 <View style={styles.winnerBoxContent}>
                   {(analysis.winner === 'ev' ? homeLogo : awayLogo) && (
@@ -1369,7 +1400,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
             <View style={styles.adviceSection}>
               <View style={styles.adviceHeader}>
                 <Ionicons name="bulb" size={18} color={COLORS.warning} />
-                <Text style={styles.adviceTitle}>Uzman Tavsiyesi</Text>
+                <Text style={styles.adviceTitle}>{t('matchAnalysis.sections.expertAdvice')}</Text>
               </View>
               <Text style={styles.adviceText}>{analysis.advice}</Text>
             </View>
@@ -1391,13 +1422,13 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
             awayName={awayName}
           />
           <View style={styles.circularGrid}>
-            <CircularProgress value={analysis.expectedGoals} label="Toplam xG" color={COLORS.accent} isNumber />
-            <CircularProgress value={analysis.bttsProb} label="KG Var" color={COLORS.success} />
-            <CircularProgress value={analysis.over25Prob} label="2.5 Üst" color={COLORS.homeColor} />
-            <CircularProgress value={analysis.over15Prob || 70} label="1.5 Üst" color={COLORS.warning} />
+            <CircularProgress value={analysis.expectedGoals} label={t('matchAnalysis.labels.totalXG')} color={COLORS.accent} isNumber />
+            <CircularProgress value={analysis.bttsProb} label={t('matchAnalysis.labels.btts')} color={COLORS.success} />
+            <CircularProgress value={analysis.over25Prob} label={t('matchAnalysis.labels.over25')} color={COLORS.homeColor} />
+            <CircularProgress value={analysis.over15Prob || 70} label={t('matchAnalysis.labels.over15')} color={COLORS.warning} />
           </View>
           <View style={styles.scoreSection}>
-            <Text style={styles.scoreLabel}>En Olası Skor</Text>
+            <Text style={styles.scoreLabel}>{t('matchAnalysis.sections.likelyScore')}</Text>
             <View style={styles.mainScoreBox}>
               <View style={styles.mainScoreInner}>
                 <Text style={styles.mainScoreValue}>{analysis.mostLikelyScore || '1-1'}</Text>
@@ -1408,7 +1439,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
             </View>
             {analysis.alternativeScores && analysis.alternativeScores.length > 0 && (
               <View style={styles.altScoresContainer}>
-                <Text style={styles.altScoresTitle}>Alternatif Skorlar</Text>
+                <Text style={styles.altScoresTitle}>{t('matchAnalysis.sections.alternativeScores')}</Text>
                 <View style={styles.altScoresRow}>
                   {analysis.alternativeScores.slice(0, 4).map((s, index) => {
                     const score = typeof s === 'object' ? s.score : s;
@@ -1430,7 +1461,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Ionicons name="star" size={18} color={COLORS.accent} />
-            <Text style={styles.sectionTitle}>ÖNERİLER</Text>
+            <Text style={styles.sectionTitle}>{t('matchAnalysis.sections.recommendations')}</Text>
           </View>
           <View style={styles.betCardsRow}>
             {analysis.recommendedBets.slice(0, 3).map((bet, index) => (
@@ -1468,7 +1499,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
       {!analysis.goalDistribution && (
         <View style={styles.noDataContainer}>
           <Ionicons name="bar-chart-outline" size={40} color={COLORS.gray500} />
-          <Text style={styles.noDataText}>Gol dağılımı verisi bulunamadı</Text>
+          <Text style={styles.noDataText}>{t('matchAnalysis.errors.noGoalDistribution')}</Text>
         </View>
       )}
     </>
@@ -1484,7 +1515,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
       {!analysis.bttsDistribution && (
         <View style={styles.noDataContainer}>
           <Ionicons name="git-compare-outline" size={40} color={COLORS.gray500} />
-          <Text style={styles.noDataText}>KG senaryoları verisi bulunamadı</Text>
+          <Text style={styles.noDataText}>{t('matchAnalysis.errors.noBTTSScenarios')}</Text>
         </View>
       )}
     </>
@@ -1500,29 +1531,29 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
               <View style={styles.htBar}>
                 <View style={[styles.htBarFill, { width: `${analysis.htHomeWinProb || 30}%`, backgroundColor: COLORS.homeColor }]} />
               </View>
-              <Text style={styles.htLabel}>EV ÖNDE</Text>
+              <Text style={styles.htLabel}>{t('matchAnalysis.firstHalf.homeAhead')}</Text>
             </View>
             <View style={styles.htItem}>
               <Text style={[styles.htPercent, { color: COLORS.warning }]}>{analysis.htDrawProb || 45}%</Text>
               <View style={styles.htBar}>
                 <View style={[styles.htBarFill, { width: `${analysis.htDrawProb || 45}%`, backgroundColor: COLORS.warning }]} />
               </View>
-              <Text style={styles.htLabel}>BERABERE</Text>
+              <Text style={styles.htLabel}>{t('matchAnalysis.firstHalf.draw')}</Text>
             </View>
             <View style={styles.htItem}>
               <Text style={[styles.htPercent, { color: COLORS.awayColor }]}>{analysis.htAwayWinProb || 25}%</Text>
               <View style={styles.htBar}>
                 <View style={[styles.htBarFill, { width: `${analysis.htAwayWinProb || 25}%`, backgroundColor: COLORS.awayColor }]} />
               </View>
-              <Text style={styles.htLabel}>DEP ÖNDE</Text>
+              <Text style={styles.htLabel}>{t('matchAnalysis.firstHalf.awayAhead')}</Text>
             </View>
           </View>
           <View style={styles.htExtraRow}>
-            <Text style={styles.htExtraLabel}>İY 0.5 Üst:</Text>
+            <Text style={styles.htExtraLabel}>{t('matchAnalysis.firstHalf.over05')}</Text>
             <Text style={styles.htExtraValue}>%{analysis.htOver05Prob || 55}</Text>
           </View>
           <View style={styles.htExtraRow}>
-            <Text style={styles.htExtraLabel}>İY 1.5 Üst:</Text>
+            <Text style={styles.htExtraLabel}>{t('matchAnalysis.firstHalf.over15')}</Text>
             <Text style={styles.htExtraValue}>%{analysis.htOver15Prob || 25}</Text>
           </View>
         </View>
@@ -1558,7 +1589,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
         </View>
       )}
       {hasAnalysis && (analysis.homeTeamAnalysis?.strengths?.length > 0 || analysis.awayTeamAnalysis?.strengths?.length > 0) && (
-        <AccordionSection title="Takım Güçlü/Zayıf Yönleri" icon="shield">
+        <AccordionSection title={t('matchAnalysis.sections.teamAnalysis')} icon="shield">
           <View style={styles.teamAnalysisSection}>
             <View style={styles.teamAnalysisBlock}>
               <Text style={styles.teamAnalysisTitle}>{homeName}</Text>
@@ -1572,7 +1603,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
                 <Text key={i} style={styles.weaknessText}>✗ {w}</Text>
               ))}
               {analysis.homeTeamAnalysis?.keyPlayer && (
-                <Text style={styles.keyPlayerText}>⭐ Kilit: {analysis.homeTeamAnalysis.keyPlayer}</Text>
+                <Text style={styles.keyPlayerText}>⭐ {t('matchAnalysis.keyPlayer')} {analysis.homeTeamAnalysis.keyPlayer}</Text>
               )}
             </View>
             <View style={styles.teamAnalysisDivider} />
@@ -1588,7 +1619,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
                 <Text key={i} style={styles.weaknessText}>✗ {w}</Text>
               ))}
               {analysis.awayTeamAnalysis?.keyPlayer && (
-                <Text style={styles.keyPlayerText}>⭐ Kilit: {analysis.awayTeamAnalysis.keyPlayer}</Text>
+                <Text style={styles.keyPlayerText}>⭐ {t('matchAnalysis.keyPlayer')} {analysis.awayTeamAnalysis.keyPlayer}</Text>
               )}
             </View>
           </View>
@@ -1617,7 +1648,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Ionicons name="pulse" size={18} color={COLORS.accent} />
-            <Text style={styles.sectionTitle}>TREND ANALİZİ</Text>
+            <Text style={styles.sectionTitle}>{t('matchAnalysis.sections.trendAnalysis')}</Text>
           </View>
           <TrendIndicator trend={analysis.trendSummary.homeFormTrend} label={`${homeName} Form`} color={COLORS.homeColor} />
           <TrendIndicator trend={analysis.trendSummary.awayFormTrend} label={`${awayName} Form`} color={COLORS.awayColor} />
@@ -1631,18 +1662,18 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
           )}
         </View>
       )}
-      <AccordionSection title="H2H Detayları" icon="swap-horizontal">
+      <AccordionSection title={t('matchAnalysis.sections.h2hDetails')} icon="swap-horizontal">
         {h2hData ? (
           <View>
             <View style={styles.h2hSummary}>
               <Text style={styles.h2hSummaryText}>
-                {homeName}: {h2hData.homeWins}G | Beraberlik: {h2hData.draws} | {awayName}: {h2hData.awayWins}G
+                {homeName}: {h2hData.homeWins}{t('matchAnalysis.winsAbbr')} | {t('matchAnalysis.h2h.draws')} {h2hData.draws} | {awayName}: {h2hData.awayWins}{t('matchAnalysis.winsAbbr')}
               </Text>
-              <Text style={styles.h2hSummaryText}>Gol Ortalaması: {h2hData.avgGoals}</Text>
+              <Text style={styles.h2hSummaryText}>{t('matchAnalysis.h2h.avgGoals')} {h2hData.avgGoals}</Text>
             </View>
           </View>
         ) : (
-          <Text style={styles.noDataText}>H2H verisi bulunamadı</Text>
+          <Text style={styles.noDataText}>{t('matchAnalysis.errors.noH2HData')}</Text>
         )}
       </AccordionSection>
     </>
@@ -1651,14 +1682,22 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
   // Ana Tahminler Tab - TÜM bölümleri tek scroll'da göster
   const renderTahminlerTab = () => (
     <>
-      {renderAkilliTahminCard()}
-      {renderGolTahminleri()}
-      {renderGolDagilimi()}
-      {renderKgSenaryolari()}
-      {renderIlkYari()}
-      {renderRiskAnalizi()}
-      {renderFaktorAnalizi()}
-      {renderFormDurumu()}
+      {aiLoading ? (
+        <View style={styles.fullTabLoading}>
+          <AnalysisLoadingAnimation fullWidth />
+        </View>
+      ) : (
+        <>
+          {renderAkilliTahminCard()}
+          {renderGolTahminleri()}
+          {renderGolDagilimi()}
+          {renderKgSenaryolari()}
+          {renderIlkYari()}
+          {renderRiskAnalizi()}
+          {renderFaktorAnalizi()}
+          {renderFormDurumu()}
+        </>
+      )}
     </>
   );
 
@@ -1668,18 +1707,18 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
   const renderIstatistiklerTab = () => (
     <View style={styles.sectionCard}>
       <View style={styles.statsHeader}>
-        <Text style={[styles.statsTeamLabel, { color: COLORS.homeColor }]}>Ev Sahibi</Text>
-        <Text style={styles.statsCenterLabel}>Karşılaştırma</Text>
-        <Text style={[styles.statsTeamLabel, { color: COLORS.awayColor }]}>Deplasman</Text>
+        <Text style={[styles.statsTeamLabel, { color: COLORS.homeColor }]}>{t('matchAnalysis.stats.home')}</Text>
+        <Text style={styles.statsCenterLabel}>{t('matchAnalysis.stats.comparison')}</Text>
+        <Text style={[styles.statsTeamLabel, { color: COLORS.awayColor }]}>{t('matchAnalysis.stats.away')}</Text>
       </View>
       <View style={styles.statsTable}>
-        <StatRow label="Galibiyet" homeValue={h2hData?.homeWins || 0} awayValue={h2hData?.awayWins || 0} />
-        <StatRow label="Beraberlik" homeValue={h2hData?.draws || 0} awayValue={h2hData?.draws || 0} />
+        <StatRow label={t('matchAnalysis.stats.wins')} homeValue={h2hData?.homeWins || 0} awayValue={h2hData?.awayWins || 0} />
+        <StatRow label={t('matchAnalysis.stats.draws')} homeValue={h2hData?.draws || 0} awayValue={h2hData?.draws || 0} />
         {stats && (
           <>
-            <StatRow label="Top Hakimiyeti" homeValue={stats.possession?.home || 50} awayValue={stats.possession?.away || 50} isPercentage />
-            <StatRow label="Toplam Şut" homeValue={stats.shots?.home || 0} awayValue={stats.shots?.away || 0} />
-            <StatRow label="Korner" homeValue={stats.corners?.home || 0} awayValue={stats.corners?.away || 0} />
+            <StatRow label={t('matchAnalysis.stats.possession')} homeValue={stats.possession?.home || 50} awayValue={stats.possession?.away || 50} isPercentage />
+            <StatRow label={t('matchAnalysis.stats.totalShots')} homeValue={stats.shots?.home || 0} awayValue={stats.shots?.away || 0} />
+            <StatRow label={t('matchAnalysis.stats.corners')} homeValue={stats.corners?.home || 0} awayValue={stats.corners?.away || 0} />
           </>
         )}
       </View>
@@ -1690,8 +1729,8 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
     <View style={styles.sectionCard}>
       <View style={styles.sectionHeader}>
         <Ionicons name="swap-horizontal" size={18} color={COLORS.accent} />
-        <Text style={styles.sectionTitle}>Son Karşılaşmalar</Text>
-        <Text style={styles.h2hCount}>{h2hData?.total || 0} maç</Text>
+        <Text style={styles.sectionTitle}>{t('matchAnalysis.recentMatches')}</Text>
+        <Text style={styles.h2hCount}>{h2hData?.total || 0} {t('matchAnalysis.matches')}</Text>
       </View>
       {h2hData?.recentMatches?.length > 0 ? (
         h2hData.recentMatches.slice(0, 5).map((m, index) => (
@@ -1709,7 +1748,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
       ) : (
         <View style={styles.noDataContainer}>
           <Ionicons name="information-circle-outline" size={24} color={COLORS.gray500} />
-          <Text style={styles.noDataText}>Karşılaşma verisi bulunamadı</Text>
+          <Text style={styles.noDataText}>{t('matchAnalysis.noMatchData')}</Text>
         </View>
       )}
     </View>
@@ -1746,12 +1785,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
   // MAIN RENDER
   // ─────────────────────────────────────────────────────────────────────────────
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.accent} />
-        <Text style={styles.loadingText}>Analiz yükleniyor...</Text>
-      </View>
-    );
+    return <AnalysisLoadingAnimation />;
   }
 
   return (
@@ -1786,8 +1820,29 @@ const styles = StyleSheet.create({
 
   // AI Loading States
   aiLoadingContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+  analysisLoadingSection: { minHeight: 280, justifyContent: 'center', alignItems: 'center' },
+  fullTabLoading: { flex: 1, width: '100%', minHeight: 400, justifyContent: 'center', alignItems: 'center' },
   aiLoadingText: { color: COLORS.white, fontSize: 16, fontWeight: '600', marginTop: 16 },
   aiLoadingSubtext: { color: COLORS.gray500, fontSize: 12, marginTop: 6 },
+
+  // Rate Limit Banner
+  rateLimitBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.3)',
+  },
+  rateLimitText: {
+    color: '#FF6B35',
+    fontSize: 13,
+    fontWeight: '500',
+    marginLeft: 8,
+    flex: 1,
+  },
 
   // Header
   header: { paddingBottom: 20 },
@@ -1865,8 +1920,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   riskBadgeLabel: { color: COLORS.gray500, fontSize: 10, fontWeight: '600', letterSpacing: 1, marginBottom: 8 },
-  riskBadgeInner: { alignItems: 'center', borderWidth: 2, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
-  riskBadgeText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
+  riskBadgeInner: { alignItems: 'center', borderWidth: 2, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, minWidth: 70 },
+  riskBadgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.3, textAlign: 'center' },
   riskBadgePercent: { fontSize: 18, fontWeight: '800', marginTop: 2 },
   winnerBox: {
     flex: 2,
@@ -1997,6 +2052,60 @@ const styles = StyleSheet.create({
 
   // Ozet
   ozetText: { color: COLORS.gray400, fontSize: 14, lineHeight: 20 },
+
+  // Rate Limit Info Modal
+  rateLimitModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 1.0)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rateLimitModalContent: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    marginHorizontal: 32,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.3)',
+  },
+  rateLimitIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rateLimitModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginTop: 20,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  rateLimitModalMessage: {
+    fontSize: 14,
+    color: COLORS.gray400,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+    paddingHorizontal: 8,
+  },
+  rateLimitModalButton: {
+    backgroundColor: '#FF6B35',
+    paddingHorizontal: 48,
+    paddingVertical: 14,
+    borderRadius: 12,
+    width: '100%',
+  },
+  rateLimitModalButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 });
 
 export default MatchAnalysisScreen;

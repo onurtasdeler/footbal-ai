@@ -608,8 +608,9 @@ export const BETTING_TYPES = {
   ],
 };
 
-// Risk seviyeleri
+// Risk seviyeleri (TR keys)
 export const RISK_LEVELS = {
+  // Turkish keys
   dusuk: {
     id: 'dusuk',
     label: 'Düşük Risk',
@@ -641,6 +642,39 @@ export const RISK_LEVELS = {
     bgColor: 'rgba(139, 0, 0, 0.12)',
     icon: 'skull-outline',
     description: 'Aşırı riskli, çok yüksek oran',
+  },
+  // English keys (aliases with same values)
+  low: {
+    id: 'low',
+    label: 'Low Risk',
+    color: '#00d977',
+    bgColor: 'rgba(0, 217, 119, 0.12)',
+    icon: 'shield-checkmark',
+    description: 'Safer, lower odds',
+  },
+  medium: {
+    id: 'medium',
+    label: 'Medium Risk',
+    color: '#ff9f0a',
+    bgColor: 'rgba(255, 159, 10, 0.12)',
+    icon: 'alert-circle',
+    description: 'Balanced risk/reward ratio',
+  },
+  high: {
+    id: 'high',
+    label: 'High Risk',
+    color: '#ff453a',
+    bgColor: 'rgba(255, 69, 58, 0.12)',
+    icon: 'warning',
+    description: 'Risky, higher odds',
+  },
+  very_high: {
+    id: 'very_high',
+    label: 'Very High',
+    color: '#8B0000',
+    bgColor: 'rgba(139, 0, 0, 0.12)',
+    icon: 'skull-outline',
+    description: 'Extreme risk, very high odds',
   },
 };
 

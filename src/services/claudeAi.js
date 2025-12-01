@@ -5,6 +5,7 @@
  */
 
 import { supabase } from './supabaseService';
+import { getLanguage } from '../i18n';
 
 // Edge Function handles Claude API - key is stored server-side
 const USE_EDGE_FUNCTIONS = true; // Toggle for migration
@@ -42,11 +43,42 @@ export const analyzeMatch = async (matchData) => {
             external: matchData.external,
           },
           fixtureId: matchData.fixtureId,
+          language: getLanguage(),
         },
       });
 
+      // ⭐ Rate limit error handling (429 Too Many Requests)
       if (error) {
+        // Check for rate limit error
+        const isRateLimitError =
+          error.message?.includes('rate_limit') ||
+          error.message?.includes('429') ||
+          error.context?.status === 429;
+
+        if (isRateLimitError) {
+          const language = getLanguage();
+          return {
+            ...getDefaultAnalysis(language),
+            rateLimitExceeded: true,
+            rateLimitMessage: language === 'en'
+              ? 'Daily analysis limit reached (3 different matches/day). Try again tomorrow.'
+              : 'Günlük analiz limitinize ulaştınız (3 farklı maç/gün). Yarın tekrar deneyin.',
+          };
+        }
+
         throw new Error(error.message || 'Edge Function error');
+      }
+
+      // Check if response itself contains rate limit error
+      if (data?.error === 'rate_limit_exceeded') {
+        const language = getLanguage();
+        return {
+          ...getDefaultAnalysis(language),
+          rateLimitExceeded: true,
+          rateLimitMessage: data.message || (language === 'en'
+            ? 'Daily analysis limit reached (3 different matches/day). Try again tomorrow.'
+            : 'Günlük analiz limitinize ulaştınız (3 farklı maç/gün). Yarın tekrar deneyin.'),
+        };
       }
 
       return data;
@@ -351,11 +383,38 @@ export const quickAnalyze = async (homeName, awayName, leagueName) => {
           league: { name: leagueName },
         },
         fixtureId: `quick_${Date.now()}`, // Temporary ID for quick analysis
+        language: getLanguage(),
       },
     });
 
+    // ⭐ Rate limit error handling
     if (error) {
+      const isRateLimitError =
+        error.message?.includes('rate_limit') ||
+        error.message?.includes('429') ||
+        error.context?.status === 429;
+
+      if (isRateLimitError) {
+        const language = getLanguage();
+        return {
+          ...getDefaultAnalysis(language),
+          rateLimitExceeded: true,
+          rateLimitMessage: language === 'en'
+            ? 'Daily analysis limit reached (3 different matches/day). Try again tomorrow.'
+            : 'Günlük analiz limitinize ulaştınız (3 farklı maç/gün). Yarın tekrar deneyin.',
+        };
+      }
       return null;
+    }
+
+    // Check if response contains rate limit error
+    if (data?.error === 'rate_limit_exceeded') {
+      const language = getLanguage();
+      return {
+        ...getDefaultAnalysis(language),
+        rateLimitExceeded: true,
+        rateLimitMessage: data.message,
+      };
     }
 
     return data;
@@ -366,96 +425,102 @@ export const quickAnalyze = async (homeName, awayName, leagueName) => {
 
 /**
  * Get default/fallback analysis data structure
+ * @param {string} lang - Language code ('tr' or 'en')
  */
-export const getDefaultAnalysis = () => ({
-  // Ana Maç Sonucu Olasılıkları
-  homeWinProb: 33,
-  drawProb: 34,
-  awayWinProb: 33,
-  confidence: 5,
+export const getDefaultAnalysis = (lang = null) => {
+  const language = lang || getLanguage();
+  const isEN = language === 'en';
 
-  // Gol Tahminleri
-  expectedGoals: 2.5,
-  expectedHomeGoals: 1.3,
-  expectedAwayGoals: 1.2,
-  bttsProb: 50,
-  over25Prob: 50,
-  over15Prob: 70,
-  over35Prob: 30,
+  return {
+    // Ana Maç Sonucu Olasılıkları
+    homeWinProb: 33,
+    drawProb: 34,
+    awayWinProb: 33,
+    confidence: 5,
 
-  // Poisson / Monte Carlo Özetleri
-  goalDistribution: {
-    home: { '0': 25, '1': 35, '2': 25, '3': 10, '4plus': 5 },
-    away: { '0': 30, '1': 35, '2': 22, '3': 9, '4plus': 4 },
-  },
-  bttsDistribution: {
-    bothScore: 50,
-    onlyHomeScores: 25,
-    onlyAwayScores: 15,
-    noGoals: 10,
-  },
+    // Gol Tahminleri
+    expectedGoals: 2.5,
+    expectedHomeGoals: 1.3,
+    expectedAwayGoals: 1.2,
+    bttsProb: 50,
+    over25Prob: 50,
+    over15Prob: 70,
+    over35Prob: 30,
 
-  // İlk Yarı Tahminleri
-  htHomeWinProb: 30,
-  htDrawProb: 45,
-  htAwayWinProb: 25,
-  htOver05Prob: 55,
-  htOver15Prob: 25,
+    // Poisson / Monte Carlo Özetleri
+    goalDistribution: {
+      home: { '0': 25, '1': 35, '2': 25, '3': 10, '4plus': 5 },
+      away: { '0': 30, '1': 35, '2': 22, '3': 9, '4plus': 4 },
+    },
+    bttsDistribution: {
+      bothScore: 50,
+      onlyHomeScores: 25,
+      onlyAwayScores: 15,
+      noGoals: 10,
+    },
 
-  // Skor Tahminleri
-  mostLikelyScore: '1-1',
-  scoreProb: 12,
-  alternativeScores: [
-    { score: '1-0', prob: 10 },
-    { score: '2-1', prob: 9 },
-    { score: '0-0', prob: 8 },
-  ],
+    // İlk Yarı Tahminleri
+    htHomeWinProb: 30,
+    htDrawProb: 45,
+    htAwayWinProb: 25,
+    htOver05Prob: 55,
+    htOver15Prob: 25,
 
-  // Risk Analizi
-  riskLevel: 'orta',
-  bankoScore: 50,
-  volatility: 0.5,
-  winner: 'belirsiz',
-  advice: 'Analiz için yeterli veri bulunmuyor.',
+    // Skor Tahminleri
+    mostLikelyScore: '1-1',
+    scoreProb: 12,
+    alternativeScores: [
+      { score: '1-0', prob: 10 },
+      { score: '2-1', prob: 9 },
+      { score: '0-0', prob: 8 },
+    ],
 
-  // Faktör Analizi
-  factors: [],
+    // Risk Analizi - Language dependent values
+    riskLevel: isEN ? 'medium' : 'orta',
+    bankoScore: 50,
+    volatility: 0.5,
+    winner: isEN ? 'undecided' : 'belirsiz',
+    advice: isEN ? 'Insufficient data for analysis.' : 'Analiz için yeterli veri bulunmuyor.',
 
-  // Önerilen Bahisler
-  recommendedBets: [],
+    // Faktör Analizi
+    factors: [],
 
-  // Takım Analizleri
-  homeTeamAnalysis: {
-    strengths: [],
-    weaknesses: [],
-    keyPlayer: null,
-    tacticalSummary: '',
-  },
-  awayTeamAnalysis: {
-    strengths: [],
-    weaknesses: [],
-    keyPlayer: null,
-    tacticalSummary: '',
-  },
+    // Önerilen Bahisler
+    recommendedBets: [],
 
-  // Trend ve Uyum Özeti
-  trendSummary: {
-    homeFormTrend: 'dengeli',
-    awayFormTrend: 'dengeli',
-    homeXGTrend: 'stabil',
-    awayXGTrend: 'stabil',
-    tacticalMatchupSummary: '',
-  },
+    // Takım Analizleri
+    homeTeamAnalysis: {
+      strengths: [],
+      weaknesses: [],
+      keyPlayer: null,
+      tacticalSummary: '',
+    },
+    awayTeamAnalysis: {
+      strengths: [],
+      weaknesses: [],
+      keyPlayer: null,
+      tacticalSummary: '',
+    },
 
-  // Risk Uyarıları
-  riskFlags: {
-    highDerbyVolatility: false,
-    weatherImpact: 'düşük',
-    fatigueRiskHome: 'düşük',
-    fatigueRiskAway: 'düşük',
-    marketDisagreement: false,
-  },
-});
+    // Trend ve Uyum Özeti - Language dependent values
+    trendSummary: {
+      homeFormTrend: isEN ? 'stable' : 'dengeli',
+      awayFormTrend: isEN ? 'stable' : 'dengeli',
+      homeXGTrend: isEN ? 'stable' : 'stabil',
+      awayXGTrend: isEN ? 'stable' : 'stabil',
+      tacticalMatchupSummary: '',
+    },
+
+    // Risk Uyarıları - Language dependent values
+    riskFlags: {
+      highDerbyVolatility: false,
+      weatherImpact: isEN ? 'low' : 'düşük',
+      fatigueRiskHome: isEN ? 'low' : 'düşük',
+      fatigueRiskAway: isEN ? 'low' : 'düşük',
+      marketDisagreement: false,
+    },
+  };
+};
 
 export default {
   analyzeMatch,

@@ -8,7 +8,14 @@ import {
   CACHE_DURATIONS,
   getCacheStats,
 } from './cacheService';
-import { supabase } from './supabaseService';
+import {
+  supabase,
+  getFixturesCache,
+  getStandingsCache,
+  getLeaguesCache,
+  getTeamCache,
+  getInjuriesCache,
+} from './supabaseService';
 
 // Edge Function URL (Supabase handles the API key)
 const USE_EDGE_FUNCTIONS = true; // Toggle for migration
@@ -162,11 +169,23 @@ const cachedApiCall = async (cacheKey, endpoint, params = {}, cacheDuration) => 
 // FIXTURES (Matches)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Get today's fixtures (1 dakika cache)
+// Get today's fixtures - SUPABASE-FIRST (1 dakika fallback cache)
 export const getTodayFixtures = async (timezone = 'Europe/Istanbul') => {
   const today = new Date().toISOString().split('T')[0];
-  const cacheKey = buildCacheKey('today_fixtures', { date: today, timezone });
 
+  // 1. Try Supabase cache first (server-side cron synced)
+  try {
+    const cached = await getFixturesCache(today);
+    if (cached && !cached.is_stale && cached.data.length > 0) {
+      console.log(`[FootballAPI] Supabase cache hit for fixtures: ${today}`);
+      return cached.data;
+    }
+  } catch (e) {
+    console.warn('[FootballAPI] Supabase cache failed, falling back to API:', e.message);
+  }
+
+  // 2. Fallback to direct API call (Edge Function)
+  const cacheKey = buildCacheKey('today_fixtures', { date: today, timezone });
   return cachedApiCall(
     cacheKey,
     'fixtures',
@@ -187,10 +206,21 @@ export const getLiveFixtures = async () => {
   );
 };
 
-// Get fixtures by date (1 dakika cache)
+// Get fixtures by date - SUPABASE-FIRST (1 dakika fallback cache)
 export const getFixturesByDate = async (date, timezone = 'Europe/Istanbul') => {
-  const cacheKey = buildCacheKey('fixtures_by_date', { date, timezone });
+  // 1. Try Supabase cache first (server-side cron synced)
+  try {
+    const cached = await getFixturesCache(date);
+    if (cached && !cached.is_stale && cached.data.length > 0) {
+      console.log(`[FootballAPI] Supabase cache hit for fixtures: ${date}`);
+      return cached.data;
+    }
+  } catch (e) {
+    console.warn('[FootballAPI] Supabase cache failed, falling back to API:', e.message);
+  }
 
+  // 2. Fallback to direct API call (Edge Function)
+  const cacheKey = buildCacheKey('fixtures_by_date', { date, timezone });
   return cachedApiCall(
     cacheKey,
     'fixtures',
@@ -291,10 +321,23 @@ export const getPredictions = async (fixtureId) => {
 // LEAGUES
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Get all leagues (1 gün cache - nadir değişir)
+// Get all leagues - SUPABASE-FIRST (1 gün fallback cache)
 export const getLeagues = async (options = {}) => {
-  const cacheKey = buildCacheKey('leagues', options);
+  // Only use Supabase cache for basic leagues request (no special options)
+  if (Object.keys(options).length === 0) {
+    try {
+      const cached = await getLeaguesCache();
+      if (cached && !cached.is_stale && cached.data.length > 0) {
+        console.log(`[FootballAPI] Supabase cache hit for leagues: ${cached.count} leagues`);
+        return cached.data;
+      }
+    } catch (e) {
+      console.warn('[FootballAPI] Supabase cache failed, falling back to API:', e.message);
+    }
+  }
 
+  // Fallback to direct API call (Edge Function)
+  const cacheKey = buildCacheKey('leagues', options);
   return cachedApiCall(
     cacheKey,
     'leagues',
@@ -321,10 +364,22 @@ export const getPopularLeagues = async () => {
 // STANDINGS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Get league standings (30 dakika cache)
+// Get league standings - SUPABASE-FIRST (30 dakika fallback cache)
 export const getStandings = async (leagueId, season) => {
-  const cacheKey = buildCacheKey('standings', { league: leagueId, season });
+  // 1. Try Supabase cache first (server-side cron synced)
+  try {
+    const cached = await getStandingsCache(leagueId, season);
+    if (cached && !cached.is_stale && cached.data) {
+      console.log(`[FootballAPI] Supabase cache hit for standings: league ${leagueId}`);
+      // Return as array to match API response format
+      return [cached.data];
+    }
+  } catch (e) {
+    console.warn('[FootballAPI] Supabase cache failed, falling back to API:', e.message);
+  }
 
+  // 2. Fallback to direct API call (Edge Function)
+  const cacheKey = buildCacheKey('standings', { league: leagueId, season });
   return cachedApiCall(
     cacheKey,
     'standings',
@@ -337,10 +392,22 @@ export const getStandings = async (leagueId, season) => {
 // TEAMS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Get team info (1 gün cache - nadiren değişir)
+// Get team info - SUPABASE-FIRST (1 gün fallback cache)
 export const getTeamInfo = async (teamId) => {
-  const cacheKey = buildCacheKey('team_info', { id: teamId });
+  // 1. Try Supabase cache first (server-side cron synced)
+  try {
+    const cached = await getTeamCache(teamId);
+    if (cached && !cached.is_stale && cached.data) {
+      console.log(`[FootballAPI] Supabase cache hit for team: ${teamId}`);
+      // Return as array to match API response format
+      return [cached.data];
+    }
+  } catch (e) {
+    console.warn('[FootballAPI] Supabase cache failed, falling back to API:', e.message);
+  }
 
+  // 2. Fallback to direct API call (Edge Function)
+  const cacheKey = buildCacheKey('team_info', { id: teamId });
   return cachedApiCall(
     cacheKey,
     'teams',
@@ -429,10 +496,21 @@ export const getTransfers = async (teamId) => {
   );
 };
 
-// Get injuries by league (2 saat cache)
+// Get injuries by league - SUPABASE-FIRST (2 saat fallback cache)
 export const getInjuries = async (leagueId, season) => {
-  const cacheKey = buildCacheKey('injuries', { league: leagueId, season });
+  // 1. Try Supabase cache first (server-side cron synced)
+  try {
+    const cached = await getInjuriesCache(leagueId, season);
+    if (cached && !cached.is_stale && cached.data) {
+      console.log(`[FootballAPI] Supabase cache hit for injuries: league ${leagueId}`);
+      return cached.data;
+    }
+  } catch (e) {
+    console.warn('[FootballAPI] Supabase cache failed, falling back to API:', e.message);
+  }
 
+  // 2. Fallback to direct API call (Edge Function)
+  const cacheKey = buildCacheKey('injuries', { league: leagueId, season });
   return cachedApiCall(
     cacheKey,
     'injuries',

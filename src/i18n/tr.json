@@ -1,0 +1,454 @@
+{
+  "navigation": {
+    "home": "Ana",
+    "live": "Canlı",
+    "predictions": "Tahmin",
+    "profile": "Profil"
+  },
+  "common": {
+    "loading": "Yükleniyor...",
+    "error": "Hata",
+    "success": "Başarılı",
+    "cancel": "İptal",
+    "ok": "Tamam",
+    "save": "Kaydet",
+    "close": "Kapat",
+    "back": "Geri",
+    "next": "Devam",
+    "skip": "Atla",
+    "start": "Başla",
+    "player": "Oyuncu",
+    "risk": "Risk",
+    "lowRisk": "Düşük",
+    "mediumRisk": "Orta",
+    "highRisk": "Yüksek"
+  },
+  "home": {
+    "title": "Goalwise",
+    "all": "Tümü",
+    "live": "Canlı",
+    "liveLabel": "CANLI",
+    "favorites": "Favoriler",
+    "analyses": "Analizler",
+    "today": "Bugün",
+    "yesterday": "Dün",
+    "tomorrow": "Yarın",
+    "searchPlaceholder": "Takım veya lig ara...",
+    "noMatches": "Bugün maç bulunamadı",
+    "homeTeam": "Ev Sahibi",
+    "awayTeam": "Deplasman",
+    "unknownLeague": "Bilinmeyen Lig",
+    "days": {
+      "sun": "Paz",
+      "mon": "Pzt",
+      "tue": "Sal",
+      "wed": "Çar",
+      "thu": "Per",
+      "fri": "Cum",
+      "sat": "Cmt"
+    },
+    "daysLong": {
+      "sun": "Pazar",
+      "mon": "Pazartesi",
+      "tue": "Salı",
+      "wed": "Çarşamba",
+      "thu": "Perşembe",
+      "fri": "Cuma",
+      "sat": "Cumartesi"
+    },
+    "months": {
+      "jan": "Oca",
+      "feb": "Şub",
+      "mar": "Mar",
+      "apr": "Nis",
+      "may": "May",
+      "jun": "Haz",
+      "jul": "Tem",
+      "aug": "Ağu",
+      "sep": "Eyl",
+      "oct": "Eki",
+      "nov": "Kas",
+      "dec": "Ara"
+    }
+  },
+  "live": {
+    "title": "Canlı",
+    "loading": "Canlı maçlar yükleniyor...",
+    "noMatches": "Şu an canlı maç yok",
+    "matchesWillAppear": "Maçlar başladığında burada görünecek",
+    "otherMatches": "DİĞER MAÇLAR",
+    "liveMatches": "CANLI MAÇLAR",
+    "ballPossession": "TOP KONTROLÜ",
+    "halftime": "Devre Arası"
+  },
+  "splash": {
+    "subtitle": "AI Destekli Maç Analizi"
+  },
+  "onboarding": {
+    "new": "YENİ",
+    "live": "CANLI",
+    "page1": {
+      "title": "Akıllı Tahminler",
+      "subtitle": "Yapay zeka destekli profesyonel maç analizleri",
+      "feature1Title": "%85+ İsabet",
+      "feature1Subtitle": "Yüksek doğruluk oranı",
+      "feature2Title": "100+ Günlük Analiz",
+      "feature2Subtitle": "Tüm ligler dahil",
+      "feature3Title": "Güvenilir Veriler",
+      "feature3Subtitle": "Gerçek zamanlı istatistik"
+    },
+    "page2": {
+      "title": "Anlık Takip",
+      "subtitle": "Canlı skorlar ve detaylı maç istatistikleri",
+      "feature1Title": "Anlık Bildirim",
+      "feature1Subtitle": "Gol ve önemli olaylar",
+      "feature2Title": "Detaylı İstatistik",
+      "feature2Subtitle": "Şut, pas, top hakimiyeti",
+      "feature3Title": "Dakika Dakika",
+      "feature3Subtitle": "Canlı maç takibi"
+    },
+    "goal": "GOL!"
+  },
+  "profile": {
+    "title": "Profil",
+    "upgradeTitle": "PRO'ya Yükselt",
+    "upgradeSubtitle": "Sınırsız AI tahmin • Reklamsız deneyim",
+    "account": "HESAP",
+    "restorePurchases": "Satın Alımları Geri Yükle",
+    "restoreInProgress": "Önceki satın alımlarınız kontrol ediliyor...",
+    "settings": "AYARLAR",
+    "settingsTitle": "Ayarlar",
+    "settingsComingSoon": "Ayarlar sayfası yakında eklenecek.",
+    "language": "Dil",
+    "selectLanguage": "Dil Seçin",
+    "support": "DESTEK",
+    "supportTitle": "Destek",
+    "emailSubject": "Uygulama Destek",
+    "rateUs": "Bizi Oyla",
+    "rateUsMessage": "Uygulamamızı beğendiyseniz mağazada değerlendirmenizi bırakın!",
+    "later": "Daha Sonra",
+    "rate": "Oyla",
+    "legal": "YASAL",
+    "privacyPolicy": "Gizlilik Politikası",
+    "termsOfService": "Kullanım Şartları",
+    "appVersion": "AI Maç Analiz v1.0.0",
+    "copyright": "© 2024 Tüm Hakları Saklıdır",
+    "languages": {
+      "tr": "Türkçe",
+      "en": "English"
+    }
+  },
+  "paywall": {
+    "title": "GOALWISE PRO",
+    "subtitle": "Profesyonel Analizlerle Kazan",
+    "features": {
+      "detailedAnalysis": "Detaylı Maç Analizi",
+      "adFree": "Reklamsız Deneyim",
+      "detailedPrediction": "Detaylı Tahmin Analizi",
+      "liveTracking": "Canlı Maç Takibi"
+    },
+    "selectPlan": "Plan Seçin",
+    "weekly": "Haftalık",
+    "monthly": "Aylık",
+    "perWeek": "/hafta",
+    "perMonth": "/ay",
+    "mostPopular": "EN POPÜLER",
+    "savings": "%33 Tasarruf",
+    "upgradeToPro": "PRO'ya Yükselt",
+    "restorePurchase": "Satın Alımı Geri Yükle",
+    "privacyPolicy": "Gizlilik Politikası",
+    "termsOfUse": "Kullanım Koşulları",
+    "disclaimer": "Abonelik otomatik olarak yenilenir. İstediğiniz zaman App Store ayarlarından iptal edebilirsiniz.",
+    "purchaseSuccess": "Goalwise PRO aboneliğiniz aktif edildi. Premium özelliklerin keyfini çıkarın!",
+    "purchaseError": "Satın alma işlemi başarısız oldu. Lütfen tekrar deneyin.",
+    "unexpectedError": "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.",
+    "restoreSuccess": "Aboneliğiniz başarıyla geri yüklendi.",
+    "restoreNoSubscription": "Geri yüklenecek aktif bir abonelik bulunamadı.",
+    "restoreError": "Geri yükleme işlemi başarısız oldu.",
+    "info": "Bilgi"
+  },
+  "liveMatchDetail": {
+    "loading": "Canlı maç yükleniyor...",
+    "matchEnded": "Maç Sona Erdi",
+    "lastUpdate": "Son güncelleme",
+    "lineups": "KADRO DİZİLİŞİ",
+    "events": "MAÇ OLAYLARI",
+    "statistics": "İSTATİSTİKLER",
+    "noEvents": "Henüz maç olayı yok",
+    "stats": {
+      "possession": "Top Kontrolü",
+      "totalShots": "Toplam Şut",
+      "shotsOnTarget": "İsabetli Şut",
+      "corners": "Korner",
+      "fouls": "Faul",
+      "yellowCards": "Sarı Kart"
+    }
+  },
+  "matchAnalysis": {
+    "dailyLimit": "Günlük Limit",
+    "rateLimitModal": {
+      "title": "Günlük Analiz Limitine Ulaşıldı",
+      "message": "Ücretsiz kullanıcılar günde 3 maç analizi görüntüleyebilir. Sınırsız erişim için PRO üyeliğe geçin.",
+      "button": "Tamam"
+    },
+    "loading": "Maç verileri yükleniyor...",
+    "aiAnalyzing": "AI maçı analiz ediyor...",
+    "smartPrediction": "AKILLI ANALİZ",
+    "ready": "Hazır",
+    "analyze": "Analiz",
+    "analyzingMatch": "Karşılaşma analiz ediliyor...",
+    "analysisWait": "Bu işlem birkaç saniye sürebilir",
+    "awaitingAnalysis": "Analiz bekleniyor",
+    "startAnalysisHint": "Yukarıdaki butona basarak analiz başlatın",
+    "analysisConfidence": "Analiz Güveni",
+    "riskLabel": "RİSK",
+    "predictionLabel": "TAHMİN",
+    "drawResult": "Beraberlik",
+    "recentMatches": "Son Karşılaşmalar",
+    "matches": "maç",
+    "noMatchData": "Karşılaşma verisi bulunamadı",
+    "keyPlayer": "Kilit:",
+    "winsAbbr": "G",
+    "tabs": {
+      "predictions": "Analizler",
+      "goalPredictions": "Gol Tahminleri",
+      "goalDistribution": "Gol Dağılımı",
+      "bttsScenarios": "KG Senaryoları",
+      "firstHalf": "İlk Yarı",
+      "riskAnalysis": "Risk Analizi",
+      "factorAnalysis": "Faktör Analizi",
+      "formStatus": "Form Durumu",
+      "statistics": "İstatistikler",
+      "headToHead": "Karşılıklı"
+    },
+    "banko": "BANKO MAÇ",
+    "mediumRisk": "ORTA RİSK",
+    "risky": "RİSKLİ",
+    "recommendation": "ÖNERİ",
+    "categories": {
+      "form": "Form Durumu",
+      "h2h": "Karşılıklı Sonuçlar",
+      "squad": "Kadro Durumu",
+      "tactics": "Taktiksel Uyum",
+      "motivation": "Motivasyon",
+      "referee": "Hakem Etkisi",
+      "weather": "Hava Durumu",
+      "market": "Piyasa Analizi"
+    },
+    "goalDist": {
+      "bothScore": "Her İkisi Gol",
+      "onlyHome": "Sadece Ev",
+      "onlyAway": "Sadece Dep",
+      "noGoals": "Golsüz"
+    },
+    "risk": {
+      "low": "DÜŞÜK",
+      "medium": "ORTA",
+      "high": "YÜKSEK"
+    },
+    "riskFlags": {
+      "derbyVolatility": "Derbi Volatilitesi",
+      "weather": "Hava:",
+      "homeFatigue": "Ev Yorgunluk:",
+      "awayFatigue": "Dep Yorgunluk:",
+      "marketDisagreement": "Piyasa Uyumsuz"
+    },
+    "trend": "Stabil",
+    "sections": {
+      "likelyScore": "En Olası Skor",
+      "alternativeScores": "Alternatif Skorlar",
+      "recommendations": "ÖNERİLER",
+      "teamAnalysis": "Takım Güçlü/Zayıf Yönleri",
+      "trendAnalysis": "TREND ANALİZİ",
+      "h2hDetails": "H2H Detayları",
+      "expertAdvice": "Uzman Tavsiyesi"
+    },
+    "firstHalf": {
+      "homeAhead": "EV ÖNDE",
+      "draw": "BERABERE",
+      "awayAhead": "DEP ÖNDE",
+      "over05": "İY 0.5 Üst:",
+      "over15": "İY 1.5 Üst:"
+    },
+    "labels": {
+      "totalXG": "Toplam xG",
+      "btts": "KG Var",
+      "over25": "2.5 Üst",
+      "over15": "1.5 Üst"
+    },
+    "h2h": {
+      "draws": "Beraberlik:",
+      "avgGoals": "Gol Ortalaması:"
+    },
+    "stats": {
+      "home": "Ev Sahibi",
+      "away": "Deplasman",
+      "comparison": "Karşılaştırma",
+      "wins": "Galibiyet",
+      "draws": "Beraberlik",
+      "possession": "Top Hakimiyeti",
+      "totalShots": "Toplam Şut",
+      "corners": "Korner"
+    },
+    "errors": {
+      "noGoalDistribution": "Gol dağılımı verisi bulunamadı",
+      "noBTTSScenarios": "KG senaryoları verisi bulunamadı",
+      "noH2HData": "H2H verisi bulunamadı"
+    }
+  },
+  "predictions": {
+    "dailyLimit": "Günlük Limit",
+    "rateLimitModal": {
+      "title": "Günlük Analiz Limitine Ulaşıldı",
+      "message": "Ücretsiz kullanıcılar günde 3 maç analizi görüntüleyebilir. Sınırsız erişim için PRO üyeliğe geçin.",
+      "button": "Tamam"
+    },
+    "title": "Tahminler",
+    "loading": "Günün maçları yükleniyor...",
+    "noMatches": "Bugün maç bulunamadı",
+    "analyzed": "analiz edildi",
+    "analyzing": "Analiz ediliyor...",
+    "matchResult": "Maç Sonucu",
+    "totalGoals": "Toplam Gol",
+    "btts": "KG Var",
+    "halftimeResult": "İlk Yarı",
+    "confidence": "Güven",
+    "days": {
+      "sun": "Paz",
+      "mon": "Pzt",
+      "tue": "Sal",
+      "wed": "Çar",
+      "thu": "Per",
+      "fri": "Cum",
+      "sat": "Cmt"
+    },
+    "today": "Bugün",
+    "yesterday": "Dün",
+    "tomorrow": "Yarın",
+    "disclaimer": {
+      "title": "AI Tahminleri Hakkında",
+      "content": "Bu uygulama yapay zeka destekli maç tahminleri sunmaktadır. Tahminler yalnızca eğlence ve bilgi amaçlıdır.\n\nBahis veya finansal kararlar için kullanılmamalıdır. Sonuçlar garanti edilmez ve kullanıcılar kendi sorumluluklarında hareket etmelidir.\n\nUygulama geliştiricileri, tahminlere dayalı herhangi bir kayıp veya zarardan sorumlu tutulamaz.",
+      "iUnderstand": "Anladım"
+    },
+    "disclaimerBanner": "AI tahminleri eğlence amaçlıdır, finansal tavsiye değildir.",
+    "searchPlaceholder": "Takım veya lig ara...",
+    "predictButton": "Tahmin",
+    "matchPrediction": "Maç Tahmini",
+    "aiPrediction": "AI Tahmin",
+    "home": "EV",
+    "away": "DEP",
+    "calculatingPredictions": "Tahminler hesaplanıyor...",
+    "predictionFailed": "Tahmin alınamadı",
+    "tabs": {
+      "predictions": "Tahminler",
+      "analysis": "Analiz",
+      "statistics": "İstatistik",
+      "lineup": "Kadro",
+      "h2h": "H2H",
+      "cardCorner": "Kart/Korner",
+      "injuries": "Sakat/Cezalı"
+    },
+    "sections": {
+      "bettingPredictions": "Bahis Tahminleri",
+      "otherPredictions": "Diğer Tahminler",
+      "predictionDetails": "Tahmin Detayları",
+      "aiMatchAnalysis": "AI Maç Analizi",
+      "predictionStats": "Tahmin İstatistikleri",
+      "riskDistribution": "Risk Dağılımı",
+      "recentMatches": "Son Karşılaşmalar",
+      "cardStats": "Kart İstatistikleri",
+      "cornerStats": "Korner İstatistikleri",
+      "otherStats": "Diğer İstatistikler"
+    },
+    "stats": {
+      "totalPredictions": "Toplam Tahmin",
+      "highConfidence": "Yüksek Güven (≥70%)",
+      "mediumConfidence": "Orta Güven (50-69%)",
+      "lowConfidence": "Düşük Güven (<50%)",
+      "lowRisk": "Düşük Risk",
+      "mediumRisk": "Orta Risk",
+      "highRisk": "Yüksek Risk"
+    },
+    "analysis": {
+      "featuredPrediction": "Öne Çıkan Tahmin Analizi"
+    },
+    "lineup": {
+      "loading": "Kadro bilgisi yükleniyor...",
+      "formation": "Formasyon",
+      "unknown": "Bilinmiyor",
+      "substitutes": "Yedekler",
+      "player": "Oyuncu"
+    },
+    "h2hTab": {
+      "loading": "Karşılaşma geçmişi yükleniyor..."
+    },
+    "cardCornerTab": {
+      "loading": "İstatistikler yükleniyor...",
+      "totalShots": "Toplam Şut",
+      "shotsOnGoal": "İsabetli Şut",
+      "foul": "Faul",
+      "ballPossession": "Top Hakimiyeti",
+      "offsides": "Ofsayt"
+    },
+    "injuriesTab": {
+      "loading": "Sakatlık bilgileri yükleniyor...",
+      "injured": "Sakat",
+      "suspended": "Cezalı",
+      "notSpecified": "Belirtilmemiş",
+      "noInjuries": "Sakat veya cezalı oyuncu yok"
+    },
+    "cached": "Hazır",
+    "topPick": "En İyi:",
+    "predictionExplanation": "Bu bölümde gördüğünüz tahminler, yapay zeka analizi ile hazırlanmıştır. Sadece eğlence amaçlı bilgi sunmak amacıyla hazırlanmıştır ve herhangi bir bahis tavsiyesi içermemektedir.",
+    "featuredPrediction": "Öne Çıkan Tahmin Analizi",
+    "confidenceDistribution": "Güven Seviyesi Dağılımı:",
+    "confidenceDistributionText": "Bu maç için toplam {count} tahmin üretildi. Bu tahminler aşağıdaki gibi sonuçlanmıştır.",
+    "coach": "Teknik Direktör:",
+    "lineupNotAnnounced": "Kadro bilgisi henüz açıklanmadı",
+    "lineupCheckLater": "Maç saatine yakın tekrar kontrol edin",
+    "goalsPerMatch": "Maç Başı Gol Ort:",
+    "noH2HHistory": "Karşılaşma geçmişi bulunamadı",
+    "teamsNotPlayedBefore": "Bu takımlar daha önce karşılaşmamış olabilir",
+    "yellowCard": "Sarı",
+    "redCard": "Kırmızı",
+    "statsNotFound": "İstatistik verisi bulunamadı",
+    "statsAfterMatch": "Maç başladıktan sonra istatistikler görünecek",
+    "entertainmentDisclaimer": "Eğlence amaçlı • Finansal tavsiye değildir",
+    "tryAgain": "Lütfen tekrar deneyin",
+    "detailDisclaimer": "Bu tahminler maç verileri analiz edilerek üretilmiştir. Güven oranları ve risk seviyeleri, analiz sonuçlarına dayalı tahminlerdir. Gerçek bahis tavsiyesi değildir. Finansal kararlarınızda bu verileri kullanmayınız.",
+    "away": "Deplasman",
+    "disclaimerTitle": "Sorumluluk Reddi",
+    "disclaimer": {
+      "title": "AI Tahminleri Hakkında",
+      "content": "Bu uygulama yapay zeka destekli maç tahminleri sunmaktadır. Tahminler yalnızca eğlence ve bilgi amaçlıdır.\n\nBahis veya finansal kararlar için kullanılmamalıdır. Sonuçlar garanti edilmez ve kullanıcılar kendi sorumluluklarında hareket etmelidir.\n\nUygulama geliştiricileri, tahminlere dayalı herhangi bir kayıp veya zarardan sorumlu tutulamaz.",
+      "iUnderstand": "Anladım",
+      "paragraph1": "Bu uygulamadaki tüm tahminler yapay zeka (AI) tarafından istatistiksel veriler kullanılarak",
+      "paragraph1Bold": "yalnızca eğlence amaçlı",
+      "paragraph2Start": "Sunulan bilgiler",
+      "paragraph2Bold": "kesinlikle finansal, yatırım veya bahis tavsiyesi niteliği taşımamaktadır",
+      "paragraph2End": ". Herhangi bir bahis veya finansal karar vermeden önce profesyonel danışmanlık almanız önerilir.",
+      "paragraph3Start": "Uygulama geliştiricileri, kullanıcıların bu tahminlere dayanarak aldığı kararlardan veya oluşabilecek kayıplardan",
+      "paragraph3Bold": "hiçbir şekilde sorumlu tutulamaz",
+      "paragraph3End": ".",
+      "paragraph4": "18 yaşından küçükseniz bahis oynayamazsınız. Sorumlu oynayın."
+    }
+  },
+  "loading": {
+    "predictions": {
+      "calculating": "Tahminler hesaplanıyor...",
+      "analyzingForm": "Form verileri analiz ediliyor...",
+      "comparing": "Karşılaştırma yapılıyor...",
+      "aiRunning": "AI modeli çalıştırılıyor...",
+      "ready": "hazır",
+      "form": "Form",
+      "h2h": "H2H",
+      "tactics": "Taktik"
+    },
+    "analysis": {
+      "analyzing": "Analiz yapılıyor...",
+      "collectingData": "Takım verileri toplanıyor...",
+      "comparingStats": "İstatistikler karşılaştırılıyor...",
+      "aiEvaluating": "Yapay zeka değerlendiriyor..."
+    }
+  }
+}

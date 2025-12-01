@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { t, getLanguage, setLanguage } from '../i18n';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // iOS HIG Spacing Constants
@@ -93,8 +94,8 @@ const ProfileScreen = ({ navigation }) => {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Language state
-  const [currentLanguage, setCurrentLanguage] = useState('tr');
+  // Language state - initialize from i18n module
+  const [currentLanguage, setCurrentLanguageState] = useState(getLanguage());
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
 
   useEffect(() => {
@@ -105,33 +106,33 @@ const ProfileScreen = ({ navigation }) => {
     }).start();
   }, []);
 
-  // Language names
-  const getLanguageName = (code) => ({ tr: 'Türkçe', en: 'English' }[code] || code);
+  // Language names from i18n
+  const getLanguageName = (code) => t(`profile.languages.${code}`);
 
   // Restore Purchases handler
   const handleRestorePurchases = () => {
     Alert.alert(
-      'Satın Alımlar Geri Yükleniyor',
-      'Önceki satın alımlarınız kontrol ediliyor...',
-      [{ text: 'Tamam' }]
+      t('profile.restorePurchases'),
+      t('profile.restoreInProgress'),
+      [{ text: t('common.ok') }]
     );
     // RevenueCat restore purchases will be implemented here
   };
 
   // Support handler
   const handleSupport = () => {
-    Linking.openURL('mailto:destek@aimacanalization.com?subject=Uygulama Destek');
+    Linking.openURL(`mailto:destek@aimacanalization.com?subject=${encodeURIComponent(t('profile.emailSubject'))}`);
   };
 
   // Rate Us handler
   const handleRateUs = () => {
     // App Store/Play Store URL will be added
     Alert.alert(
-      'Bizi Oylayın',
-      'Uygulamamızı beğendiyseniz mağazada değerlendirmenizi bırakın!',
+      t('profile.rateUs'),
+      t('profile.rateUsMessage'),
       [
-        { text: 'Daha Sonra', style: 'cancel' },
-        { text: 'Oyla', onPress: () => {
+        { text: t('profile.later'), style: 'cancel' },
+        { text: t('profile.rate'), onPress: () => {
           // Platform-specific store URL
           const storeUrl = Platform.OS === 'ios'
             ? 'https://apps.apple.com/app/id123456789' // Replace with actual App Store ID
@@ -154,7 +155,7 @@ const ProfileScreen = ({ navigation }) => {
 
   // Settings handler
   const handleSettings = () => {
-    Alert.alert('Ayarlar', 'Ayarlar sayfası yakında eklenecek.');
+    Alert.alert(t('profile.settingsTitle'), t('profile.settingsComingSoon'));
   };
 
   return (
@@ -165,7 +166,7 @@ const ProfileScreen = ({ navigation }) => {
     >
       {/* ════════════════════ PAGE TITLE ════════════════════ */}
       <Animated.View style={[styles.header, { opacity: fadeAnim, paddingTop: insets.top }]}>
-        <Text style={styles.pageTitle}>Profil</Text>
+        <Text style={styles.pageTitle}>{t('profile.title')}</Text>
       </Animated.View>
 
       {/* ════════════════════ PRO UPGRADE CARD ════════════════════ */}
@@ -182,8 +183,8 @@ const ProfileScreen = ({ navigation }) => {
                   <Ionicons name="trophy" size={24} color="#F4B43A" />
                 </View>
                 <View style={styles.proTextContainer}>
-                  <Text style={styles.proTitle}>PRO'ya Yükselt</Text>
-                  <Text style={styles.proSubtitle}>Sınırsız AI tahmin • Reklamsız deneyim</Text>
+                  <Text style={styles.proTitle}>{t('profile.upgradeTitle')}</Text>
+                  <Text style={styles.proSubtitle}>{t('profile.upgradeSubtitle')}</Text>
                 </View>
               </View>
               <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
@@ -194,11 +195,11 @@ const ProfileScreen = ({ navigation }) => {
 
       {/* ════════════════════ HESAP SECTION ════════════════════ */}
       <Animated.View style={{ opacity: fadeAnim }}>
-        <GroupedTableSection title="HESAP">
+        <GroupedTableSection title={t('profile.account')}>
           <TableRow
             icon="refresh-outline"
             iconColor={ICON_COLORS.restore}
-            title="Satın Alımları Geri Yükle"
+            title={t('profile.restorePurchases')}
             onPress={handleRestorePurchases}
             isFirst
             isLast
@@ -208,18 +209,18 @@ const ProfileScreen = ({ navigation }) => {
 
       {/* ════════════════════ AYARLAR SECTION ════════════════════ */}
       <Animated.View style={{ opacity: fadeAnim }}>
-        <GroupedTableSection title="AYARLAR">
+        <GroupedTableSection title={t('profile.settings')}>
           <TableRow
             icon="settings-outline"
             iconColor={ICON_COLORS.settings}
-            title="Ayarlar"
+            title={t('profile.settingsTitle')}
             onPress={handleSettings}
             isFirst
           />
           <TableRow
             icon="globe-outline"
             iconColor={ICON_COLORS.language}
-            title="Dil"
+            title={t('profile.language')}
             onPress={() => setShowLanguagePicker(true)}
             isLast
           />
@@ -228,18 +229,18 @@ const ProfileScreen = ({ navigation }) => {
 
       {/* ════════════════════ DESTEK SECTION ════════════════════ */}
       <Animated.View style={{ opacity: fadeAnim }}>
-        <GroupedTableSection title="DESTEK">
+        <GroupedTableSection title={t('profile.support')}>
           <TableRow
             icon="help-circle-outline"
             iconColor={ICON_COLORS.support}
-            title="Destek"
+            title={t('profile.supportTitle')}
             onPress={handleSupport}
             isFirst
           />
           <TableRow
             icon="star-outline"
             iconColor={ICON_COLORS.rate}
-            title="Bizi Oyla"
+            title={t('profile.rateUs')}
             onPress={handleRateUs}
             isLast
           />
@@ -248,18 +249,18 @@ const ProfileScreen = ({ navigation }) => {
 
       {/* ════════════════════ YASAL SECTION ════════════════════ */}
       <Animated.View style={{ opacity: fadeAnim }}>
-        <GroupedTableSection title="YASAL">
+        <GroupedTableSection title={t('profile.legal')}>
           <TableRow
             icon="shield-checkmark-outline"
             iconColor={ICON_COLORS.privacy}
-            title="Gizlilik Politikası"
+            title={t('profile.privacyPolicy')}
             onPress={handlePrivacyPolicy}
             isFirst
           />
           <TableRow
             icon="document-text-outline"
             iconColor={ICON_COLORS.terms}
-            title="Kullanım Şartları"
+            title={t('profile.termsOfService')}
             onPress={handleTerms}
             isLast
           />
@@ -268,8 +269,8 @@ const ProfileScreen = ({ navigation }) => {
 
       {/* ════════════════════ APP INFO ════════════════════ */}
       <Animated.View style={[styles.appInfo, { opacity: fadeAnim }]}>
-        <Text style={styles.appInfoVersion}>AI Maç Analiz v1.0.0</Text>
-        <Text style={styles.appInfoCopyright}>© 2024 Tüm Hakları Saklıdır</Text>
+        <Text style={styles.appInfoVersion}>{t('profile.appVersion')}</Text>
+        <Text style={styles.appInfoCopyright}>{t('profile.copyright')}</Text>
       </Animated.View>
 
       {/* Bottom Padding */}
@@ -288,13 +289,14 @@ const ProfileScreen = ({ navigation }) => {
           onPress={() => setShowLanguagePicker(false)}
         >
           <View style={styles.pickerCard}>
-            <Text style={styles.pickerTitle}>Dil Seçin</Text>
+            <Text style={styles.pickerTitle}>{t('profile.selectLanguage')}</Text>
             {['tr', 'en'].map((lang) => (
               <TouchableOpacity
                 key={lang}
                 style={styles.pickerOption}
                 onPress={() => {
-                  setCurrentLanguage(lang);
+                  setLanguage(lang);
+                  setCurrentLanguageState(lang);
                   setShowLanguagePicker(false);
                 }}
               >

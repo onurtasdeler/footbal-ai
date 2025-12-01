@@ -17,6 +17,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSubscription } from '../context/SubscriptionContext';
+import { t } from '../i18n';
 
 const { width, height } = Dimensions.get('window');
 
@@ -47,31 +48,31 @@ const COLORS = {
   accent: '#00d4aa',
 };
 
-// PRO Features
-const FEATURES = [
-  { icon: 'analytics', text: 'Detayli Mac Analizi' },
-  { icon: 'eye-off', text: 'Reklamsiz Deneyim' },
-  { icon: 'stats-chart', text: 'Detayli Tahmin Analizi' },
-  { icon: 'football', text: 'Canli Mac Takibi' },
+// PRO Features - will be populated from i18n
+const getFeatures = () => [
+  { icon: 'analytics', text: t('paywall.features.detailedAnalysis') },
+  { icon: 'eye-off', text: t('paywall.features.adFree') },
+  { icon: 'stats-chart', text: t('paywall.features.detailedPrediction') },
+  { icon: 'football', text: t('paywall.features.liveTracking') },
 ];
 
 // Default pricing (fallback if RevenueCat prices not available)
-const DEFAULT_PLANS = [
+const getDefaultPlans = () => [
   {
     id: 'weekly',
-    title: 'Haftalik',
+    title: t('paywall.weekly'),
     price: '₺29.99',
-    period: '/hafta',
+    period: t('paywall.perWeek'),
     badge: null,
     savings: null,
   },
   {
     id: 'monthly',
-    title: 'Aylik',
+    title: t('paywall.monthly'),
     price: '₺79.99',
-    period: '/ay',
-    badge: 'EN POPULER',
-    savings: '%33 Tasarruf',
+    period: t('paywall.perMonth'),
+    badge: t('paywall.mostPopular'),
+    savings: t('paywall.savings'),
     highlighted: true,
   },
 ];
@@ -98,6 +99,8 @@ const PaywallScreen = ({ visible: propVisible, onClose, navigation }) => {
   const { purchase, restore, prices, isLoading } = useSubscription();
 
   // Build plans with real prices from RevenueCat
+  const DEFAULT_PLANS = getDefaultPlans();
+  const FEATURES = getFeatures();
   const PLANS = DEFAULT_PLANS.map(plan => ({
     ...plan,
     price: plan.id === 'weekly'
@@ -170,25 +173,25 @@ const PaywallScreen = ({ visible: propVisible, onClose, navigation }) => {
       if (result.success) {
         // Purchase successful
         Alert.alert(
-          'Basarili!',
-          'Goalwise PRO aboneliginiz aktif edildi. Premium ozelliklerin keyfini cikarin!',
-          [{ text: 'Tamam', onPress: handleClose }]
+          t('common.success'),
+          t('paywall.purchaseSuccess'),
+          [{ text: t('common.ok'), onPress: handleClose }]
         );
       } else if (result.cancelled) {
         // User cancelled - do nothing
       } else if (result.error) {
         // Purchase failed
         Alert.alert(
-          'Hata',
-          result.error || 'Satin alma islemi basarisiz oldu. Lutfen tekrar deneyin.',
-          [{ text: 'Tamam' }]
+          t('common.error'),
+          result.error || t('paywall.purchaseError'),
+          [{ text: t('common.ok') }]
         );
       }
     } catch (error) {
       Alert.alert(
-        'Hata',
-        'Beklenmeyen bir hata olustu. Lutfen tekrar deneyin.',
-        [{ text: 'Tamam' }]
+        t('common.error'),
+        t('paywall.unexpectedError'),
+        [{ text: t('common.ok') }]
       );
     } finally {
       setIsPurchasing(false);
@@ -205,28 +208,28 @@ const PaywallScreen = ({ visible: propVisible, onClose, navigation }) => {
 
       if (result.success && result.hasProAccess) {
         Alert.alert(
-          'Basarili!',
-          'Aboneliginiz basariyla geri yuklendi.',
-          [{ text: 'Tamam', onPress: handleClose }]
+          t('common.success'),
+          t('paywall.restoreSuccess'),
+          [{ text: t('common.ok'), onPress: handleClose }]
         );
       } else if (result.success && !result.hasProAccess) {
         Alert.alert(
-          'Bilgi',
-          'Geri yuklenecek aktif bir abonelik bulunamadi.',
-          [{ text: 'Tamam' }]
+          t('paywall.info'),
+          t('paywall.restoreNoSubscription'),
+          [{ text: t('common.ok') }]
         );
       } else {
         Alert.alert(
-          'Hata',
-          result.error || 'Geri yukleme islemi basarisiz oldu.',
-          [{ text: 'Tamam' }]
+          t('common.error'),
+          result.error || t('paywall.restoreError'),
+          [{ text: t('common.ok') }]
         );
       }
     } catch (error) {
       Alert.alert(
-        'Hata',
-        'Beklenmeyen bir hata olustu.',
-        [{ text: 'Tamam' }]
+        t('common.error'),
+        t('paywall.unexpectedError'),
+        [{ text: t('common.ok') }]
       );
     } finally {
       setIsPurchasing(false);
@@ -299,8 +302,8 @@ const PaywallScreen = ({ visible: propVisible, onClose, navigation }) => {
                 <Ionicons name="trophy" size={44} color={COLORS.goldPrimary} />
               </Animated.View>
 
-              <Text style={styles.heroTitle}>GOALWISE PRO</Text>
-              <Text style={styles.heroSubtitle}>Profesyonel Analizlerle Kazan</Text>
+              <Text style={styles.heroTitle}>{t('paywall.title')}</Text>
+              <Text style={styles.heroSubtitle}>{t('paywall.subtitle')}</Text>
             </View>
 
             {/* Features Card */}
@@ -327,7 +330,7 @@ const PaywallScreen = ({ visible: propVisible, onClose, navigation }) => {
 
             {/* Pricing Cards */}
             <View style={styles.pricingSection}>
-              <Text style={styles.pricingTitle}>Plan Secin</Text>
+              <Text style={styles.pricingTitle}>{t('paywall.selectPlan')}</Text>
               <View style={styles.pricingCards}>
                 {PLANS.map((plan) => (
                   <TouchableOpacity
@@ -395,7 +398,7 @@ const PaywallScreen = ({ visible: propVisible, onClose, navigation }) => {
                 ) : (
                   <>
                     <Ionicons name="flash" size={20} color={COLORS.bg} />
-                    <Text style={styles.ctaText}>PRO'ya Yukselt</Text>
+                    <Text style={styles.ctaText}>{t('paywall.upgradeToPro')}</Text>
                   </>
                 )}
               </LinearGradient>
@@ -408,25 +411,24 @@ const PaywallScreen = ({ visible: propVisible, onClose, navigation }) => {
               disabled={isPurchasing}
             >
               <Text style={[styles.restoreText, isPurchasing && styles.restoreTextDisabled]}>
-                Satin Alimi Geri Yukle
+                {t('paywall.restorePurchase')}
               </Text>
             </TouchableOpacity>
 
             {/* Footer Links */}
             <View style={styles.footer}>
               <TouchableOpacity>
-                <Text style={styles.footerLink}>Gizlilik Politikasi</Text>
+                <Text style={styles.footerLink}>{t('paywall.privacyPolicy')}</Text>
               </TouchableOpacity>
               <Text style={styles.footerDivider}>|</Text>
               <TouchableOpacity>
-                <Text style={styles.footerLink}>Kullanim Kosullari</Text>
+                <Text style={styles.footerLink}>{t('paywall.termsOfUse')}</Text>
               </TouchableOpacity>
             </View>
 
             {/* Disclaimer */}
             <Text style={styles.disclaimer}>
-              Abonelik otomatik olarak yenilenir. Istediginiz zaman App Store
-              ayarlarindan iptal edebilirsiniz.
+              {t('paywall.disclaimer')}
             </Text>
           </ScrollView>
         </Animated.View>

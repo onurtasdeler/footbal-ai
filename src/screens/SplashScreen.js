@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../theme/colors';
+import { t } from '../i18n';
 
 const { width, height } = Dimensions.get('window');
 
@@ -291,7 +292,7 @@ const SplashScreen = ({ navigation }) => {
             },
           ]}
         >
-          <Text style={styles.subtitleText}>AI Destekli Maç Analizi</Text>
+          <Text style={styles.subtitleText}>{t('splash.subtitle')}</Text>
           <View style={styles.subtitleDots}>
             <View style={[styles.dot, { backgroundColor: COLORS.accent }]} />
             <View style={[styles.dot, { backgroundColor: COLORS.warning }]} />

@@ -8,6 +8,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseService';
 import { BETTING_CATEGORIES, RISK_LEVELS } from '../data/bettingTypes';
+import { getLanguage } from '../i18n';
 
 // Edge Function handles Claude API - key is stored server-side
 const USE_EDGE_FUNCTIONS = true; // Toggle for migration
@@ -22,7 +23,8 @@ const PREDICTION_CACHE_KEY = '@betting_predictions_';
  */
 export const getBettingPredictions = async (matchData) => {
   const matchDate = matchData.date || new Date().toISOString().split('T')[0];
-  const cacheKey = `${PREDICTION_CACHE_KEY}${matchData.id}_${matchDate}`;
+  const language = getLanguage();
+  const cacheKey = `${PREDICTION_CACHE_KEY}${matchData.id}_${matchDate}_${language}`;
 
   // Local cache kontrol (hızlı erişim için)
   try {
@@ -56,11 +58,40 @@ export const getBettingPredictions = async (matchData) => {
             awayTeamStats: matchData.awayTeamStats,
           },
           fixtureId: matchData.id,
+          language: language,
         },
       });
 
+      // ⭐ Rate limit error handling (429 Too Many Requests)
       if (error) {
+        // Check for rate limit error
+        const isRateLimitError =
+          error.message?.includes('rate_limit') ||
+          error.message?.includes('429') ||
+          error.context?.status === 429;
+
+        if (isRateLimitError) {
+          return {
+            ...getDefaultPredictions(language),
+            rateLimitExceeded: true,
+            rateLimitMessage: language === 'en'
+              ? 'Daily prediction limit reached (3 different matches/day). Try again tomorrow.'
+              : 'Günlük tahmin limitinize ulaştınız (3 farklı maç/gün). Yarın tekrar deneyin.',
+          };
+        }
+
         return getDefaultPredictions();
+      }
+
+      // Check if response itself contains rate limit error
+      if (data?.error === 'rate_limit_exceeded') {
+        return {
+          ...getDefaultPredictions(language),
+          rateLimitExceeded: true,
+          rateLimitMessage: data.message || (language === 'en'
+            ? 'Daily prediction limit reached (3 different matches/day). Try again tomorrow.'
+            : 'Günlük tahmin limitinize ulaştınız (3 farklı maç/gün). Yarın tekrar deneyin.'),
+        };
       }
 
       // Enrich with UI data
@@ -216,52 +247,64 @@ const enrichPredictions = (predictions) => {
 
 /**
  * Varsayılan tahminler (hata durumunda)
+ * @param {string} lang - Language code ('tr' or 'en')
  */
-const getDefaultPredictions = () => ({
-  predictions: [
-    {
-      betType: '2.5U',
-      betName: '2.5 Üst',
-      category: 'gol_bahisleri',
-      selection: '2.5 Üst',
-      confidence: 50,
-      risk: 'orta',
-      reasoning: 'Veri yetersiz, genel ortalamaya dayalı tahmin',
-      riskColor: RISK_LEVELS.orta.color,
-      riskBgColor: RISK_LEVELS.orta.bgColor,
-      riskIcon: RISK_LEVELS.orta.icon,
-      riskLabel: RISK_LEVELS.orta.label,
-      categoryColor: BETTING_CATEGORIES.gol_bahisleri.color,
-      categoryIcon: BETTING_CATEGORIES.gol_bahisleri.icon,
-    },
-    {
-      betType: 'KGV',
-      betName: 'Karşılıklı Gol Var',
-      category: 'gol_bahisleri',
-      selection: 'KG Var',
-      confidence: 45,
-      risk: 'orta',
-      reasoning: 'Veri yetersiz, genel ortalamaya dayalı tahmin',
-      riskColor: RISK_LEVELS.orta.color,
-      riskBgColor: RISK_LEVELS.orta.bgColor,
-      riskIcon: RISK_LEVELS.orta.icon,
-      riskLabel: RISK_LEVELS.orta.label,
-      categoryColor: BETTING_CATEGORIES.gol_bahisleri.color,
-      categoryIcon: BETTING_CATEGORIES.gol_bahisleri.icon,
-    },
-  ],
-  topPick: null,
-  summary: 'Yeterli veri olmadığından detaylı tahmin yapılamadı.',
-  riskWarning: 'Bu tahminler sınırlı veriye dayanmaktadır.',
-  generatedAt: new Date().toISOString(),
-  isDefault: true,
-});
+const getDefaultPredictions = (lang = null) => {
+  const language = lang || getLanguage();
+  const isEN = language === 'en';
+
+  // Risk key based on language (Edge Function returns 'medium' for EN, 'orta' for TR)
+  const riskKey = isEN ? 'medium' : 'orta';
+  const riskInfo = RISK_LEVELS[riskKey] || RISK_LEVELS.orta;
+
+  return {
+    predictions: [
+      {
+        betType: '2.5U',
+        betName: isEN ? 'Over 2.5 Goals' : '2.5 Üst',
+        category: 'gol_bahisleri',
+        selection: isEN ? 'Over 2.5' : '2.5 Üst',
+        confidence: 50,
+        risk: riskKey,
+        reasoning: isEN ? 'Insufficient data, prediction based on general average' : 'Veri yetersiz, genel ortalamaya dayalı tahmin',
+        riskColor: riskInfo.color,
+        riskBgColor: riskInfo.bgColor,
+        riskIcon: riskInfo.icon,
+        riskLabel: riskInfo.label,
+        categoryColor: BETTING_CATEGORIES.gol_bahisleri.color,
+        categoryIcon: BETTING_CATEGORIES.gol_bahisleri.icon,
+      },
+      {
+        betType: 'KGV',
+        betName: isEN ? 'Both Teams to Score' : 'Karşılıklı Gol Var',
+        category: 'gol_bahisleri',
+        selection: isEN ? 'BTTS Yes' : 'KG Var',
+        confidence: 45,
+        risk: riskKey,
+        reasoning: isEN ? 'Insufficient data, prediction based on general average' : 'Veri yetersiz, genel ortalamaya dayalı tahmin',
+        riskColor: riskInfo.color,
+        riskBgColor: riskInfo.bgColor,
+        riskIcon: riskInfo.icon,
+        riskLabel: riskInfo.label,
+        categoryColor: BETTING_CATEGORIES.gol_bahisleri.color,
+        categoryIcon: BETTING_CATEGORIES.gol_bahisleri.icon,
+      },
+    ],
+    topPick: null,
+    summary: isEN ? 'Detailed prediction not available due to insufficient data.' : 'Yeterli veri olmadığından detaylı tahmin yapılamadı.',
+    riskWarning: isEN ? 'These predictions are based on limited data.' : 'Bu tahminler sınırlı veriye dayanmaktadır.',
+    generatedAt: new Date().toISOString(),
+    isDefault: true,
+  };
+};
 
 /**
  * Hızlı tahmin (sadece temel verilerle) - Edge Function üzerinden
  */
 export const getQuickPredictions = async (homeName, awayName, leagueName) => {
   try {
+    const language = getLanguage();
+
     // Use the same Edge Function with minimal data
     const { data, error } = await supabase.functions.invoke('claude-predictions', {
       body: {
@@ -271,11 +314,36 @@ export const getQuickPredictions = async (homeName, awayName, leagueName) => {
           league: { name: leagueName },
         },
         fixtureId: `quick_${Date.now()}`, // Temporary ID
+        language: language,
       },
     });
 
+    // ⭐ Rate limit error handling
     if (error) {
+      const isRateLimitError =
+        error.message?.includes('rate_limit') ||
+        error.message?.includes('429') ||
+        error.context?.status === 429;
+
+      if (isRateLimitError) {
+        return {
+          ...getDefaultPredictions(language),
+          rateLimitExceeded: true,
+          rateLimitMessage: language === 'en'
+            ? 'Daily prediction limit reached (3 different matches/day). Try again tomorrow.'
+            : 'Günlük tahmin limitinize ulaştınız (3 farklı maç/gün). Yarın tekrar deneyin.',
+        };
+      }
       return null;
+    }
+
+    // Check if response contains rate limit error
+    if (data?.error === 'rate_limit_exceeded') {
+      return {
+        ...getDefaultPredictions(language),
+        rateLimitExceeded: true,
+        rateLimitMessage: data.message,
+      };
     }
 
     return enrichPredictions(data);
@@ -363,7 +431,8 @@ export const getCachedMatchIds = async () => {
  */
 export const hasCachedPrediction = async (matchId, matchDate) => {
   try {
-    const cacheKey = `${PREDICTION_CACHE_KEY}${matchId}_${matchDate}`;
+    const language = getLanguage();
+    const cacheKey = `${PREDICTION_CACHE_KEY}${matchId}_${matchDate}_${language}`;
     const cached = await AsyncStorage.getItem(cacheKey);
     return cached !== null;
   } catch (error) {
