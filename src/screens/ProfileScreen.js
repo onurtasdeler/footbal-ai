@@ -121,7 +121,7 @@ const ProfileScreen = ({ navigation }) => {
 
   // Support handler
   const handleSupport = () => {
-    Linking.openURL(`mailto:destek@aimacanalization.com?subject=${encodeURIComponent(t('profile.emailSubject'))}`);
+    Linking.openURL(`mailto:tasdeler4@gmail.com?subject=${encodeURIComponent(t('profile.emailSubject'))}`);
   };
 
   // Rate Us handler
@@ -145,12 +145,12 @@ const ProfileScreen = ({ navigation }) => {
 
   // Privacy Policy handler
   const handlePrivacyPolicy = () => {
-    Linking.openURL('https://aimacanalization.com/privacy');
+    Linking.openURL('https://epinko.com/goalwise-privacy.html');
   };
 
   // Terms handler
   const handleTerms = () => {
-    Linking.openURL('https://aimacanalization.com/terms');
+    Linking.openURL('https://epinko.com/goalwise-eula.html');
   };
 
   // Settings handler

@@ -23,7 +23,7 @@ import footballApi from '../services/footballApi';
 import { getAnalyzedFixtureIds } from '../services/cacheService';
 import { useIsPro } from '../context/SubscriptionContext';
 import { COLORS } from '../theme/colors';
-import { t, getLanguage } from '../i18n';
+import { t, getLanguage, addLanguageListener } from '../i18n';
 
 const LOCALE_TO_COUNTRY = {
   'tr': 'Turkey', 'en': 'England', 'de': 'Germany', 'es': 'Spain', 'fr': 'France',
@@ -68,6 +68,9 @@ const HomeScreen = ({ navigation }) => {
   // Favoriler ve Analiz Edilenler
   const [favoriteMatchIds, setFavoriteMatchIds] = useState([]);
   const [analyzedMatchIds, setAnalyzedMatchIds] = useState([]);
+
+  // Dil değişikliği için state - component'ı yeniden render eder
+  const [, setLanguageKey] = useState(getLanguage());
 
   const filters = [
     { id: 'all', label: t('home.all') },
@@ -139,6 +142,14 @@ const HomeScreen = ({ navigation }) => {
     } catch (e) {
       // Silent fail
     }
+  }, []);
+
+  // Dil değişikliği listener'ı - component'ı yeniden render eder
+  useEffect(() => {
+    const unsubscribe = addLanguageListener((newLang) => {
+      setLanguageKey(newLang); // State değişince component yeniden render olur
+    });
+    return unsubscribe;
   }, []);
 
   // Favori maçları ve analiz edilmiş maçları yükle

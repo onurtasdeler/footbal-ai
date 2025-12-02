@@ -20,9 +20,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import footballApi from '../services/footballApi';
 import claudeAi from '../services/claudeAi';
 import cacheService from '../services/cacheService';
+import reviewService from '../services/reviewService';
 import { useSubscription } from '../context/SubscriptionContext';
 import PaywallScreen from './PaywallScreen';
-import { t } from '../i18n';
+import { t, getLanguage, addLanguageListener } from '../i18n';
 import { AnalysisLoadingAnimation } from '../components/loading';
 
 // Stadium background image
@@ -877,7 +878,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
   const insets = useSafeAreaInsets();
 
   // PRO subscription check - hooks must be called unconditionally
-  const { isPro } = useSubscription();
+  const { isPro, isLoading: subscriptionLoading } = useSubscription();
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -897,6 +898,17 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
   const [rateLimitError, setRateLimitError] = useState(null);
   const [showRateLimitPaywall, setShowRateLimitPaywall] = useState(false);
   const [showRateLimitInfo, setShowRateLimitInfo] = useState(false);
+
+  // Dil değişikliği için state
+  const [, setLanguageKey] = useState(getLanguage());
+
+  // Dil değişikliği listener'ı
+  useEffect(() => {
+    const unsubscribe = addLanguageListener((newLang) => {
+      setLanguageKey(newLang);
+    });
+    return unsubscribe;
+  }, []);
 
   // Parse match data
   const isApiData = typeof match.home === 'object';
@@ -1094,7 +1106,8 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
         awayTeamStats: prediction?.awayTeamStats,
       };
 
-      const result = await claudeAi.analyzeMatch(analysisData);
+      // ⭐ isPro parametresi: PRO kullanıcılar günlük 50 maç, ücretsiz 3 maç
+      const result = await claudeAi.analyzeMatch(analysisData, isPro);
       if (result) {
         // Check for rate limit error
         if (result.rateLimitExceeded) {
@@ -1108,6 +1121,10 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
 
           // Save to local cache for offline access only
           await cacheService.saveAnalysis(fixtureId, result, match.date, match.status || 'NS');
+
+          // Trigger in-app review prompt (async, non-blocking)
+          // Waits 5s, then shows native iOS/Android review dialog if conditions met
+          reviewService.checkAndPromptReview();
         }
       }
     } catch (error) {
@@ -1121,7 +1138,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
   const handleTabChange = (tabId, index) => {
     setActiveTab(tabId);
     Animated.spring(tabIndicatorAnim, {
-      toValue: index * (SCREEN_WIDTH / MAIN_TABS.length),
+      toValue: index * (SCREEN_WIDTH / getMainTabs().length),
       tension: 50,
       friction: 8,
       useNativeDriver: true,
@@ -1132,7 +1149,21 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
   const analysis = aiAnalysis || claudeAi.getDefaultAnalysis();
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // PRO CHECK - Tüm hooks'lardan sonra
+  // SUBSCRIPTION LOADING CHECK - RevenueCat initialization beklenir
+  // ─────────────────────────────────────────────────────────────────────────────
+  if (subscriptionLoading) {
+    return (
+      <View style={[styles.screen, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={COLORS.accent} />
+        <Text style={{ color: COLORS.gray400, marginTop: 12, fontSize: 14 }}>
+          {t('common.loading') || 'Yükleniyor...'}
+        </Text>
+      </View>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PRO CHECK - Subscription yüklendikten sonra kontrol et
   // ─────────────────────────────────────────────────────────────────────────────
   if (!isPro) {
     return (

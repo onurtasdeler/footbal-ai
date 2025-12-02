@@ -20,6 +20,9 @@ const getDeviceLanguage = () => {
 // Aktif dil
 let currentLanguage = getDeviceLanguage();
 
+// Dil değişikliği listener'ları
+const languageListeners = new Set();
+
 /**
  * Çeviri fonksiyonu
  * @param {string} key - Çeviri anahtarı (örn: "home.title" veya "common.loading")
@@ -71,12 +74,24 @@ export const t = (key, params = {}) => {
 export const getLanguage = () => currentLanguage;
 
 /**
- * Dili değiştir
+ * Dili değiştir ve listener'ları bilgilendir
  */
 export const setLanguage = (lang) => {
-  if (translations[lang]) {
+  if (translations[lang] && currentLanguage !== lang) {
     currentLanguage = lang;
+    // Tüm listener'ları bilgilendir
+    languageListeners.forEach(listener => listener(lang));
   }
+};
+
+/**
+ * Dil değişikliği listener'ı ekle
+ * @param {Function} callback - Dil değiştiğinde çağrılacak fonksiyon
+ * @returns {Function} Unsubscribe fonksiyonu
+ */
+export const addLanguageListener = (callback) => {
+  languageListeners.add(callback);
+  return () => languageListeners.delete(callback);
 };
 
 /**
@@ -89,4 +104,4 @@ export const isTurkish = () => currentLanguage === 'tr';
  */
 export const isEnglish = () => currentLanguage === 'en';
 
-export default { t, getLanguage, setLanguage, isTurkish, isEnglish };
+export default { t, getLanguage, setLanguage, addLanguageListener, isTurkish, isEnglish };

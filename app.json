@@ -7,9 +7,10 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "extra": {
-      "revenueCatApiKey": "test_GClyPBcnkdxiPCUwdJUxmnpDHgH",
+      "revenueCatApiKeyIos": "appl_LEpIMzKcSrPWBQHQnWJXzfykDJR",
+      "revenueCatApiKeyAndroid": "goog_NDPzwjjWBkOLcHsWRYtrXoEIEZx",
       "eas": {
         "projectId": "d43bf147-1caf-4d73-a3e6-d07be6e6c13f"
       }
@@ -17,13 +18,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.goalwise.epinko",
-      "buildNumber": "1",
+      "buildNumber": "6",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
         },
-        "UIBackgroundModes": []
+        "UIBackgroundModes": [],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -33,7 +35,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.goalwise.epinko",
-      "versionCode": 1,
+      "versionCode": 5,
       "googleServicesFile": "./google-services.json",
       "splash": {
         "image": "./assets/splash-icon.png",
@@ -46,7 +48,33 @@
     },
     "plugins": [
       "expo-localization",
-      "expo-dev-client"
+      "expo-dev-client",
+      "./plugins/withDisableAdId.js",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static",
+            "deploymentTarget": "15.1",
+            "forceStaticLinking": [
+              "RNFBApp",
+              "RNFBAnalytics"
+            ]
+          },
+          "android": {
+            "blockedPermissions": [
+              "com.google.android.gms.permission.AD_ID"
+            ]
+          }
+        }
+      ],
+      [
+        "@react-native-firebase/app",
+        {
+          "android_disable_auto_collection": false,
+          "android_disable_ad_id_collection": true
+        }
+      ]
     ]
   }
 }

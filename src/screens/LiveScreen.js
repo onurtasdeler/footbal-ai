@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import footballApi from '../services/footballApi';
 import { useSmartPolling, useAppState, POLLING_INTERVALS } from '../services/pollingService';
 import { COLORS } from '../theme/colors';
-import { t } from '../i18n';
+import { t, getLanguage, addLanguageListener } from '../i18n';
 
 const LiveScreen = ({ navigation }) => {
   // Safe area insets for proper header positioning
@@ -30,6 +30,17 @@ const LiveScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [matchStats, setMatchStats] = useState({});
   const [lastUpdated, setLastUpdated] = useState(null);
+
+  // Dil değişikliği için state
+  const [, setLanguageKey] = useState(getLanguage());
+
+  // Dil değişikliği listener'ı
+  useEffect(() => {
+    const unsubscribe = addLanguageListener((newLang) => {
+      setLanguageKey(newLang);
+    });
+    return unsubscribe;
+  }, []);
 
   // Maçları dakikaya göre sırala (kritik maçlar üstte)
   const sortMatchesByMinute = (matches) => {

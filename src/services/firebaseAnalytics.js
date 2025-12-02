@@ -8,6 +8,7 @@
 
 let analytics = null;
 let isFirebaseAvailable = false;
+let isInitialized = false;
 
 // Try to import Firebase Analytics
 try {
@@ -16,6 +17,27 @@ try {
 } catch (error) {
   __DEV__ && console.log('[Analytics] Firebase not available, using mock mode');
 }
+
+// Initialize Analytics with Ad ID disabled
+const initializeAnalytics = async () => {
+  if (isInitialized || !isFirebaseAvailable || !analytics) return;
+
+  try {
+    // Disable ad ID collection (GDPR & Android 13+ compliance)
+    await analytics().setAnalyticsCollectionEnabled(true);
+
+    // Disable ad personalization - reklam kişiselleştirme kapalı
+    await analytics().setUserProperty('allow_personalized_ads', 'false');
+
+    isInitialized = true;
+    __DEV__ && console.log('[Analytics] Initialized with ad ID collection disabled');
+  } catch (error) {
+    __DEV__ && console.warn('[Analytics] Init error:', error.message);
+  }
+};
+
+// Auto-initialize on import
+initializeAnalytics();
 
 // Helper to log or mock
 const logEvent = async (eventName, params = {}) => {

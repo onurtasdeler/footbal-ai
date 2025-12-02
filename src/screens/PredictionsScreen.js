@@ -31,7 +31,7 @@ import { RISK_LEVELS, BETTING_CATEGORIES } from '../data/bettingTypes';
 import { COLORS } from '../theme/colors';
 import { useSubscription } from '../context/SubscriptionContext';
 import PaywallScreen from './PaywallScreen';
-import { t } from '../i18n';
+import { t, getLanguage, addLanguageListener } from '../i18n';
 import { PredictionLoadingAnimation } from '../components/loading';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -1084,6 +1084,17 @@ const PredictionsScreen = () => {
   const [showRateLimitPaywall, setShowRateLimitPaywall] = useState(false);
   const [showProPaywall, setShowProPaywall] = useState(false);
   const [showRateLimitInfo, setShowRateLimitInfo] = useState(false);
+
+  // Dil değişikliği için state
+  const [, setLanguageKey] = useState(getLanguage());
+
+  // Dil değişikliği listener'ı
+  useEffect(() => {
+    const unsubscribe = addLanguageListener((newLang) => {
+      setLanguageKey(newLang);
+    });
+    return unsubscribe;
+  }, []);
 
   const dateOptions = [-1, 0, 1, 2, 3, 4, 5]; // 7 günlük tarih aralığı
 

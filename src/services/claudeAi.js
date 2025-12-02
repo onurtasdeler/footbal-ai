@@ -13,13 +13,15 @@ const USE_EDGE_FUNCTIONS = true; // Toggle for migration
 /**
  * Generate comprehensive match analysis using Claude AI via Edge Function
  * @param {object} matchData - Complete match data object
+ * @param {boolean} isPro - User subscription status (PRO users get higher rate limit)
  * @returns {object} - Enhanced AI analysis response
  */
-export const analyzeMatch = async (matchData) => {
+export const analyzeMatch = async (matchData, isPro = false) => {
   try {
     if (USE_EDGE_FUNCTIONS) {
       // Use Supabase Edge Function - API key is stored server-side
       // Edge Function handles caching in Supabase database
+      // isPro parametresi rate limit için gönderiliyor (FREE: 3, PRO: 50)
       const { data, error } = await supabase.functions.invoke('claude-analysis', {
         body: {
           matchData: {
@@ -44,6 +46,7 @@ export const analyzeMatch = async (matchData) => {
           },
           fixtureId: matchData.fixtureId,
           language: getLanguage(),
+          isPro: isPro, // ⭐ PRO kullanıcılar için yüksek rate limit (50 vs 3)
         },
       });
 
@@ -371,8 +374,12 @@ SADECE JSON yanıt ver. Başka açıklama ekleme.`;
 
 /**
  * Quick analysis with minimal data - uses same Edge Function
+ * @param {string} homeName - Home team name
+ * @param {string} awayName - Away team name
+ * @param {string} leagueName - League name
+ * @param {boolean} isPro - User subscription status
  */
-export const quickAnalyze = async (homeName, awayName, leagueName) => {
+export const quickAnalyze = async (homeName, awayName, leagueName, isPro = false) => {
   try {
     // Use the same Edge Function with minimal data
     const { data, error } = await supabase.functions.invoke('claude-analysis', {
@@ -384,6 +391,7 @@ export const quickAnalyze = async (homeName, awayName, leagueName) => {
         },
         fixtureId: `quick_${Date.now()}`, // Temporary ID for quick analysis
         language: getLanguage(),
+        isPro: isPro, // PRO kullanıcılar için yüksek rate limit
       },
     });
 

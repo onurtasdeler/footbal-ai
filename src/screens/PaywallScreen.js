@@ -13,11 +13,12 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSubscription } from '../context/SubscriptionContext';
-import { t } from '../i18n';
+import { t, getLanguage, addLanguageListener } from '../i18n';
 
 const { width, height } = Dimensions.get('window');
 
@@ -94,6 +95,17 @@ const PaywallScreen = ({ visible: propVisible, onClose, navigation }) => {
   const glowAnim = useRef(new Animated.Value(0.5)).current;
   const slideAnim = useRef(new Animated.Value(height)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Dil değişikliği için state
+  const [, setLanguageKey] = useState(getLanguage());
+
+  // Dil değişikliği listener'ı
+  useEffect(() => {
+    const unsubscribe = addLanguageListener((newLang) => {
+      setLanguageKey(newLang);
+    });
+    return unsubscribe;
+  }, []);
 
   // RevenueCat subscription context
   const { purchase, restore, prices, isLoading } = useSubscription();
@@ -417,11 +429,11 @@ const PaywallScreen = ({ visible: propVisible, onClose, navigation }) => {
 
             {/* Footer Links */}
             <View style={styles.footer}>
-              <TouchableOpacity>
+              <TouchableOpacity onPress={() => Linking.openURL('https://epinko.com/goalwise-privacy.html')}>
                 <Text style={styles.footerLink}>{t('paywall.privacyPolicy')}</Text>
               </TouchableOpacity>
               <Text style={styles.footerDivider}>|</Text>
-              <TouchableOpacity>
+              <TouchableOpacity onPress={() => Linking.openURL('https://epinko.com/goalwise-eula.html')}>
                 <Text style={styles.footerLink}>{t('paywall.termsOfUse')}</Text>
               </TouchableOpacity>
             </View>

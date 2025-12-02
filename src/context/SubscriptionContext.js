@@ -41,9 +41,11 @@ export const SubscriptionProvider = ({ children }) => {
     const init = async () => {
       try {
         setIsLoading(true);
+        console.log('=== SubscriptionContext Init Start ===');
 
         // Skip RevenueCat in Expo Go dev mode - use simulated PRO access
         if (devModePro) {
+          console.log('Dev mode PRO bypass active');
           setIsLoading(false);
           return;
         }
@@ -51,19 +53,23 @@ export const SubscriptionProvider = ({ children }) => {
         // Initialize SDK
         const initialized = await initializeRevenueCat();
         setIsInitialized(initialized);
+        console.log('RevenueCat initialized:', initialized);
 
         if (initialized) {
           // Check pro status
           const hasProAccess = await checkProAccess();
+          console.log('Pro access check result:', hasProAccess);
           setIsPro(hasProAccess);
 
           // Get customer info
           const info = await getCustomerInfo();
           setCustomerInfo(info);
+          console.log('Customer info loaded');
 
           // Get available packages
           const availablePackages = await getPackages();
           setPackages(availablePackages);
+          console.log('Packages loaded:', availablePackages?.length || 0);
 
           // Get prices
           const [weeklyPrice, monthlyPrice] = await Promise.all([
@@ -75,11 +81,14 @@ export const SubscriptionProvider = ({ children }) => {
             weekly: weeklyPrice,
             monthly: monthlyPrice,
           });
+          console.log('Prices loaded - weekly:', weeklyPrice?.price, 'monthly:', monthlyPrice?.price);
         }
+        console.log('=== SubscriptionContext Init Complete ===');
       } catch (error) {
-        // Silent fail
+        console.log('SubscriptionContext init error:', error);
       } finally {
         setIsLoading(false);
+        console.log('isLoading set to false');
       }
     };
 

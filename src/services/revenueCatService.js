@@ -6,12 +6,16 @@ import Constants from 'expo-constants';
 // REVENUECAT SERVICE - Goalwise Pro Subscription Management
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Get API key from app.json extra config
-// For production: Update the key in app.json extra.revenueCatApiKey
-// Test keys: start with "test_" (sandbox environment)
-// Production keys: start with "appl_" (iOS) or "goog_" (Android)
+// Get API key from app.json extra config based on platform
+// iOS key: appl_* prefix | Android key: goog_* prefix
 const getApiKey = () => {
-  return Constants.expoConfig?.extra?.revenueCatApiKey || 'test_GClyPBcnkdxiPCUwdJUxmnpDHgH';
+  const config = Constants.expoConfig?.extra;
+
+  if (Platform.OS === 'ios') {
+    return config?.revenueCatApiKeyIos || 'appl_LEpIMzKcSrPWBQHQnWJXzfykDJR';
+  }
+
+  return config?.revenueCatApiKeyAndroid || 'goog_NDPzwjjWBkOLcHsWRYtrXoEIEZx';
 };
 
 // RevenueCat Configuration
@@ -20,9 +24,17 @@ const REVENUECAT_CONFIG = {
     return getApiKey();
   },
   entitlementId: 'Goalwise Pro', // Entitlement identifier in RevenueCat dashboard
-  productIds: {
-    weekly: 'goalwise_pro_weekly',
-    monthly: 'goalwise_pro_monthly',
+  get productIds() {
+    if (Platform.OS === 'ios') {
+      return {
+        weekly: 'weeekly',
+        monthly: 'monthly',
+      };
+    }
+    return {
+      weekly: 'goalwise_weekly',
+      monthly: 'goalwise_monthly',
+    };
   },
 };
 
@@ -86,9 +98,26 @@ export const checkProAccess = async () => {
   try {
     const customerInfo = await Purchases.getCustomerInfo();
     const entitlements = customerInfo?.entitlements?.active;
+
+    // DEBUG: TestFlight abonelik sorununu teşhis için
+    if (__DEV__ || true) { // Production'da da geçici olarak aktif
+      console.log('=== RevenueCat Debug ===');
+      console.log('All Entitlements:', JSON.stringify(customerInfo?.entitlements, null, 2));
+      console.log('Active Entitlements:', JSON.stringify(entitlements, null, 2));
+      console.log('Looking for Entitlement ID:', REVENUECAT_CONFIG.entitlementId);
+      console.log('Entitlement Keys:', entitlements ? Object.keys(entitlements) : 'none');
+    }
+
     const hasProAccess = entitlements?.[REVENUECAT_CONFIG.entitlementId]?.isActive === true;
+
+    if (__DEV__ || true) {
+      console.log('Has Pro Access:', hasProAccess);
+      console.log('========================');
+    }
+
     return hasProAccess;
   } catch (error) {
+    console.log('checkProAccess error:', error);
     return false;
   }
 };

@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import footballApi from '../services/footballApi';
 import { useSmartPolling, useAppState, POLLING_INTERVALS } from '../services/pollingService';
 import { COLORS } from '../theme/colors';
-import { t } from '../i18n';
+import { t, getLanguage, addLanguageListener } from '../i18n';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // FORMATION POSITIONS
@@ -220,6 +220,17 @@ const LiveMatchDetailScreen = ({ route, navigation }) => {
   const [lineups, setLineups] = useState(null);
   const [stats, setStats] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+
+  // Dil değişikliği için state
+  const [, setLanguageKey] = useState(getLanguage());
+
+  // Dil değişikliği listener'ı
+  useEffect(() => {
+    const unsubscribe = addLanguageListener((newLang) => {
+      setLanguageKey(newLang);
+    });
+    return unsubscribe;
+  }, []);
 
   // Handle both API data structure and old mock data structure
   const isApiData = typeof match.home === 'object';
