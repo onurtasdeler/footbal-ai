@@ -12,7 +12,13 @@ const { withAndroidManifest } = require('@expo/config-plugins');
 
 const withDisableAdId = (config) => {
   return withAndroidManifest(config, async (config) => {
-    const mainApplication = config.modResults.manifest.application[0];
+    const manifest = config.modResults.manifest;
+    const mainApplication = manifest.application[0];
+
+    // Add tools namespace if not present
+    if (!manifest.$['xmlns:tools']) {
+      manifest.$['xmlns:tools'] = 'http://schemas.android.com/tools';
+    }
 
     // Meta-data array yoksa oluştur
     if (!mainApplication['meta-data']) {
@@ -20,10 +26,12 @@ const withDisableAdId = (config) => {
     }
 
     // Firebase Analytics Ad ID collection devre dışı bırak
+    // tools:replace kullanarak Firebase Analytics'in değerini override et
     const adIdDisabled = {
       $: {
         'android:name': 'google_analytics_adid_collection_enabled',
         'android:value': 'false',
+        'tools:replace': 'android:value',
       },
     };
 
@@ -32,29 +40,26 @@ const withDisableAdId = (config) => {
       $: {
         'android:name': 'google_analytics_default_allow_ad_personalization_signals',
         'android:value': 'false',
+        'tools:replace': 'android:value',
       },
     };
 
-    // Firebase default collection devre dışı bırak
-    const firebaseDefault = {
-      $: {
-        'android:name': 'firebase_analytics_collection_deactivated',
-        'android:value': 'false', // false = collection aktif ama ad ID olmadan
-      },
-    };
-
-    // Mevcut meta-data'ları kontrol et, yoksa ekle
-    const existingAdId = mainApplication['meta-data'].find(
+    // Mevcut meta-data'ları güncelle veya ekle
+    const existingAdIdIndex = mainApplication['meta-data'].findIndex(
       (item) => item.$['android:name'] === 'google_analytics_adid_collection_enabled'
     );
-    if (!existingAdId) {
+    if (existingAdIdIndex !== -1) {
+      mainApplication['meta-data'][existingAdIdIndex] = adIdDisabled;
+    } else {
       mainApplication['meta-data'].push(adIdDisabled);
     }
 
-    const existingAnalytics = mainApplication['meta-data'].find(
+    const existingAnalyticsIndex = mainApplication['meta-data'].findIndex(
       (item) => item.$['android:name'] === 'google_analytics_default_allow_ad_personalization_signals'
     );
-    if (!existingAnalytics) {
+    if (existingAnalyticsIndex !== -1) {
+      mainApplication['meta-data'][existingAnalyticsIndex] = analyticsDefault;
+    } else {
       mainApplication['meta-data'].push(analyticsDefault);
     }
 
