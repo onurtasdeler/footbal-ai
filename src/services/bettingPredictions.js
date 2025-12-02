@@ -19,9 +19,10 @@ const PREDICTION_CACHE_KEY = '@betting_predictions_';
 /**
  * Maç için bahis tahminleri al - Edge Function üzerinden
  * @param {object} matchData - Maç verileri
+ * @param {boolean} isPro - User subscription status (PRO users get higher rate limit)
  * @returns {object} - Bahis tahminleri
  */
-export const getBettingPredictions = async (matchData) => {
+export const getBettingPredictions = async (matchData, isPro = false) => {
   const matchDate = matchData.date || new Date().toISOString().split('T')[0];
   const language = getLanguage();
   const cacheKey = `${PREDICTION_CACHE_KEY}${matchData.id}_${matchDate}_${language}`;
@@ -59,6 +60,7 @@ export const getBettingPredictions = async (matchData) => {
           },
           fixtureId: matchData.id,
           language: language,
+          isPro: isPro, // ⭐ PRO kullanıcılar için yüksek rate limit (50 vs 3)
         },
       });
 
@@ -71,12 +73,13 @@ export const getBettingPredictions = async (matchData) => {
           error.context?.status === 429;
 
         if (isRateLimitError) {
+          const limit = isPro ? 50 : 3;
           return {
             ...getDefaultPredictions(language),
             rateLimitExceeded: true,
             rateLimitMessage: language === 'en'
-              ? 'Daily prediction limit reached (3 different matches/day). Try again tomorrow.'
-              : 'Günlük tahmin limitinize ulaştınız (3 farklı maç/gün). Yarın tekrar deneyin.',
+              ? `Daily prediction limit reached (${limit} different matches/day). Try again tomorrow.`
+              : `Günlük tahmin limitinize ulaştınız (${limit} farklı maç/gün). Yarın tekrar deneyin.`,
           };
         }
 
@@ -85,12 +88,13 @@ export const getBettingPredictions = async (matchData) => {
 
       // Check if response itself contains rate limit error
       if (data?.error === 'rate_limit_exceeded') {
+        const limit = data.dailyLimit || (isPro ? 50 : 3);
         return {
           ...getDefaultPredictions(language),
           rateLimitExceeded: true,
           rateLimitMessage: data.message || (language === 'en'
-            ? 'Daily prediction limit reached (3 different matches/day). Try again tomorrow.'
-            : 'Günlük tahmin limitinize ulaştınız (3 farklı maç/gün). Yarın tekrar deneyin.'),
+            ? `Daily prediction limit reached (${limit} different matches/day). Try again tomorrow.`
+            : `Günlük tahmin limitinize ulaştınız (${limit} farklı maç/gün). Yarın tekrar deneyin.`),
         };
       }
 

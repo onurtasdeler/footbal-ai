@@ -60,12 +60,13 @@ export const analyzeMatch = async (matchData, isPro = false) => {
 
         if (isRateLimitError) {
           const language = getLanguage();
+          const limit = isPro ? 50 : 3;
           return {
             ...getDefaultAnalysis(language),
             rateLimitExceeded: true,
             rateLimitMessage: language === 'en'
-              ? 'Daily analysis limit reached (3 different matches/day). Try again tomorrow.'
-              : 'Günlük analiz limitinize ulaştınız (3 farklı maç/gün). Yarın tekrar deneyin.',
+              ? `Daily analysis limit reached (${limit} different matches/day). Try again tomorrow.`
+              : `Günlük analiz limitinize ulaştınız (${limit} farklı maç/gün). Yarın tekrar deneyin.`,
           };
         }
 
@@ -75,12 +76,13 @@ export const analyzeMatch = async (matchData, isPro = false) => {
       // Check if response itself contains rate limit error
       if (data?.error === 'rate_limit_exceeded') {
         const language = getLanguage();
+        const limit = data.dailyLimit || (isPro ? 50 : 3);
         return {
           ...getDefaultAnalysis(language),
           rateLimitExceeded: true,
           rateLimitMessage: data.message || (language === 'en'
-            ? 'Daily analysis limit reached (3 different matches/day). Try again tomorrow.'
-            : 'Günlük analiz limitinize ulaştınız (3 farklı maç/gün). Yarın tekrar deneyin.'),
+            ? `Daily analysis limit reached (${limit} different matches/day). Try again tomorrow.`
+            : `Günlük analiz limitinize ulaştınız (${limit} farklı maç/gün). Yarın tekrar deneyin.`),
         };
       }
 
@@ -404,12 +406,13 @@ export const quickAnalyze = async (homeName, awayName, leagueName, isPro = false
 
       if (isRateLimitError) {
         const language = getLanguage();
+        const limit = isPro ? 50 : 3;
         return {
           ...getDefaultAnalysis(language),
           rateLimitExceeded: true,
           rateLimitMessage: language === 'en'
-            ? 'Daily analysis limit reached (3 different matches/day). Try again tomorrow.'
-            : 'Günlük analiz limitinize ulaştınız (3 farklı maç/gün). Yarın tekrar deneyin.',
+            ? `Daily analysis limit reached (${limit} different matches/day). Try again tomorrow.`
+            : `Günlük analiz limitinize ulaştınız (${limit} farklı maç/gün). Yarın tekrar deneyin.`,
         };
       }
       return null;
@@ -418,10 +421,13 @@ export const quickAnalyze = async (homeName, awayName, leagueName, isPro = false
     // Check if response contains rate limit error
     if (data?.error === 'rate_limit_exceeded') {
       const language = getLanguage();
+      const limit = data.dailyLimit || (isPro ? 50 : 3);
       return {
         ...getDefaultAnalysis(language),
         rateLimitExceeded: true,
-        rateLimitMessage: data.message,
+        rateLimitMessage: data.message || (language === 'en'
+          ? `Daily analysis limit reached (${limit} different matches/day). Try again tomorrow.`
+          : `Günlük analiz limitinize ulaştınız (${limit} farklı maç/gün). Yarın tekrar deneyin.`),
       };
     }
 

@@ -1283,7 +1283,8 @@ const PredictionsScreen = () => {
 
     try {
       // Edge Function handles: rate limiting + Supabase cache + Claude API
-      const predictions = await getBettingPredictions(match);
+      // ⭐ isPro parametresi: PRO kullanıcılar günlük 50 maç, ücretsiz 3 maç
+      const predictions = await getBettingPredictions(match, isPro);
 
       if (predictions) {
         // Check for rate limit error

@@ -13,7 +13,8 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 // Rate limit ayarları
-const DAILY_MATCH_LIMIT = 3  // Günde 3 farklı maç
+const FREE_DAILY_LIMIT = 3   // Ücretsiz kullanıcılar: Günde 3 farklı maç
+const PRO_DAILY_LIMIT = 50   // PRO kullanıcılar: Günde 50 farklı maç
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -169,7 +170,7 @@ serve(async (req) => {
   }
 
   try {
-    const { matchData, fixtureId, language = 'tr' } = await req.json()
+    const { matchData, fixtureId, language = 'tr', isPro = false } = await req.json()
 
     // Validate language parameter
     const lang = ['tr', 'en'].includes(language) ? language : 'tr'
@@ -184,20 +185,26 @@ serve(async (req) => {
     // Supabase client oluştur
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-    // ⭐ RATE LIMIT KONTROLÜ (Maç bazlı)
+    // ⭐ RATE LIMIT KONTROLÜ (Maç bazlı, PRO/FREE ayrımı)
     const clientIP = getClientIP(req)
-    const rateLimit = await checkRateLimit(supabase, clientIP, fixtureId, 'claude-predictions', DAILY_MATCH_LIMIT)
+
+    // Dinamik rate limit: PRO kullanıcılar 50, ücretsiz kullanıcılar 3
+    const dailyLimit = isPro === true ? PRO_DAILY_LIMIT : FREE_DAILY_LIMIT
+
+    const rateLimit = await checkRateLimit(supabase, clientIP, fixtureId, 'claude-predictions', dailyLimit)
 
     if (!rateLimit.allowed) {
-      console.log(`Rate limit exceeded for IP ${clientIP}`)
+      console.log(`Rate limit exceeded for IP ${clientIP} (isPro: ${isPro}, limit: ${dailyLimit})`)
       return new Response(
         JSON.stringify({
           error: 'rate_limit_exceeded',
           message: lang === 'en'
-            ? 'Daily prediction limit reached (3 different matches/day)'
-            : 'Günlük tahmin limitinize ulaştınız (3 farklı maç/gün)',
+            ? `Daily prediction limit reached (${dailyLimit} different matches/day)`
+            : `Günlük tahmin limitinize ulaştınız (${dailyLimit} farklı maç/gün)`,
           remaining: 0,
-          resetAt: rateLimit.resetAt
+          resetAt: rateLimit.resetAt,
+          isPro: isPro,
+          dailyLimit: dailyLimit
         }),
         {
           status: 429,

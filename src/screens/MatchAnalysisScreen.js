@@ -959,11 +959,12 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
     try {
       setLoading(true);
 
-      // Check cache first
+      // Check cache first (for fast UI display, but rate limit will be checked separately)
       const cached = await cacheService.getAnalysis(fixtureId);
       if (cached) {
         setAiAnalysis(cached);
-        setCachedData(true);
+        // NOT setting cachedData=true here - rate limit check will happen in fetchAiAnalysis
+        // cachedData will be set after rate limit is verified
       }
 
       // Fetch prediction
@@ -1063,34 +1064,40 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
   }, [fixtureId]);
 
   // Auto-start analysis when match details are loaded
-  const hasAnalysis = aiAnalysis !== null;
+  // Always verify rate limit with server, even if we have cached data
   useEffect(() => {
-    // Only auto-analyze if we don't have cached data and not already loading
-    if (!loading && !hasAnalysis && !aiLoading && !cachedData) {
+    // Only auto-analyze if not already loading and rate limit not yet verified
+    if (!loading && !aiLoading && !cachedData) {
       // Small delay to ensure prediction data is available
       const timer = setTimeout(() => {
         fetchAiAnalysis();
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [loading, hasAnalysis, cachedData, aiLoading]);
+  }, [loading, cachedData, aiLoading]);
 
   // Analysis handler - Edge Function handles Supabase caching with language support
+  // IMPORTANT: Always calls server to verify rate limit, even if we have local cache
   const fetchAiAnalysis = async () => {
     if (aiLoading) return;
 
-    // If already have cached data in memory, don't fetch again
-    if (cachedData && aiAnalysis) {
+    // If rate limit already verified (cachedData=true), don't fetch again
+    if (cachedData) {
       return;
     }
 
     setAiLoading(true);
+
+    // Check if we have local cache (for fast response after rate limit verified)
+    const localCache = await cacheService.getAnalysis(fixtureId);
+
     try {
       // Call Edge Function - it handles:
-      // 1. Rate limiting (IP-based, 3 matches/day)
-      // 2. Supabase cache check (with language parameter)
-      // 3. Claude API call if not cached
-      // 4. Saving to Supabase cache (with language)
+      // 1. Rate limiting (IP-based, FREE: 3/day, PRO: 50/day)
+      // 2. Same match = no rate limit increment (isNewMatch: false)
+      // 3. Supabase cache check (with language parameter)
+      // 4. Claude API call if not cached
+      // 5. Saving to Supabase cache (with language)
       const analysisData = {
         home: match.home,
         away: match.away,
@@ -1111,19 +1118,25 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
       if (result) {
         // Check for rate limit error
         if (result.rateLimitExceeded) {
+          // Rate limit exceeded - show paywall, don't use cached data
           setRateLimitError(result.rateLimitMessage);
           setShowRateLimitInfo(true); // Önce info modal göster, paywall sonra
-          setAiAnalysis(result); // Still set the default analysis
+          setAiAnalysis(null); // Clear any cached analysis - force paywall
         } else {
+          // Rate limit OK - mark as verified
           setRateLimitError(null);
-          setAiAnalysis(result);
-          setCachedData(true);
+          setCachedData(true); // Rate limit verified, won't call server again
 
-          // Save to local cache for offline access only
-          await cacheService.saveAnalysis(fixtureId, result, match.date, match.status || 'NS');
+          // Use local cache if available (faster UI), otherwise use server response
+          if (localCache) {
+            setAiAnalysis(localCache);
+          } else {
+            setAiAnalysis(result);
+            // Save to local cache for future use
+            await cacheService.saveAnalysis(fixtureId, result, match.date, match.status || 'NS');
+          }
 
           // Trigger in-app review prompt (async, non-blocking)
-          // Waits 5s, then shows native iOS/Android review dialog if conditions met
           reviewService.checkAndPromptReview();
         }
       }
