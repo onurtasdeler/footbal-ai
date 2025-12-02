@@ -1163,18 +1163,6 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // PRO CHECK - Subscription yüklendikten sonra kontrol et
-  // ─────────────────────────────────────────────────────────────────────────────
-  if (!isPro) {
-    return (
-      <PaywallScreen
-        visible={true}
-        onClose={() => navigation.goBack()}
-      />
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────────
   // RENDER HEADER
   // ─────────────────────────────────────────────────────────────────────────────
   const renderHeader = () => (
