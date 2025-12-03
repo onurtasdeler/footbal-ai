@@ -229,6 +229,7 @@ const getDetailTabs = () => [
   { id: 'analiz', label: t('predictions.tabs.analysis'), icon: 'stats-chart' },
   { id: 'istatistik', label: t('predictions.tabs.statistics'), icon: 'bar-chart' },
   { id: 'kadro', label: t('predictions.tabs.lineup'), icon: 'people' },
+  { id: 'hakem', label: t('predictions.tabs.referee'), icon: 'person' },
   { id: 'h2h', label: t('predictions.tabs.h2h'), icon: 'swap-horizontal' },
   { id: 'kartkorner', label: t('predictions.tabs.cardCorner'), icon: 'card' },
   { id: 'sakatlık', label: t('predictions.tabs.injuries'), icon: 'medkit' },
@@ -295,6 +296,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
   const [h2hData, setH2hData] = useState(null);
   const [cardCornerStats, setCardCornerStats] = useState(null);
   const [injuries, setInjuries] = useState(null);
+  const [refereeData, setRefereeData] = useState(null);
   const [tabLoading, setTabLoading] = useState({});
   const [tabDataLoaded, setTabDataLoaded] = useState({});
   const [injuryExpanded, setInjuryExpanded] = useState({}); // Collapsible state for injury sections
@@ -332,6 +334,17 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
           const lineupData = lineupResponse?.response || lineupResponse || [];
           setLineups(lineupData);
           break;
+        case 'hakem':
+          const fixtureResponse = await footballApi.getFixtureById(match.id);
+          const fixtureData = fixtureResponse?.response?.[0] || fixtureResponse?.[0] || null;
+          if (fixtureData) {
+            setRefereeData({
+              name: fixtureData.fixture?.referee || null,
+              venue: fixtureData.fixture?.venue?.name || null,
+              city: fixtureData.fixture?.venue?.city || null,
+            });
+          }
+          break;
         case 'h2h':
           if (match.home?.id && match.away?.id) {
             const h2h = await footballApi.getHeadToHead(match.home.id, match.away.id, 10);
@@ -343,18 +356,11 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
           setCardCornerStats(statsData);
           break;
         case 'sakatlık':
-          if (match.league?.id) {
-            const currentYear = new Date().getFullYear();
-            const injuryResponse = await footballApi.getInjuries(match.league.id, currentYear);
-            // API-Football returns data in response array
-            const injuryList = injuryResponse?.response || injuryResponse || [];
-            // Filter injuries for teams in this match
-            const filteredInjuries = injuryList.filter(injury => {
-              const teamId = injury.team?.id;
-              return teamId === match.home?.id || teamId === match.away?.id;
-            });
-            setInjuries(filteredInjuries);
-          }
+          // Maça özel sakatlık bilgisi çek (fixture ID ile)
+          const injuryResponse = await footballApi.getFixtureInjuries(match.id);
+          // API-Football returns data in response array
+          const injuryList = injuryResponse?.response || injuryResponse || [];
+          setInjuries(injuryList);
           break;
       }
       setTabDataLoaded(prev => ({ ...prev, [tabId]: true }));
@@ -367,7 +373,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
 
   // Fetch data when tab changes
   useEffect(() => {
-    if (visible && activeTab && ['kadro', 'h2h', 'kartkorner', 'sakatlık'].includes(activeTab)) {
+    if (visible && activeTab && ['kadro', 'hakem', 'h2h', 'kartkorner', 'sakatlık'].includes(activeTab)) {
       fetchTabData(activeTab);
     }
   }, [visible, activeTab, fetchTabData]);
@@ -379,6 +385,7 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
       setH2hData(null);
       setCardCornerStats(null);
       setInjuries(null);
+      setRefereeData(null);
       setTabDataLoaded({});
       setInjuryExpanded({}); // Reset collapsed states
     }
@@ -735,6 +742,100 @@ const PredictionDetailPage = ({ visible, match, predictions, loading, onClose })
           )}
 
           {/* TAB: H2H (Head-to-Head) */}
+
+          {/* TAB: Hakem (Referee) */}
+          {activeTab === 'hakem' && (
+            <>
+              {tabLoading.hakem ? (
+                <View style={styles.tabLoadingContainer}>
+                  <ActivityIndicator size="large" color={COLORS.accent} />
+                  <Text style={styles.tabLoadingText}>{t('predictions.refereeTab.loading')}</Text>
+                </View>
+              ) : refereeData ? (
+                <View style={styles.refereeContainer}>
+                  {/* Main Referee - Centered at Top */}
+                  <View style={styles.mainRefereeSection}>
+                    <View style={styles.mainRefereeCard}>
+                      <View style={styles.mainRefereeIconContainer}>
+                        <Ionicons name="shirt" size={36} color={COLORS.black} />
+                      </View>
+                      <Text style={styles.mainRefereeLabel}>{t('predictions.refereeTab.mainReferee')}</Text>
+                      <Text style={styles.mainRefereeName}>
+                        {refereeData.name || t('predictions.refereeTab.notAnnounced')}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Assistant Referees Row - Symmetric Layout */}
+                  <View style={styles.assistantRefereesRow}>
+                    {/* Left Assistant */}
+                    <View style={styles.assistantRefereeCard}>
+                      <View style={styles.assistantRefereeIcon}>
+                        <Ionicons name="flag" size={20} color={COLORS.accent} />
+                      </View>
+                      <Text style={styles.assistantRefereeLabel}>{t('predictions.refereeTab.assistant1')}</Text>
+                      <Text style={styles.assistantRefereeName}>-</Text>
+                    </View>
+
+                    {/* Right Assistant */}
+                    <View style={styles.assistantRefereeCard}>
+                      <View style={styles.assistantRefereeIcon}>
+                        <Ionicons name="flag" size={20} color={COLORS.accent} />
+                      </View>
+                      <Text style={styles.assistantRefereeLabel}>{t('predictions.refereeTab.assistant2')}</Text>
+                      <Text style={styles.assistantRefereeName}>-</Text>
+                    </View>
+                  </View>
+
+                  {/* Fourth Official & VAR Row */}
+                  <View style={styles.otherOfficialsRow}>
+                    {/* Fourth Official */}
+                    <View style={styles.officialCard}>
+                      <View style={styles.officialIcon}>
+                        <Ionicons name="swap-horizontal" size={18} color={COLORS.primary} />
+                      </View>
+                      <Text style={styles.officialLabel}>{t('predictions.refereeTab.fourthOfficial')}</Text>
+                      <Text style={styles.officialName}>-</Text>
+                    </View>
+
+                    {/* VAR */}
+                    <View style={styles.officialCard}>
+                      <View style={styles.officialIcon}>
+                        <Ionicons name="videocam" size={18} color={COLORS.error} />
+                      </View>
+                      <Text style={styles.officialLabel}>{t('predictions.refereeTab.var')}</Text>
+                      <Text style={styles.officialName}>-</Text>
+                    </View>
+                  </View>
+
+                  {/* Venue Section */}
+                  {(refereeData.venue || refereeData.city) && (
+                    <View style={styles.venueSection}>
+                      <View style={styles.venueDivider} />
+                      <View style={styles.venueCard}>
+                        <Ionicons name="location" size={24} color={COLORS.primary} />
+                        <View style={styles.venueInfo}>
+                          <Text style={styles.venueName}>
+                            {refereeData.venue || t('predictions.refereeTab.notSpecified')}
+                          </Text>
+                          {refereeData.city && (
+                            <Text style={styles.venueCity}>{refereeData.city}</Text>
+                          )}
+                        </View>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <View style={styles.noDataContainer}>
+                  <Ionicons name="person-outline" size={48} color={COLORS.gray600} />
+                  <Text style={styles.noDataText}>{t('predictions.refereeTab.noData')}</Text>
+                  <Text style={styles.noDataSubtext}>{t('predictions.refereeTab.checkLater')}</Text>
+                </View>
+              )}
+            </>
+          )}
+
           {activeTab === 'h2h' && (
             <>
               {tabLoading.h2h ? (
@@ -1269,11 +1370,9 @@ const PredictionsScreen = () => {
 
   // Handle prediction request
   const handleGetPrediction = async (match) => {
-    // PRO check - show paywall if not subscribed
-    if (!isPro) {
-      setShowProPaywall(true);
-      return;
-    }
+    // ⭐ PRO check KALDIRILDI - Rate limit kontrolü Edge Function'da yapılıyor
+    // FREE kullanıcılar: 3 farklı maç/gün
+    // PRO kullanıcılar: 50 farklı maç/gün
 
     setSelectedMatch(match);
     setShowPredictionPage(true);
@@ -2882,6 +2981,149 @@ const styles = StyleSheet.create({
     color: COLORS.white,
   },
 
+
+  // Referee Tab - Symmetric Layout
+  refereeContainer: {
+    padding: 16,
+    gap: 20,
+  },
+  mainRefereeSection: {
+    alignItems: 'center',
+  },
+  mainRefereeCard: {
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    padding: 24,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: COLORS.accent,
+    width: '80%',
+  },
+  mainRefereeIconContainer: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: COLORS.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  mainRefereeLabel: {
+    fontSize: 11,
+    color: COLORS.gray400,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    marginBottom: 4,
+  },
+  mainRefereeName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.white,
+    textAlign: 'center',
+  },
+  assistantRefereesRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  assistantRefereeCard: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  assistantRefereeIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 184, 0, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  assistantRefereeLabel: {
+    fontSize: 10,
+    color: COLORS.gray400,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  assistantRefereeName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.gray300,
+    textAlign: 'center',
+  },
+  otherOfficialsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  officialCard: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  officialIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  officialLabel: {
+    fontSize: 9,
+    color: COLORS.gray400,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 3,
+  },
+  officialName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.gray300,
+    textAlign: 'center',
+  },
+  venueSection: {
+    marginTop: 8,
+  },
+  venueDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginBottom: 16,
+  },
+  venueCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    gap: 12,
+  },
+  venueInfo: {
+    flex: 1,
+  },
+  venueName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  venueCity: {
+    fontSize: 12,
+    color: COLORS.gray400,
+    marginTop: 2,
+  },
   // Substitutes
   substitutesSection: {
     backgroundColor: COLORS.card,

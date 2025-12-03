@@ -342,16 +342,12 @@ const HomeScreen = ({ navigation }) => {
     <View style={styles.screen}>
       {/* HEADER */}
       <View style={[styles.bultenHeader, { paddingTop: insets.top + 8 }]}>
-        <View style={styles.headerIconBtn} />
-        <Text style={styles.appTitle}>Goalwise</Text>
-        {/* PRO badge - only show for PRO subscribers */}
-        {isPro ? (
+        <Text style={styles.appTitle}>GoalWise</Text>
+        {isPro && (
           <View style={styles.proBadge}>
-            <Ionicons name="trophy" size={16} color="#F4B43A" />
+            <Ionicons name="trophy" size={14} color="#F4B43A" />
             <Text style={styles.proText}>PRO</Text>
           </View>
-        ) : (
-          <View style={styles.headerIconBtn} />
         )}
       </View>
 
@@ -630,16 +626,13 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     letterSpacing: 0.5,
   },
-  headerIconBtn: {
-    position: 'relative',
-  },
   proBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(244, 180, 58, 0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
     gap: 4,
   },
   proText: {

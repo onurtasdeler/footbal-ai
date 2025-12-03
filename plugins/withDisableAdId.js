@@ -1,70 +1,64 @@
+// plugins/withDisableAdId.js
+const { withAndroidManifest } = require("@expo/config-plugins");
+
 /**
- * Expo Config Plugin - Disable Advertising ID Collection
+ * Config plugin to remove AD_ID permission from Android manifest
+ * using the tools:node="remove" directive for proper manifest merger behavior.
  *
- * Bu plugin, Android 13+ için reklam kimliği (Advertising ID)
- * kullanımını tamamen devre dışı bırakır.
- *
- * AndroidManifest.xml'e meta-data ekler:
- * - google_analytics_adid_collection_enabled = false
+ * This is necessary because blockedPermissions alone may not work with EAS Build.
+ * The tools:node="remove" directive instructs Android's manifest merger to
+ * remove these permissions even if they're added by dependencies.
  */
-
-const { withAndroidManifest } = require('@expo/config-plugins');
-
-const withDisableAdId = (config) => {
+function withDisableAdId(config) {
   return withAndroidManifest(config, async (config) => {
-    const manifest = config.modResults.manifest;
-    const mainApplication = manifest.application[0];
+    const androidManifest = config.modResults.manifest;
 
-    // Add tools namespace if not present
-    if (!manifest.$['xmlns:tools']) {
-      manifest.$['xmlns:tools'] = 'http://schemas.android.com/tools';
-    }
-
-    // Meta-data array yoksa oluştur
-    if (!mainApplication['meta-data']) {
-      mainApplication['meta-data'] = [];
-    }
-
-    // Firebase Analytics Ad ID collection devre dışı bırak
-    // tools:replace kullanarak Firebase Analytics'in değerini override et
-    const adIdDisabled = {
-      $: {
-        'android:name': 'google_analytics_adid_collection_enabled',
-        'android:value': 'false',
-        'tools:replace': 'android:value',
-      },
+    // Ensure the tools namespace is defined on the manifest element
+    // This is REQUIRED for tools:node to work
+    androidManifest.$ = {
+      ...androidManifest.$,
+      "xmlns:tools": "http://schemas.android.com/tools",
     };
 
-    // Google Analytics default collection devre dışı bırak
-    const analyticsDefault = {
-      $: {
-        'android:name': 'google_analytics_default_allow_ad_personalization_signals',
-        'android:value': 'false',
-        'tools:replace': 'android:value',
-      },
-    };
-
-    // Mevcut meta-data'ları güncelle veya ekle
-    const existingAdIdIndex = mainApplication['meta-data'].findIndex(
-      (item) => item.$['android:name'] === 'google_analytics_adid_collection_enabled'
-    );
-    if (existingAdIdIndex !== -1) {
-      mainApplication['meta-data'][existingAdIdIndex] = adIdDisabled;
-    } else {
-      mainApplication['meta-data'].push(adIdDisabled);
+    // Initialize uses-permission array if it doesn't exist
+    if (!androidManifest["uses-permission"]) {
+      androidManifest["uses-permission"] = [];
     }
 
-    const existingAnalyticsIndex = mainApplication['meta-data'].findIndex(
-      (item) => item.$['android:name'] === 'google_analytics_default_allow_ad_personalization_signals'
-    );
-    if (existingAnalyticsIndex !== -1) {
-      mainApplication['meta-data'][existingAnalyticsIndex] = analyticsDefault;
-    } else {
-      mainApplication['meta-data'].push(analyticsDefault);
-    }
+    // Get list of existing permission names to avoid duplicates
+    const existingPermissions = androidManifest["uses-permission"].map(
+      (perm) => perm.$?.["android:name"]
+    ).filter(Boolean);
+
+    // Permissions to remove with tools:node="remove"
+    const permissionsToRemove = [
+      "com.google.android.gms.permission.AD_ID",
+      "android.permission.ACCESS_ADSERVICES_AD_ID",
+      "android.permission.ACCESS_ADSERVICES_ATTRIBUTION",
+    ];
+
+    // Add each permission with tools:node="remove" if not already present
+    permissionsToRemove.forEach((permName) => {
+      const existingIndex = androidManifest["uses-permission"].findIndex(
+        (perm) => perm.$?.["android:name"] === permName
+      );
+
+      if (existingIndex === -1) {
+        // Permission doesn't exist, add it with remove directive
+        androidManifest["uses-permission"].push({
+          $: {
+            "android:name": permName,
+            "tools:node": "remove",
+          },
+        });
+      } else {
+        // Permission exists, ensure it has tools:node="remove"
+        androidManifest["uses-permission"][existingIndex].$["tools:node"] = "remove";
+      }
+    });
 
     return config;
   });
-};
+}
 
 module.exports = withDisableAdId;

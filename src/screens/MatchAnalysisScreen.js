@@ -13,6 +13,7 @@ import {
   Platform,
   StatusBar,
   Modal,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -898,6 +899,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
   const [rateLimitError, setRateLimitError] = useState(null);
   const [showRateLimitPaywall, setShowRateLimitPaywall] = useState(false);
   const [showRateLimitInfo, setShowRateLimitInfo] = useState(false);
+  const [showDisclaimerModal, setShowDisclaimerModal] = useState(false);
 
   // Dil değişikliği için state
   const [, setLanguageKey] = useState(getLanguage());
@@ -1122,6 +1124,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
           setRateLimitError(result.rateLimitMessage);
           setShowRateLimitInfo(true); // Önce info modal göster, paywall sonra
           setAiAnalysis(null); // Clear any cached analysis - force paywall
+          setCachedData(true); // ⭐ LOOP FIX: Prevent useEffect from re-triggering fetchAiAnalysis
         } else {
           // Rate limit OK - mark as verified
           setRateLimitError(null);
@@ -1136,8 +1139,8 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
             await cacheService.saveAnalysis(fixtureId, result, match.date, match.status || 'NS');
           }
 
-          // Trigger in-app review prompt (async, non-blocking)
-          reviewService.checkAndPromptReview();
+          // Trigger in-app review prompt
+          await reviewService.checkAndPromptReview();
         }
       }
     } catch (error) {
@@ -1160,6 +1163,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
 
   // Analysis display data with defaults
   const analysis = aiAnalysis || claudeAi.getDefaultAnalysis();
+  const hasAnalysis = aiAnalysis !== null;
 
   // ─────────────────────────────────────────────────────────────────────────────
   // SUBSCRIPTION LOADING CHECK - RevenueCat initialization beklenir
@@ -1189,8 +1193,8 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
           {leagueLogo && <Image source={{ uri: leagueLogo }} style={styles.leagueLogo} resizeMode="contain" />}
           <Text style={styles.leagueName} numberOfLines={1}>{leagueName || t('home.unknownLeague')}</Text>
         </View>
-        <TouchableOpacity style={styles.favoriteButton}>
-          <Ionicons name="star-outline" size={22} color={COLORS.gray400} />
+        <TouchableOpacity style={styles.disclaimerButton} onPress={() => setShowDisclaimerModal(true)}>
+          <Ionicons name="help-circle-outline" size={22} color={COLORS.white} />
         </TouchableOpacity>
       </View>
       <View style={styles.teamsContainer}>
@@ -1320,6 +1324,35 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
           }}
         />
       )}
+
+      {/* Disclaimer Modal */}
+      <Modal
+        visible={showDisclaimerModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDisclaimerModal(false)}
+      >
+        <Pressable
+          style={styles.disclaimerModalOverlay}
+          onPress={() => setShowDisclaimerModal(false)}
+        >
+          <View style={styles.disclaimerModalContent}>
+            <View style={styles.disclaimerModalHeader}>
+              <Ionicons name="information-circle" size={28} color={COLORS.accent} />
+              <Text style={styles.disclaimerModalTitle}>{t('predictions.disclaimer.analysisTitle')}</Text>
+            </View>
+            <Text style={styles.disclaimerModalText}>
+              {t('predictions.disclaimer.analysisContent')}
+            </Text>
+            <TouchableOpacity
+              style={styles.disclaimerModalButton}
+              onPress={() => setShowDisclaimerModal(false)}
+            >
+              <Text style={styles.disclaimerModalButtonText}>{t('predictions.disclaimer.iUnderstand')}</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
 
       {hasAnalysis && (
         <View style={styles.probabilitySection}>
@@ -1883,7 +1916,16 @@ const styles = StyleSheet.create({
   leagueContainer: { flexDirection: 'row', alignItems: 'center', flex: 1, justifyContent: 'center' },
   leagueLogo: { width: 24, height: 24, marginRight: 8 },
   leagueName: { color: COLORS.white, fontSize: 14, fontWeight: '600' },
-  favoriteButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
+  disclaimerButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
+
+  // Disclaimer Modal
+  disclaimerModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  disclaimerModalContent: { backgroundColor: COLORS.card, borderRadius: 16, padding: 24, width: '100%', maxWidth: 340 },
+  disclaimerModalHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+  disclaimerModalTitle: { fontSize: 18, fontWeight: '700', color: COLORS.white },
+  disclaimerModalText: { fontSize: 14, color: COLORS.white, lineHeight: 22, marginBottom: 20 },
+  disclaimerModalButton: { backgroundColor: COLORS.accent, paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
+  disclaimerModalButtonText: { color: COLORS.white, fontSize: 15, fontWeight: '600' },
 
   // Teams
   teamsContainer: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: 20 },

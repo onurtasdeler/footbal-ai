@@ -27,13 +27,15 @@ export const getBettingPredictions = async (matchData, isPro = false) => {
   const language = getLanguage();
   const cacheKey = `${PREDICTION_CACHE_KEY}${matchData.id}_${matchDate}_${language}`;
 
-  // Local cache kontrol (hızlı erişim için)
+  // ⭐ Cache + Server Sync Pattern
+  // Local cache'i oku ama ÖNCE rate limit kontrolü yap
+  let localCache = null;
   try {
     const cached = await AsyncStorage.getItem(cacheKey);
     if (cached) {
       const { data } = JSON.parse(cached);
-      if (data) {
-        return data;
+      if (data && !data.rateLimitExceeded) {
+        localCache = data; // Cache'i sakla, rate limit kontrolü sonrası kullanılacak
       }
     }
   } catch (e) {
@@ -96,6 +98,11 @@ export const getBettingPredictions = async (matchData, isPro = false) => {
             ? `Daily prediction limit reached (${limit} different matches/day). Try again tomorrow.`
             : `Günlük tahmin limitinize ulaştınız (${limit} farklı maç/gün). Yarın tekrar deneyin.`),
         };
+      }
+
+      // ⭐ Rate limit OK - Local cache varsa onu kullan (hızlı), yoksa server response
+      if (localCache) {
+        return localCache;
       }
 
       // Enrich with UI data

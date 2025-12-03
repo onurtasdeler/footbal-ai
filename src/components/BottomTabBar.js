@@ -46,21 +46,20 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     backgroundColor: COLORS.bg,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
     paddingBottom: Platform.OS === 'ios' ? 28 : 12,
-    paddingTop: 8,
+    paddingTop: 12,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   tabIconContainer: {
-    width: 40,
-    height: 32,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 16,
+    borderRadius: 22,
   },
   tabIconActive: {
     backgroundColor: COLORS.accentDim,

@@ -275,18 +275,16 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     backgroundColor: COLORS.bg,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
     paddingBottom: Platform.OS === 'ios' ? 28 : 12,
-    paddingTop: 8,
+    paddingTop: 12,
     height: Platform.OS === 'ios' ? 85 : 65,
   },
   tabIconContainer: {
-    width: 40,
-    height: 32,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 16,
+    borderRadius: 22,
   },
   tabIconActive: {
     backgroundColor: COLORS.accentDim,

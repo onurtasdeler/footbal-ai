@@ -519,6 +519,18 @@ export const getInjuries = async (leagueId, season) => {
   );
 };
 
+// Get injuries for a specific fixture (5 dakika cache)
+export const getFixtureInjuries = async (fixtureId) => {
+  const cacheKey = buildCacheKey('fixture_injuries', { fixture: fixtureId });
+
+  return cachedApiCall(
+    cacheKey,
+    'injuries',
+    { fixture: fixtureId },
+    CACHE_DURATIONS.FIXTURE_LINEUPS // 5 dakika - kadro gibi
+  );
+};
+
 // Get sidelined players (2 saat cache)
 export const getSidelined = async (playerId) => {
   const cacheKey = buildCacheKey('sidelined', { player: playerId });
@@ -900,6 +912,7 @@ export default {
   getTopRedCards,
   getTransfers,
   getInjuries,
+  getFixtureInjuries,
   getSidelined,
   // Odds Screen APIs
   getFixtureOdds,

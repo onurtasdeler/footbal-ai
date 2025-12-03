@@ -344,6 +344,7 @@
       "analysis": "Analiz",
       "statistics": "İstatistik",
       "lineup": "Kadro",
+      "referee": "Hakem",
       "h2h": "H2H",
       "cardCorner": "Kart/Korner",
       "injuries": "Sakat/Cezalı"
@@ -397,6 +398,20 @@
       "notSpecified": "Belirtilmemiş",
       "noInjuries": "Sakat veya cezalı oyuncu yok"
     },
+    "refereeTab": {
+      "loading": "Hakem bilgileri yükleniyor...",
+      "referee": "Hakem",
+      "venue": "Stadyum",
+      "notAnnounced": "Henüz açıklanmadı",
+      "notSpecified": "Belirtilmemiş",
+      "noData": "Hakem bilgisi bulunamadı",
+      "checkLater": "Maç yaklaştığında tekrar kontrol edin",
+      "mainReferee": "Ana Hakem",
+      "assistant1": "1. Yardımcı Hakem",
+      "assistant2": "2. Yardımcı Hakem",
+      "fourthOfficial": "4. Hakem",
+      "var": "VAR"
+    },
     "cached": "Hazır",
     "topPick": "En İyi:",
     "predictionExplanation": "Bu bölümde gördüğünüz tahminler, yapay zeka analizi ile hazırlanmıştır. Sadece eğlence amaçlı bilgi sunmak amacıyla hazırlanmıştır ve herhangi bir bahis tavsiyesi içermemektedir.",
@@ -422,6 +437,8 @@
       "title": "AI Tahminleri Hakkında",
       "content": "Bu uygulama yapay zeka destekli maç tahminleri sunmaktadır. Tahminler yalnızca eğlence ve bilgi amaçlıdır.\n\nBahis veya finansal kararlar için kullanılmamalıdır. Sonuçlar garanti edilmez ve kullanıcılar kendi sorumluluklarında hareket etmelidir.\n\nUygulama geliştiricileri, tahminlere dayalı herhangi bir kayıp veya zarardan sorumlu tutulamaz.",
       "iUnderstand": "Anladım",
+      "analysisTitle": "AI Analizleri Hakkında",
+      "analysisContent": "Bu uygulama yapay zeka destekli maç analizleri sunmaktadır. Analizler yalnızca eğlence ve bilgi amaçlıdır.\n\nBahis veya finansal kararlar için kullanılmamalıdır. Sonuçlar garanti edilmez ve kullanıcılar kendi sorumluluklarında hareket etmelidir.\n\nUygulama geliştiricileri, analizlere dayalı herhangi bir kayıp veya zarardan sorumlu tutulamaz.",
       "paragraph1": "Bu uygulamadaki tüm tahminler yapay zeka (AI) tarafından istatistiksel veriler kullanılarak",
       "paragraph1Bold": "yalnızca eğlence amaçlı",
       "paragraph2Start": "Sunulan bilgiler",

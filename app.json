@@ -18,8 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.goalwise.epinko",
-      "buildNumber": "6",
-      "googleServicesFile": "./GoogleService-Info.plist",
+      "buildNumber": "10",
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
@@ -35,13 +34,17 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.goalwise.epinko",
-      "versionCode": 6,
-      "googleServicesFile": "./google-services.json",
+      "versionCode": 12,
       "splash": {
         "image": "./assets/splash-icon.png",
         "resizeMode": "contain",
         "backgroundColor": "#0a0e13"
-      }
+      },
+      "blockedPermissions": [
+        "com.google.android.gms.permission.AD_ID",
+        "android.permission.ACCESS_ADSERVICES_AD_ID",
+        "android.permission.ACCESS_ADSERVICES_ATTRIBUTION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -49,32 +52,17 @@
     "plugins": [
       "expo-localization",
       "expo-dev-client",
-      "./plugins/withDisableAdId.js",
       [
         "expo-build-properties",
         {
           "ios": {
             "useFrameworks": "static",
-            "deploymentTarget": "15.1",
-            "forceStaticLinking": [
-              "RNFBApp",
-              "RNFBAnalytics"
-            ]
-          },
-          "android": {
-            "blockedPermissions": [
-              "com.google.android.gms.permission.AD_ID"
-            ]
+            "deploymentTarget": "15.1"
           }
         }
       ],
-      [
-        "@react-native-firebase/app",
-        {
-          "android_disable_auto_collection": false,
-          "android_disable_ad_id_collection": true
-        }
-      ]
+      "./plugins/withDisableAdId.js",
+      "./plugins/withExcludeAdsIdentifier.js"
     ]
   }
 }

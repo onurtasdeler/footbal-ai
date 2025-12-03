@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-React Native mobile application (Expo SDK 54) for football match tracking, live scores, and AI-powered betting analysis. Integrates with API-Football v3 for data and Claude AI for match predictions. Turkish-language UI targeting Turkey-based users.
+React Native mobile application (Expo SDK 54) for football match tracking, live scores, and AI-powered betting analysis. Integrates with API-Football v3 for data and Claude AI for match predictions. Turkish/English bilingual UI with device locale detection.
 
 ## Development Commands
 
@@ -14,40 +14,58 @@ npm start            # Start Expo dev server (or: npx expo start)
 npm run android      # Run on Android emulator/device
 npm run ios          # Run on iOS simulator/device
 npm run web          # Run in web browser
+
+# EAS Build (production)
+eas build --platform android --profile production
+eas build --platform ios --profile production
 ```
 
 **Environment Setup**: Create `.env` file with `API_FOOTBALL_KEY` and `API_FOOTBALL_URL`.
 
+**Note**: RevenueCat subscription features don't work in Expo Go. Use development builds for testing IAP.
+
 ## Architecture
 
-### Entry Points
-- `index.js` - Expo root component registration
-- `App.js` - Main application (~5000+ lines, monolithic). Contains all screens (Live, Widgets, Profile, MatchDetail, LiveMatchDetail) with tab-based navigation. Screens are rendered conditionally via `activeTab` state.
+### Navigation Structure
+Uses `@react-navigation` with lazy-loaded screens via React.lazy() and Suspense:
 
-### Screen Flow
 ```
-App.js (TabBar navigation)
-├── HomeScreen.js (src/screens/) - Today's fixtures, filtering, search
-├── LiveScreen (inline) - Real-time scores with 15-30s polling
-├── WidgetsScreen (inline) - Customizable dashboard widgets
-├── ProfileScreen (inline) - Settings, stats, cache management
-├── MatchDetailScreen (inline) - Pre-match analysis, H2H, lineups
-├── LiveMatchDetailScreen (inline) - Live match with pitch visualization
-└── MatchAnalysisScreen.js (src/screens/) - AI betting analysis
+AppNavigator.js
+├── SplashScreen → OnboardingScreen (first launch)
+└── MainTabs (Bottom Tab Navigator)
+    ├── HomeStack
+    │   ├── HomeScreen.js - Today's fixtures, filtering, search
+    │   └── MatchAnalysisScreen.js - AI betting analysis
+    ├── LiveStack
+    │   ├── LiveScreen.js - Real-time scores with polling
+    │   └── LiveMatchDetailScreen.js - Live match details
+    ├── PredictionsScreen.js - AI predictions list
+    ├── ProfileScreen.js - Settings, stats, cache management
+    └── PaywallScreen.js - Subscription purchase (modal)
 ```
 
 ### Services (`src/services/`)
-- `footballApi.js` - API-Football v3 client with rate limiting (280 req/min safety margin) and cache-first strategy
+- `footballApi.js` - API-Football v3 client with rate limiting (280 req/min) and cache-first strategy
 - `claudeAi.js` - Claude Sonnet 4 integration for match analysis (Turkish language prompts)
-- `cacheService.js` - AsyncStorage-based caching with tiered TTLs (30s for live data, up to 24h for static)
-- `pollingService.js` - Smart polling with AppState awareness (slows in background, speeds up for critical moments 85+ min)
-- `profileService.js` - User profile, stats, and settings CRUD operations
+- `cacheService.js` - AsyncStorage-based caching with tiered TTLs (30s-24h)
+- `pollingService.js` - Smart polling with AppState awareness (speeds up at 85+ min)
+- `revenueCatService.js` - RevenueCat SDK wrapper for subscriptions
+- `reviewService.js` - App Store review prompting logic
+- `supabaseService.js` - Supabase backend integration
+
+### Context Providers
+- `SubscriptionContext.js` - Global PRO subscription state via RevenueCat
+  - `DEV_MODE_PRO_BYPASS` flag for testing PRO features in Expo Go
+
+### i18n (`src/i18n/`)
+- `tr.json` / `en.json` - Translation files
+- Auto-detects device language via `expo-localization`
+- Use `t('key.path')` function for translations
 
 ### Key Dependencies
-- `expo` ~54.0.25 (New Architecture enabled)
-- `react` 19.1.0 / `react-native` 0.81.5
-- `expo-localization` - Device locale detection for country-based league prioritization
-- `@react-native-async-storage/async-storage` - Persistent storage for cache and settings
+- `expo` ~54.0.25, `react` 19.1.0, `react-native` 0.81.5
+- `react-native-purchases` - RevenueCat SDK for subscriptions
+- `@supabase/supabase-js` - Backend integration
 
 ### Caching Strategy
 Tiered cache durations in `cacheService.js`:
@@ -137,6 +155,14 @@ Defined in `pollingService.js`:
 '@user_widgets'           // Widget configuration
 '@favorite_teams'         // Favorite team IDs
 ```
+
+## RevenueCat Subscription
+
+- Entitlement ID: `Goalwise Pro`
+- Products: `weekly` / `monthly` (different IDs per platform)
+- iOS: `weeekly`, `monthly`
+- Android: `goalwise_weekly`, `goalwise_monthly`
+- API keys configured in `app.json` → `extra.revenueCatApiKey*`
 
 ## Documentation
 
