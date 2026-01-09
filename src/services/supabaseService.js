@@ -1,11 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
+import Constants from 'expo-constants';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SUPABASE SERVICE - Shared Analysis Cache for All Users
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://jyqyibzwalxxzupqgfew.supabase.co';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5cXlpYnp3YWx4eHp1cHFnZmV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxODc3NDgsImV4cCI6MjA3OTc2Mzc0OH0.IPYD7qyM2EoiBKmm759OA8KHQZGSvMe_cmrjYJI5Wec';
+// app.json extra'dan Supabase config al (production-safe)
+const extra = Constants.expoConfig?.extra || {};
+const SUPABASE_URL = extra.supabaseUrl || process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = extra.supabaseAnonKey || process.env.SUPABASE_ANON_KEY;
+
+// Validation: Config kontrolü (sadece development modunda uyarı)
+if (__DEV__ && (!SUPABASE_URL || !SUPABASE_ANON_KEY)) {
+  console.warn('[SupabaseService] Supabase config eksik! app.json extra veya .env kontrol et.');
+}
 
 // Cache TTL in hours
 const CACHE_TTL_HOURS = 24;

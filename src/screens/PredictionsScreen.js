@@ -33,6 +33,7 @@ import { useSubscription } from '../context/SubscriptionContext';
 import PaywallScreen from './PaywallScreen';
 import { t, getLanguage, addLanguageListener } from '../i18n';
 import { PredictionLoadingAnimation } from '../components/loading';
+import { TAB_BAR_TOTAL_HEIGHT } from '../constants/navigation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -1154,7 +1155,7 @@ const PredictionsScreen = () => {
   const insets = useSafeAreaInsets();
 
   // PRO subscription check - hooks must be called unconditionally
-  const { isPro } = useSubscription();
+  const { isPro, isLoading: subscriptionLoading } = useSubscription();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -1182,9 +1183,8 @@ const PredictionsScreen = () => {
 
   // Rate Limit State
   const [rateLimitError, setRateLimitError] = useState(null);
-  const [showRateLimitPaywall, setShowRateLimitPaywall] = useState(false);
-  const [showProPaywall, setShowProPaywall] = useState(false);
-  const [showRateLimitInfo, setShowRateLimitInfo] = useState(false);
+  const [showProPaywall, setShowProPaywall] = useState(false); // FREE kullanıcılar için paywall
+  const [showRateLimitInfo, setShowRateLimitInfo] = useState(false); // PRO 50 limit mesajı
 
   // Dil değişikliği için state
   const [, setLanguageKey] = useState(getLanguage());
@@ -1369,10 +1369,16 @@ const PredictionsScreen = () => {
   };
 
   // Handle prediction request
+  // FREE kullanıcılar için direkt paywall gösterilir
   const handleGetPrediction = async (match) => {
-    // ⭐ PRO check KALDIRILDI - Rate limit kontrolü Edge Function'da yapılıyor
-    // FREE kullanıcılar: 3 farklı maç/gün
-    // PRO kullanıcılar: 50 farklı maç/gün
+    // ⭐ LOOP FIX: Wait for RevenueCat to finish loading
+    if (subscriptionLoading) return;
+
+    // FREE kullanıcılar için paywall göster
+    if (!isPro) {
+      setShowProPaywall(true); // Mevcut PRO paywall'ı kullan
+      return;
+    }
 
     setSelectedMatch(match);
     setShowPredictionPage(true);
@@ -1382,17 +1388,25 @@ const PredictionsScreen = () => {
 
     try {
       // Edge Function handles: rate limiting + Supabase cache + Claude API
-      // ⭐ isPro parametresi: PRO kullanıcılar günlük 50 maç, ücretsiz 3 maç
+      // PRO kullanıcılar: günlük 50 farklı maç
       const predictions = await getBettingPredictions(match, isPro);
 
       if (predictions) {
-        // Check for rate limit error
+        // ⭐ FIX: Check for PRO only feature error (403)
+        if (predictions.proOnlyFeature) {
+          setShowPredictionPage(false);
+          setPredictionLoading(false);
+          setShowProPaywall(true); // Show paywall for FREE users
+          return;
+        }
+
+        // Check for rate limit error (PRO 50 limit)
         if (predictions.rateLimitExceeded) {
           setRateLimitError(predictions.rateLimitMessage);
-          setShowPredictionPage(false); // Sayfayı kapat - kullanıcı detay sayfasına girmemeli
-          setShowRateLimitInfo(true); // Ana seviyede info modal göster
+          setShowPredictionPage(false);
           setPredictionLoading(false);
-          return; // İşlemi durdur
+          setShowRateLimitInfo(true); // PRO kullanıcı - sadece mesaj göster
+          return;
         } else {
           setRateLimitError(null);
           setCurrentPredictions(predictions);
@@ -1616,7 +1630,7 @@ const PredictionsScreen = () => {
                 );
               })
             )}
-            <View style={{ height: 120 }} />
+            <View style={{ height: TAB_BAR_TOTAL_HEIGHT }} />
           </Animated.View>
         </ScrollView>
       )}
@@ -1658,17 +1672,7 @@ const PredictionsScreen = () => {
         </View>
       </Modal>
 
-      {/* RATE LIMIT PAYWALL - Info modal kapandıktan sonra açılır */}
-      {showRateLimitPaywall && (
-        <PaywallScreen
-          visible={showRateLimitPaywall}
-          onClose={() => {
-            setShowRateLimitPaywall(false);
-          }}
-        />
-      )}
-
-      {/* PRO PAYWALL - Tahmin detayına tıklandığında */}
+      {/* PRO PAYWALL - FREE kullanıcılar için (rate limit veya ilk tıklama) */}
       {showProPaywall && (
         <PaywallScreen
           visible={showProPaywall}

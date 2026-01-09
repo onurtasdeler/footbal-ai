@@ -186,9 +186,14 @@
   },
   "matchAnalysis": {
     "dailyLimit": "Günlük Limit",
+    "proOnlyModal": {
+      "title": "PRO Özelliği",
+      "message": "AI Maç Analizi PRO üyelere özel bir özelliktir. Detaylı tahminlere erişmek için PRO'ya yükseltin.",
+      "button": "PRO'ya Yükselt"
+    },
     "rateLimitModal": {
       "title": "Günlük Analiz Limitine Ulaşıldı",
-      "message": "Ücretsiz kullanıcılar günde 3 maç analizi görüntüleyebilir. Sınırsız erişim için PRO üyeliğe geçin.",
+      "message": "Günlük maç analizi limitinize ulaştınız (50 farklı maç/gün). Yarın tekrar deneyin.",
       "button": "Tamam"
     },
     "loading": "Maç verileri yükleniyor...",
@@ -298,9 +303,14 @@
   },
   "predictions": {
     "dailyLimit": "Günlük Limit",
+    "proOnlyModal": {
+      "title": "PRO Özelliği",
+      "message": "AI Maç Analizi PRO üyelere özel bir özelliktir. Detaylı tahminlere erişmek için PRO'ya yükseltin.",
+      "button": "PRO'ya Yükselt"
+    },
     "rateLimitModal": {
       "title": "Günlük Analiz Limitine Ulaşıldı",
-      "message": "Ücretsiz kullanıcılar günde 3 maç analizi görüntüleyebilir. Sınırsız erişim için PRO üyeliğe geçin.",
+      "message": "Günlük maç analizi limitinize ulaştınız (50 farklı maç/gün). Yarın tekrar deneyin.",
       "button": "Tamam"
     },
     "title": "Tahminler",

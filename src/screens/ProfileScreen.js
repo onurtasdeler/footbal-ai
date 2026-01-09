@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t, getLanguage, setLanguage } from '../i18n';
+import { TAB_BAR_TOTAL_HEIGHT } from '../constants/navigation';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // iOS HIG Spacing Constants
@@ -323,6 +324,7 @@ const styles = StyleSheet.create({
   },
   screenContent: {
     paddingHorizontal: 20,
+    paddingBottom: TAB_BAR_TOTAL_HEIGHT,
   },
 
   // Header

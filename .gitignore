@@ -33,3 +33,18 @@ yarn-error.*
 
 # Local
 *.local
+
+# Credentials & Secrets
+credentials.json
+google-services.json
+GoogleService-Info.plist
+firebase-debug.log
+
+# Android build artifacts
+android/.gradle/
+android/build/
+android/app/build/
+
+# IDE
+.idea/
+*.keystore

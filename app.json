@@ -3,22 +3,25 @@
     "name": "Goalwise",
     "slug": "goalwise",
     "owner": "goalwin",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "extra": {
-      "revenueCatApiKeyIos": "appl_LEpIMzKcSrPWBQHQnWJXzfykDJR",
-      "revenueCatApiKeyAndroid": "goog_NDPzwjjWBkOLcHsWRYtrXoEIEZx",
+      "revenueCatApiKeyIos": "YOUR_REVENUECAT_IOS_KEY",
+      "revenueCatApiKeyAndroid": "YOUR_REVENUECAT_ANDROID_KEY",
+      "supabaseUrl": "YOUR_SUPABASE_URL",
+      "supabaseAnonKey": "YOUR_SUPABASE_ANON_KEY",
       "eas": {
-        "projectId": "d43bf147-1caf-4d73-a3e6-d07be6e6c13f"
+        "projectId": "YOUR_EAS_PROJECT_ID"
       }
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.goalwise.epinko",
-      "buildNumber": "10",
+      "buildNumber": "20",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
@@ -32,9 +35,10 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0a0e13"
       },
-      "edgeToEdgeEnabled": true,
+      "edgeToEdgeEnabled": false,
       "package": "com.goalwise.epinko",
-      "versionCode": 12,
+      "versionCode": 23,
+      "googleServicesFile": "./google-services.json",
       "splash": {
         "image": "./assets/splash-icon.png",
         "resizeMode": "contain",
@@ -50,19 +54,21 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "@react-native-firebase/app",
+      "@react-native-firebase/crashlytics",
       "expo-localization",
       "expo-dev-client",
       [
         "expo-build-properties",
         {
           "ios": {
-            "useFrameworks": "static",
             "deploymentTarget": "15.1"
           }
         }
       ],
       "./plugins/withDisableAdId.js",
-      "./plugins/withExcludeAdsIdentifier.js"
+      "./plugins/withExcludeAdsIdentifier.js",
+      "./plugins/withFirebaseModularHeaders.js"
     ]
   }
 }

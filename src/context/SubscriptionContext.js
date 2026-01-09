@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import RevenueCat, {
   initializeRevenueCat,
   checkProAccess,
@@ -10,6 +10,7 @@ import RevenueCat, {
   getPackagePrice,
   IS_EXPO_GO,
 } from '../services/revenueCatService';
+import { logError } from '../utils/errorLogger';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SUBSCRIPTION CONTEXT - Global Subscription State Management
@@ -17,13 +18,18 @@ import RevenueCat, {
 
 // DEV MODE: Set to true to bypass PRO check in Expo Go for testing
 // Set to false to test paywall flow in Expo Go
-const DEV_MODE_PRO_BYPASS = false; // Production: false | Test: true
+// ⚠️ PRODUCTION SAFEGUARD: Bu değer sadece __DEV__ modunda true olabilir
+const DEV_MODE_PRO_BYPASS_VALUE = false; // Production: false | Test: true
+const DEV_MODE_PRO_BYPASS = __DEV__ ? DEV_MODE_PRO_BYPASS_VALUE : false;
 
 const SubscriptionContext = createContext(null);
 
 export const SubscriptionProvider = ({ children }) => {
   // In Expo Go with dev mode, simulate PRO access for testing
   const devModePro = __DEV__ && IS_EXPO_GO && DEV_MODE_PRO_BYPASS;
+
+  // Memory leak prevention: unmount sonrası state güncellemelerini engelle
+  const isMountedRef = useRef(true);
 
   // State
   const [isInitialized, setIsInitialized] = useState(devModePro);
@@ -38,61 +44,66 @@ export const SubscriptionProvider = ({ children }) => {
 
   // Initialize RevenueCat on mount
   useEffect(() => {
+    // Reset mounted flag on mount
+    isMountedRef.current = true;
+
     const init = async () => {
       try {
+        if (!isMountedRef.current) return;
         setIsLoading(true);
-        console.log('=== SubscriptionContext Init Start ===');
 
         // Skip RevenueCat in Expo Go dev mode - use simulated PRO access
         if (devModePro) {
-          console.log('Dev mode PRO bypass active');
-          setIsLoading(false);
+          if (isMountedRef.current) setIsLoading(false);
           return;
         }
 
         // Initialize SDK
         const initialized = await initializeRevenueCat();
+        if (!isMountedRef.current) return;
         setIsInitialized(initialized);
-        console.log('RevenueCat initialized:', initialized);
 
         if (initialized) {
           // Check pro status
           const hasProAccess = await checkProAccess();
-          console.log('Pro access check result:', hasProAccess);
+          if (!isMountedRef.current) return;
           setIsPro(hasProAccess);
 
           // Get customer info
           const info = await getCustomerInfo();
+          if (!isMountedRef.current) return;
           setCustomerInfo(info);
-          console.log('Customer info loaded');
 
           // Get available packages
           const availablePackages = await getPackages();
+          if (!isMountedRef.current) return;
           setPackages(availablePackages);
-          console.log('Packages loaded:', availablePackages?.length || 0);
 
-          // Get prices
-          const [weeklyPrice, monthlyPrice] = await Promise.all([
+          // Get prices - Promise.allSettled ile kısmi hataları yönet
+          const priceResults = await Promise.allSettled([
             getPackagePrice('weekly'),
             getPackagePrice('monthly'),
           ]);
 
+          if (!isMountedRef.current) return;
           setPrices({
-            weekly: weeklyPrice,
-            monthly: monthlyPrice,
+            weekly: priceResults[0].status === 'fulfilled' ? priceResults[0].value : null,
+            monthly: priceResults[1].status === 'fulfilled' ? priceResults[1].value : null,
           });
-          console.log('Prices loaded - weekly:', weeklyPrice?.price, 'monthly:', monthlyPrice?.price);
         }
-        console.log('=== SubscriptionContext Init Complete ===');
       } catch (error) {
-        console.log('SubscriptionContext init error:', error);
+        logError('SubscriptionContext', 'init', error);
       } finally {
-        setIsLoading(false);
-        console.log('isLoading set to false');
+        if (isMountedRef.current) setIsLoading(false);
       }
     };
 
     init();
+
+    // Cleanup: unmount flag'ı ayarla
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [devModePro]);
 
   // Listen for customer info updates
@@ -100,6 +111,8 @@ export const SubscriptionProvider = ({ children }) => {
     if (!isInitialized) return;
 
     const unsubscribe = addCustomerInfoListener((info, hasProAccess) => {
+      // Unmount sonrası state güncellemesini engelle
+      if (!isMountedRef.current) return;
       setCustomerInfo(info);
       setIsPro(hasProAccess);
     });
@@ -166,7 +179,7 @@ export const SubscriptionProvider = ({ children }) => {
       const info = await getCustomerInfo();
       setCustomerInfo(info);
     } catch (error) {
-      // Silent fail
+      logError('SubscriptionContext', 'refreshStatus', error);
     }
   }, [isInitialized]);
 

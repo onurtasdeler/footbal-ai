@@ -66,8 +66,23 @@ export const getBettingPredictions = async (matchData, isPro = false) => {
         },
       });
 
-      // ⭐ Rate limit error handling (429 Too Many Requests)
+      // ⭐ Error handling (403 PRO only + 429 Rate limit)
       if (error) {
+        // ⭐ FIX: Check for PRO only feature error (403)
+        const isProOnlyError =
+          error.message?.includes('pro_only') ||
+          error.context?.status === 403;
+
+        if (isProOnlyError) {
+          return {
+            ...getDefaultPredictions(language),
+            proOnlyFeature: true,
+            proOnlyMessage: language === 'en'
+              ? 'AI Predictions is a PRO feature. Upgrade to access detailed betting tips.'
+              : 'AI Tahminler PRO özelliğidir. Detaylı bahis ipuçlarına erişmek için PRO\'ya yükseltin.',
+          };
+        }
+
         // Check for rate limit error
         const isRateLimitError =
           error.message?.includes('rate_limit') ||
@@ -86,6 +101,17 @@ export const getBettingPredictions = async (matchData, isPro = false) => {
         }
 
         return getDefaultPredictions();
+      }
+
+      // ⭐ FIX: Check if response contains PRO only error
+      if (data?.error === 'pro_only_feature') {
+        return {
+          ...getDefaultPredictions(language),
+          proOnlyFeature: true,
+          proOnlyMessage: data.message || (language === 'en'
+            ? 'AI Predictions is a PRO feature. Upgrade to access detailed betting tips.'
+            : 'AI Tahminler PRO özelliğidir. Detaylı bahis ipuçlarına erişmek için PRO\'ya yükseltin.'),
+        };
       }
 
       // Check if response itself contains rate limit error
@@ -329,8 +355,23 @@ export const getQuickPredictions = async (homeName, awayName, leagueName) => {
       },
     });
 
-    // ⭐ Rate limit error handling
+    // ⭐ Error handling (403 PRO only + 429 Rate limit)
     if (error) {
+      // ⭐ FIX: Check for PRO only feature error (403)
+      const isProOnlyError =
+        error.message?.includes('pro_only') ||
+        error.context?.status === 403;
+
+      if (isProOnlyError) {
+        return {
+          ...getDefaultPredictions(language),
+          proOnlyFeature: true,
+          proOnlyMessage: language === 'en'
+            ? 'AI Predictions is a PRO feature. Upgrade to access detailed betting tips.'
+            : 'AI Tahminler PRO özelliğidir. Detaylı bahis ipuçlarına erişmek için PRO\'ya yükseltin.',
+        };
+      }
+
       const isRateLimitError =
         error.message?.includes('rate_limit') ||
         error.message?.includes('429') ||
@@ -346,6 +387,17 @@ export const getQuickPredictions = async (homeName, awayName, leagueName) => {
         };
       }
       return null;
+    }
+
+    // ⭐ FIX: Check if response contains PRO only error
+    if (data?.error === 'pro_only_feature') {
+      return {
+        ...getDefaultPredictions(language),
+        proOnlyFeature: true,
+        proOnlyMessage: data.message || (language === 'en'
+          ? 'AI Predictions is a PRO feature. Upgrade to access detailed betting tips.'
+          : 'AI Tahminler PRO özelliğidir. Detaylı bahis ipuçlarına erişmek için PRO\'ya yükseltin.'),
+      };
     }
 
     // Check if response contains rate limit error

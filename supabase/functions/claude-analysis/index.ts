@@ -1,25 +1,215 @@
-// Claude Analysis Edge Function
-// Maç analizi için Claude AI çağrıları
+// Gemini Analysis Edge Function (Migrated from Claude)
+// Maç analizi için Gemini 2.5 Flash AI çağrıları
 // API Key sunucu tarafında saklanır, cache Supabase'de tutulur
 // Multi-language support: TR (default), EN
 // Rate Limiting: IP bazlı, günde 3 farklı maç
+// Cost: ~95% cheaper than Claude Sonnet ($0.15/$0.60 vs $3/$15 per MTok)
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const CLAUDE_API_KEY = Deno.env.get('CLAUDE_API_KEY')!
-const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages'
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')!
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 // Rate limit ayarları
-const FREE_DAILY_LIMIT = 3   // Ücretsiz kullanıcılar: Günde 3 farklı maç
+const FREE_DAILY_LIMIT = 0   // Ücretsiz kullanıcılar: AI analiz YOK (PRO only)
 const PRO_DAILY_LIMIT = 50   // PRO kullanıcılar: Günde 50 farklı maç
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+// Default analysis values to prevent undefined
+function getDefaultAnalysis(lang: string) {
+  const isEN = lang === 'en'
+  return {
+    homeWinProb: 33,
+    drawProb: 34,
+    awayWinProb: 33,
+    confidence: 5,
+    expectedGoals: 2.5,
+    expectedHomeGoals: 1.3,
+    expectedAwayGoals: 1.2,
+    bttsProb: 50,
+    over25Prob: 50,
+    over15Prob: 70,
+    over35Prob: 30,
+    goalDistribution: {
+      home: { '0': 25, '1': 35, '2': 25, '3': 10, '4plus': 5 },
+      away: { '0': 30, '1': 35, '2': 22, '3': 9, '4plus': 4 },
+    },
+    bttsDistribution: {
+      bothScore: 50,
+      onlyHomeScores: 25,
+      onlyAwayScores: 15,
+      noGoals: 10,
+    },
+    htHomeWinProb: 30,
+    htDrawProb: 45,
+    htAwayWinProb: 25,
+    htOver05Prob: 55,
+    htOver15Prob: 25,
+    mostLikelyScore: '1-1',
+    scoreProb: 12,
+    alternativeScores: [
+      { score: '1-0', prob: 10 },
+      { score: '2-1', prob: 9 },
+      { score: '0-0', prob: 8 },
+    ],
+    riskLevel: isEN ? 'medium' : 'orta',
+    bankoScore: 50,
+    volatility: 0.5,
+    winner: isEN ? 'undecided' : 'belirsiz',
+    advice: isEN ? 'Match analysis based on available statistics. Consider team form and head-to-head records before placing bets.' : 'Mevcut istatistiklere dayalı maç analizi. Bahis yapmadan önce takım formunu ve kafa kafaya kayıtları değerlendirin.',
+    factors: [],
+    recommendedBets: [],
+    homeTeamAnalysis: {
+      strengths: [],
+      weaknesses: [],
+      keyPlayer: null,
+      tacticalSummary: '',
+    },
+    awayTeamAnalysis: {
+      strengths: [],
+      weaknesses: [],
+      keyPlayer: null,
+      tacticalSummary: '',
+    },
+    trendSummary: {
+      homeFormTrend: isEN ? 'stable' : 'dengeli',
+      awayFormTrend: isEN ? 'stable' : 'dengeli',
+      homeXGTrend: isEN ? 'stable' : 'stabil',
+      awayXGTrend: isEN ? 'stable' : 'stabil',
+      tacticalMatchupSummary: '',
+    },
+    riskFlags: {
+      highDerbyVolatility: false,
+      weatherImpact: isEN ? 'low' : 'düşük',
+      fatigueRiskHome: isEN ? 'low' : 'düşük',
+      fatigueRiskAway: isEN ? 'low' : 'düşük',
+      marketDisagreement: false,
+    },
+  }
+}
+
+// Merge AI response with defaults to fill missing fields
+function fillDefaultValues(analysis: any, lang: string): any {
+  const defaults = getDefaultAnalysis(lang)
+
+  // Deep merge with defaults
+  const merged = { ...defaults }
+
+  for (const key of Object.keys(defaults)) {
+    if (analysis[key] !== undefined && analysis[key] !== null) {
+      if (typeof defaults[key] === 'object' && !Array.isArray(defaults[key])) {
+        // Deep merge objects
+        merged[key] = { ...defaults[key], ...analysis[key] }
+      } else {
+        merged[key] = analysis[key]
+      }
+    }
+  }
+
+  return merged
+}
+
+/**
+ * Safe JSON parsing with multiple fallback strategies for analysis
+ * Handles malformed AI responses gracefully
+ */
+function safeParseAnalysisJSON(content: string, lang: string): any {
+  if (!content) {
+    console.log('Empty content received, returning defaults')
+    return getDefaultAnalysis(lang)
+  }
+
+  let jsonStr = content
+
+  // Strategy 1: Remove markdown code blocks
+  jsonStr = jsonStr.replace(/```json\s*/gi, '').replace(/```\s*/g, '')
+
+  // Strategy 2: Find the JSON object
+  const jsonMatch = jsonStr.match(/\{[\s\S]*\}/)
+  if (jsonMatch) {
+    jsonStr = jsonMatch[0]
+  }
+
+  // Strategy 3: Clean common JSON issues
+  jsonStr = jsonStr
+    .replace(/,\s*}/g, '}')           // Remove trailing commas before }
+    .replace(/,\s*]/g, ']')           // Remove trailing commas before ]
+    .replace(/[\x00-\x1F\x7F]/g, ' ') // Remove control characters
+    .replace(/\n\s*\/\/.*/g, '')      // Remove single-line comments
+    .replace(/\/\*[\s\S]*?\*\//g, '') // Remove multi-line comments
+    .trim()
+
+  // Try parsing
+  try {
+    return JSON.parse(jsonStr)
+  } catch (e1) {
+    console.log('First parse attempt failed, trying more aggressive cleaning...')
+  }
+
+  // Strategy 4: More aggressive cleaning for string values
+  try {
+    jsonStr = jsonStr
+      .replace(/:\s*"([^"]*?)"/g, (match, p1) => {
+        const cleaned = p1
+          .replace(/\\/g, '\\\\')
+          .replace(/"/g, '\\"')
+          .replace(/\n/g, ' ')
+          .replace(/\r/g, '')
+          .replace(/\t/g, ' ')
+        return `: "${cleaned}"`
+      })
+
+    return JSON.parse(jsonStr)
+  } catch (e2) {
+    console.log('Second parse attempt failed, trying field extraction...')
+  }
+
+  // Strategy 5: Try to extract key fields manually
+  try {
+    const result: any = {}
+
+    // Extract main probabilities
+    const homeWinMatch = jsonStr.match(/"homeWinProb"\s*:\s*(\d+)/)
+    const drawMatch = jsonStr.match(/"drawProb"\s*:\s*(\d+)/)
+    const awayWinMatch = jsonStr.match(/"awayWinProb"\s*:\s*(\d+)/)
+    const confidenceMatch = jsonStr.match(/"confidence"\s*:\s*(\d+)/)
+    const expectedGoalsMatch = jsonStr.match(/"expectedGoals"\s*:\s*([\d.]+)/)
+    const bttsMatch = jsonStr.match(/"bttsProb"\s*:\s*(\d+)/)
+    const over25Match = jsonStr.match(/"over25Prob"\s*:\s*(\d+)/)
+    const adviceMatch = jsonStr.match(/"advice"\s*:\s*"([^"]+)"/)
+    const winnerMatch = jsonStr.match(/"winner"\s*:\s*"([^"]+)"/)
+
+    if (homeWinMatch) result.homeWinProb = parseInt(homeWinMatch[1])
+    if (drawMatch) result.drawProb = parseInt(drawMatch[1])
+    if (awayWinMatch) result.awayWinProb = parseInt(awayWinMatch[1])
+    if (confidenceMatch) result.confidence = parseInt(confidenceMatch[1])
+    if (expectedGoalsMatch) result.expectedGoals = parseFloat(expectedGoalsMatch[1])
+    if (bttsMatch) result.bttsProb = parseInt(bttsMatch[1])
+    if (over25Match) result.over25Prob = parseInt(over25Match[1])
+    if (adviceMatch) result.advice = adviceMatch[1]
+    if (winnerMatch) result.winner = winnerMatch[1]
+
+    // If we extracted at least the main probabilities, use this result
+    if (result.homeWinProb !== undefined && result.drawProb !== undefined) {
+      console.log('Successfully extracted key fields via regex')
+      return result
+    }
+  } catch (e3) {
+    console.log('Field extraction failed')
+  }
+
+  // All strategies failed, return defaults
+  console.log('All JSON parsing strategies failed, returning defaults')
+  console.log('Raw content (first 500 chars):', content?.substring(0, 500))
+  return getDefaultAnalysis(lang)
 }
 
 // IP adresini al
@@ -119,12 +309,47 @@ serve(async (req) => {
     // Validate language parameter
     const lang = ['tr', 'en'].includes(language) ? language : 'tr'
 
-    // Dinamik rate limit: PRO kullanıcılar 50, ücretsiz kullanıcılar 3
+    // Dinamik rate limit: PRO kullanıcılar 50, ücretsiz kullanıcılar 0 (PRO only)
     const dailyLimit = isPro === true ? PRO_DAILY_LIMIT : FREE_DAILY_LIMIT
 
+    // FREE kullanıcılar için erken çıkış - AI analiz PRO only
+    if (!isPro) {
+      return new Response(
+        JSON.stringify({
+          error: 'pro_only_feature',
+          message: lang === 'en'
+            ? 'AI Match Analysis is a PRO feature. Upgrade to access detailed predictions.'
+            : 'AI Maç Analizi PRO özelliğidir. Detaylı tahminlere erişmek için PRO\'ya yükseltin.',
+          isPro: false,
+          requiresPro: true
+        }),
+        {
+          status: 403,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+    }
+
+    // Input doğrulama
     if (!fixtureId || !matchData) {
       return new Response(
         JSON.stringify({ error: 'fixtureId and matchData are required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // matchData yapısı doğrulama
+    if (!matchData.home || !matchData.away) {
+      return new Response(
+        JSON.stringify({
+          error: 'invalid_match_data',
+          message: lang === 'en'
+            ? 'Match data must include home and away team information'
+            : 'Maç verisi ev sahibi ve deplasman takım bilgisi içermelidir'
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -180,52 +405,55 @@ serve(async (req) => {
       })
     }
 
-    console.log(`Cache miss for fixture ${fixtureId} (${lang}), calling Claude API`)
+    console.log(`Cache miss for fixture ${fixtureId} (${lang}), calling Gemini API`)
 
-    // 2. Cache'de yoksa veya expire olmuşsa Claude API çağır
+    // 2. Cache'de yoksa veya expire olmuşsa Gemini API çağır
     const prompt = lang === 'en'
       ? generateEnhancedPromptEN(matchData)
       : generateEnhancedPromptTR(matchData)
 
-    const response = await fetch(CLAUDE_API_URL, {
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': CLAUDE_API_KEY,
-        'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 3000,
-        messages: [{ role: 'user', content: prompt }],
+        contents: [{
+          parts: [{ text: prompt }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 8192,
+        }
       }),
     })
 
     if (!response.ok) {
       const error = await response.json()
-      console.error('Claude API Error:', error)
+      console.error('Gemini API Error:', error)
       return new Response(
-        JSON.stringify({ error: 'Claude API error', details: error }),
+        JSON.stringify({ error: 'Gemini API error', details: error }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     const data = await response.json()
-    const content = data.content[0]?.text
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text
 
-    // JSON parse
-    let analysis
-    try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        analysis = JSON.parse(jsonMatch[0])
-      } else {
-        analysis = JSON.parse(content)
-      }
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError)
-      analysis = { rawAnalysis: content }
+    // Check for empty response
+    if (!content) {
+      console.error('Gemini returned empty response:', data)
+      return new Response(
+        JSON.stringify({ error: 'Gemini API returned empty response' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
+
+    // JSON parse with robust multi-strategy approach
+    let analysis = safeParseAnalysisJSON(content, lang)
+
+    // ⭐ Fill in missing fields with defaults to prevent undefined values
+    analysis = fillDefaultValues(analysis, lang)
 
     // 3. Cache'e kaydet (24 saat TTL) - language dahil
     const expiresAt = new Date()
@@ -253,7 +481,7 @@ serve(async (req) => {
       },
     })
   } catch (error) {
-    console.error('Claude Analysis Error:', error)
+    console.error('Gemini Analysis Error:', error)
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

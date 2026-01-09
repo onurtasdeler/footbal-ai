@@ -5,6 +5,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { logCacheError } from '../utils/errorLogger';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CACHE CONFIGURATION
@@ -67,6 +68,7 @@ export const hasCompletedOnboarding = async () => {
     const value = await AsyncStorage.getItem(ONBOARDING_KEY);
     return value === 'true';
   } catch (error) {
+    logCacheError('hasCompletedOnboarding', ONBOARDING_KEY, error);
     return false;
   }
 };
@@ -80,6 +82,7 @@ export const setOnboardingCompleted = async () => {
     await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
     return true;
   } catch (error) {
+    logCacheError('setOnboardingCompleted', ONBOARDING_KEY, error);
     return false;
   }
 };
@@ -93,6 +96,7 @@ export const resetOnboarding = async () => {
     await AsyncStorage.removeItem(ONBOARDING_KEY);
     return true;
   } catch (error) {
+    logCacheError('resetOnboarding', ONBOARDING_KEY, error);
     return false;
   }
 };
@@ -147,6 +151,7 @@ export const getFromCache = async (key, maxAge = CACHE_DURATIONS.TODAY_FIXTURES)
 
     return data;
   } catch (error) {
+    logCacheError('getFromCache', key, error);
     return null;
   }
 };
@@ -176,6 +181,7 @@ export const saveToCache = async (key, data, requestCount = 1) => {
 
     return true;
   } catch (error) {
+    logCacheError('saveToCache', key, error);
     return false;
   }
 };
@@ -320,7 +326,7 @@ export const getCacheInfo = async () => {
 };
 
 /**
- * Eski cache'leri temizle
+ * Eski cache'leri temizle (batch işlem ile optimize edildi)
  * @param {number} maxAge - Maksimum yaş (ms), default 7 gün
  */
 export const cleanupOldCache = async (maxAge = 7 * 24 * 60 * 60 * 1000) => {
@@ -330,27 +336,33 @@ export const cleanupOldCache = async (maxAge = 7 * 24 * 60 * 60 * 1000) => {
       k.startsWith(API_CACHE_PREFIX) || k.startsWith(AI_CACHE_PREFIX)
     );
 
-    let cleaned = 0;
+    // Tüm cache değerlerini paralel olarak oku
+    const keyValuePairs = await AsyncStorage.multiGet(cacheKeys);
 
-    for (const key of cacheKeys) {
-      const value = await AsyncStorage.getItem(key);
+    // Silinecek anahtarları belirle
+    const keysToDelete = [];
+
+    for (const [key, value] of keyValuePairs) {
       if (value) {
         try {
           const { timestamp, cachedAt } = JSON.parse(value);
           const cacheTime = timestamp || cachedAt;
           if (cacheTime && Date.now() - cacheTime > maxAge) {
-            await AsyncStorage.removeItem(key);
-            cleaned++;
+            keysToDelete.push(key);
           }
         } catch {
           // JSON parse hatası - eski cache, sil
-          await AsyncStorage.removeItem(key);
-          cleaned++;
+          keysToDelete.push(key);
         }
       }
     }
 
-    return cleaned;
+    // Batch silme işlemi
+    if (keysToDelete.length > 0) {
+      await AsyncStorage.multiRemove(keysToDelete);
+    }
+
+    return keysToDelete.length;
   } catch (error) {
     return 0;
   }

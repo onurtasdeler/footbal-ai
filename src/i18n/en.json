@@ -186,9 +186,14 @@
   },
   "matchAnalysis": {
     "dailyLimit": "Daily Limit",
+    "proOnlyModal": {
+      "title": "PRO Feature",
+      "message": "AI Match Analysis is a PRO exclusive feature. Upgrade to PRO to access detailed predictions.",
+      "button": "Upgrade to PRO"
+    },
     "rateLimitModal": {
       "title": "Daily Analysis Limit Reached",
-      "message": "Free users can view 3 match analyses per day. Upgrade to PRO for unlimited access.",
+      "message": "You have reached your daily match analysis limit (50 different matches/day). Try again tomorrow.",
       "button": "OK"
     },
     "loading": "Loading match data...",
@@ -298,9 +303,14 @@
   },
   "predictions": {
     "dailyLimit": "Daily Limit",
+    "proOnlyModal": {
+      "title": "PRO Feature",
+      "message": "AI Match Analysis is a PRO exclusive feature. Upgrade to PRO to access detailed predictions.",
+      "button": "Upgrade to PRO"
+    },
     "rateLimitModal": {
       "title": "Daily Analysis Limit Reached",
-      "message": "Free users can view 3 match analyses per day. Upgrade to PRO for unlimited access.",
+      "message": "You have reached your daily match analysis limit (50 different matches/day). Try again tomorrow.",
       "button": "OK"
     },
     "title": "Predictions",

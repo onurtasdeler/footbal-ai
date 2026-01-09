@@ -12,10 +12,10 @@ const getApiKey = () => {
   const config = Constants.expoConfig?.extra;
 
   if (Platform.OS === 'ios') {
-    return config?.revenueCatApiKeyIos || 'appl_LEpIMzKcSrPWBQHQnWJXzfykDJR';
+    return config?.revenueCatApiKeyIos || '';
   }
 
-  return config?.revenueCatApiKeyAndroid || 'goog_NDPzwjjWBkOLcHsWRYtrXoEIEZx';
+  return config?.revenueCatApiKeyAndroid || '';
 };
 
 // RevenueCat Configuration
@@ -99,8 +99,8 @@ export const checkProAccess = async () => {
     const customerInfo = await Purchases.getCustomerInfo();
     const entitlements = customerInfo?.entitlements?.active;
 
-    // DEBUG: TestFlight abonelik sorununu teşhis için
-    if (__DEV__ || true) { // Production'da da geçici olarak aktif
+    // DEBUG: Sadece development modunda aktif
+    if (__DEV__) {
       console.log('=== RevenueCat Debug ===');
       console.log('All Entitlements:', JSON.stringify(customerInfo?.entitlements, null, 2));
       console.log('Active Entitlements:', JSON.stringify(entitlements, null, 2));
@@ -110,14 +110,14 @@ export const checkProAccess = async () => {
 
     const hasProAccess = entitlements?.[REVENUECAT_CONFIG.entitlementId]?.isActive === true;
 
-    if (__DEV__ || true) {
+    if (__DEV__) {
       console.log('Has Pro Access:', hasProAccess);
       console.log('========================');
     }
 
     return hasProAccess;
   } catch (error) {
-    console.log('checkProAccess error:', error);
+    __DEV__ && console.log('checkProAccess error:', error);
     return false;
   }
 };

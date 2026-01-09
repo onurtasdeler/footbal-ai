@@ -70,17 +70,13 @@ export const incrementAnalysisCount = async () => {
 export const shouldPromptReview = async () => {
   const state = await getReviewState();
 
-  console.log('[ReviewService] Current state:', JSON.stringify(state));
-
   // Already reviewed - never prompt again
   if (state.hasReviewed) {
-    console.log('[ReviewService] Skip: Already reviewed');
     return false;
   }
 
   // Check minimum analysis count
   if (state.analysisCount < CONFIG.MIN_ANALYSIS_COUNT) {
-    console.log(`[ReviewService] Skip: analysisCount ${state.analysisCount} < ${CONFIG.MIN_ANALYSIS_COUNT}`);
     return false;
   }
 
@@ -111,7 +107,6 @@ export const shouldPromptReview = async () => {
     }
   }
 
-  console.log('[ReviewService] All conditions passed - will prompt review');
   return true;
 };
 
@@ -122,10 +117,8 @@ export const shouldPromptReview = async () => {
 export const promptReview = async () => {
   try {
     const isAvailable = await StoreReview.isAvailableAsync();
-    console.log('[ReviewService] isAvailable:', isAvailable);
 
     if (!isAvailable) {
-      console.log('[ReviewService] Review API not available on this device');
       return false;
     }
 
@@ -136,13 +129,10 @@ export const promptReview = async () => {
     await saveReviewState(state);
 
     // Show native review dialog
-    console.log('[ReviewService] Requesting native review dialog...');
     await StoreReview.requestReview();
-    console.log('[ReviewService] Review dialog shown successfully');
 
     return true;
-  } catch (error) {
-    console.log('[ReviewService] Error showing review:', error?.message);
+  } catch {
     return false;
   }
 };

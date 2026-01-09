@@ -17,6 +17,7 @@ import footballApi from '../services/footballApi';
 import { useSmartPolling, useAppState, POLLING_INTERVALS } from '../services/pollingService';
 import { COLORS } from '../theme/colors';
 import { t, getLanguage, addLanguageListener } from '../i18n';
+import { TAB_BAR_TOTAL_HEIGHT } from '../constants/navigation';
 
 const LiveScreen = ({ navigation }) => {
   // Safe area insets for proper header positioning
@@ -130,6 +131,18 @@ const LiveScreen = ({ navigation }) => {
       setLiveMatches(formattedMatches);
       setSortedMatches(sortMatchesByMinute(formattedMatches));
       setLastUpdated(new Date());
+
+      // Memory leak önleme: Artık canlı olmayan maçların istatistiklerini temizle
+      const currentMatchIds = new Set(formattedMatches.map(m => m.id));
+      setMatchStats(prev => {
+        const filtered = {};
+        for (const id of Object.keys(prev)) {
+          if (currentMatchIds.has(parseInt(id))) {
+            filtered[id] = prev[id];
+          }
+        }
+        return filtered;
+      });
     } catch (error) {
       // Silent fail
     } finally {
@@ -456,6 +469,7 @@ const premiumStyles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
+    paddingBottom: TAB_BAR_TOTAL_HEIGHT,
   },
 
   // Header

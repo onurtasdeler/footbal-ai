@@ -3,6 +3,7 @@ import {
   StyleSheet,
   Text,
   View,
+  SectionList,
   ScrollView,
   TouchableOpacity,
   Platform,
@@ -24,6 +25,15 @@ import { getAnalyzedFixtureIds } from '../services/cacheService';
 import { useIsPro } from '../context/SubscriptionContext';
 import { COLORS } from '../theme/colors';
 import { t, getLanguage, addLanguageListener } from '../i18n';
+import { TAB_BAR_TOTAL_HEIGHT } from '../constants/navigation';
+import {
+  formatDayShort,
+  formatDateNum,
+  formatDateLabel,
+  formatDateDisplay,
+  formatShortDate,
+  getDateString,
+} from '../utils/dateUtils';
 
 const LOCALE_TO_COUNTRY = {
   'tr': 'Turkey', 'en': 'England', 'de': 'Germany', 'es': 'Spain', 'fr': 'France',
@@ -80,58 +90,9 @@ const HomeScreen = ({ navigation }) => {
   ];
   const dateOptions = [-1, 0, 1, 2, 3, 4, 5]; // 7 günlük tarih aralığı
 
-  // Date Tab Formatters
-  const formatDayShort = (offset) => {
-    const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-    const date = new Date();
-    date.setDate(date.getDate() + offset);
-
-    if (offset === 0) return t('home.today');
-    if (offset === -1) return t('home.yesterday');
-    if (offset === 1) return t('home.tomorrow');
-
-    return t(`home.days.${dayKeys[date.getDay()]}`);
-  };
-
-  const formatDateNum = (offset) => {
-    const date = new Date();
-    date.setDate(date.getDate() + offset);
-    return `${date.getDate()}`;
-  };
-
   // ─────────────────────────────────────────────────────────────────────────────
-  // HELPERS
+  // HELPERS (tarih fonksiyonları src/utils/dateUtils.js'den import edildi)
   // ─────────────────────────────────────────────────────────────────────────────
-  
-  const getDateString = (offset = 0) => {
-    const date = new Date();
-    date.setDate(date.getDate() + offset);
-    return date.toISOString().split('T')[0];
-  };
-
-  const formatDateLabel = (offset) => {
-    if (offset === -1) return t('home.yesterday');
-    if (offset === 0) return t('home.today');
-    if (offset === 1) return t('home.tomorrow');
-    const date = new Date();
-    date.setDate(date.getDate() + offset);
-    return `${date.getDate()}/${date.getMonth() + 1}`;
-  };
-
-  const formatDateDisplay = (offset) => {
-    const date = new Date();
-    date.setDate(date.getDate() + offset);
-    const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-    const monthKeys = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-    return `${date.getDate()} ${t(`home.months.${monthKeys[date.getMonth()]}`)}, ${t(`home.daysLong.${dayKeys[date.getDay()]}`)}`;
-  };
-
-  const formatShortDate = (offset) => {
-    const date = new Date();
-    date.setDate(date.getDate() + offset);
-    const monthKeys = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-    return `${date.getDate()} ${t(`home.months.${monthKeys[date.getMonth()]}`)}`;
-  };
 
   useEffect(() => {
     try {
@@ -228,7 +189,7 @@ const HomeScreen = ({ navigation }) => {
         setMatchesByLeague(grouped);
       } else {
         setMatchesByLeague({});
-        setSortedLeagues([]);
+        // sortedLeagues artık useMemo ile hesaplanıyor, ayrı set gerekmez
       }
     } catch (err) {
       setError(err.message);
@@ -333,6 +294,151 @@ const HomeScreen = ({ navigation }) => {
     if (value >= 40) return COLORS.warning;
     return COLORS.danger;
   };
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // SECTIONLIST DATA & RENDER FUNCTIONS (Virtualization için)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // SectionList için veri hazırlama
+  const sectionData = useMemo(() => {
+    return sortedLeagues
+      .map(([leagueKey, league]) => {
+        const filteredMatches = getFilteredMatches(league.matches, league);
+        if (filteredMatches.length === 0) return null;
+
+        return {
+          key: leagueKey,
+          league,
+          data: expandedLeagues[leagueKey] ? filteredMatches : [],
+          matchCount: filteredMatches.length,
+        };
+      })
+      .filter(Boolean);
+  }, [sortedLeagues, expandedLeagues, activeFilter, searchText, favoriteMatchIds, analyzedMatchIds, hideFinished, onlyNotStarted, onlyDraws]);
+
+  // Maç kartı render fonksiyonu - useCallback ile memoize
+  const renderMatchItem = useCallback(({ item: match }) => (
+    <TouchableOpacity
+      style={styles.matchCard}
+      activeOpacity={0.7}
+      onPress={() => navigation.navigate('MatchAnalysis', { match })}
+    >
+      <View style={[styles.matchTimeCol, match.isLive && styles.matchTimeColLive]}>
+        {match.isLive ? (
+          <View style={styles.liveTimeBadge}>
+            <View style={styles.liveBadgeTop}>
+              <View style={styles.liveDotPulse} />
+              <Text style={styles.liveLabel}>{t('home.liveLabel')}</Text>
+            </View>
+            <Text style={styles.liveMinuteText}>{match.minute}'</Text>
+          </View>
+        ) : (
+          <Text style={styles.matchTimeText}>{match.time}</Text>
+        )}
+      </View>
+
+      <View style={styles.teamsCol}>
+        <View style={styles.teamRow}>
+          <View style={styles.teamLogoContainer}>
+            {match.home?.logo ? (
+              <Image source={{ uri: match.home.logo }} style={styles.teamLogoSmall} resizeMode="contain" />
+            ) : (
+              <Ionicons name="shirt-outline" size={14} color={COLORS.gray600} />
+            )}
+          </View>
+          <Text style={styles.teamNameText} numberOfLines={1}>
+            {match.home?.name || t('home.homeTeam')}
+          </Text>
+        </View>
+        <View style={styles.teamRow}>
+          <View style={styles.teamLogoContainer}>
+            {match.away?.logo ? (
+              <Image source={{ uri: match.away.logo }} style={styles.teamLogoSmall} resizeMode="contain" />
+            ) : (
+              <Ionicons name="shirt-outline" size={14} color={COLORS.gray600} />
+            )}
+          </View>
+          <Text style={styles.teamNameText} numberOfLines={1}>
+            {match.away?.name || t('home.awayTeam')}
+          </Text>
+        </View>
+      </View>
+
+      {match.prediction !== null && (
+        <View style={styles.predictionCol}>
+          <Text style={[styles.predictionPercent, { color: COLORS.gray500 }]}>%</Text>
+          <Text style={[styles.predictionValue, { color: getPredictionColor(match.prediction) }]}>
+            {match.prediction}
+          </Text>
+        </View>
+      )}
+
+      <TouchableOpacity
+        style={styles.favoriteBtn}
+        onPress={(e) => {
+          e.stopPropagation();
+          toggleFavorite(match);
+        }}
+      >
+        <Ionicons
+          name={favoriteMatchIds.includes(match.id) ? "heart" : "heart-outline"}
+          size={20}
+          color={favoriteMatchIds.includes(match.id) ? COLORS.danger : COLORS.gray500}
+        />
+      </TouchableOpacity>
+    </TouchableOpacity>
+  ), [navigation, favoriteMatchIds, toggleFavorite]);
+
+  // Lig başlığı render fonksiyonu
+  const renderSectionHeader = useCallback(({ section }) => {
+    const { key: leagueKey, league, matchCount } = section;
+    return (
+      <TouchableOpacity
+        style={styles.leagueHeader}
+        onPress={() => toggleLeague(leagueKey)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.bultenLeagueInfo}>
+          <View style={styles.bultenFlagContainer}>
+            {(league.flag || league.logo) ? (
+              <Image
+                source={{ uri: league.flag || league.logo }}
+                style={styles.bultenFlag}
+                resizeMode="cover"
+              />
+            ) : (
+              <Ionicons name="football" size={16} color={COLORS.gray500} />
+            )}
+          </View>
+          <Text style={styles.bultenLeagueName} numberOfLines={1}>
+            {league.country ? `${league.country} - ${league.name}` : league.name}
+          </Text>
+        </View>
+        <View style={styles.leagueRight}>
+          <Text style={styles.matchCount}>{matchCount}</Text>
+          <Ionicons
+            name={expandedLeagues[leagueKey] ? 'chevron-up' : 'chevron-down'}
+            size={20}
+            color={COLORS.gray500}
+          />
+        </View>
+      </TouchableOpacity>
+    );
+  }, [expandedLeagues, toggleLeague]);
+
+  // Boş liste bileşeni
+  const ListEmptyComponent = useCallback(() => (
+    <View style={styles.noMatchesBox}>
+      <Ionicons name="football-outline" size={40} color={COLORS.gray700} />
+      <Text style={styles.noMatchesText}>{t('home.noMatches')}</Text>
+    </View>
+  ), []);
+
+  // Footer bileşeni (bottom padding için)
+  const ListFooterComponent = useCallback(() => <View style={{ height: 120 }} />, []);
+
+  // Key extractor
+  const keyExtractor = useCallback((item) => String(item.id), []);
 
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -455,146 +561,36 @@ const HomeScreen = ({ navigation }) => {
           <Text style={styles.loadingText}>{t('common.loading')}</Text>
         </View>
       ) : (
-        <ScrollView
-          style={styles.matchesScroll}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => fetchData(selectedDateOffset)}
-              tintColor={COLORS.accent}
-            />
-          }
-        >
-          <Animated.View style={{ opacity: fadeAnim }}>
-            {sortedLeagues.length === 0 ? (
-               <View style={styles.noMatchesBox}>
-               <Ionicons name="football-outline" size={40} color={COLORS.gray700} />
-               <Text style={styles.noMatchesText}>
-                 {t('home.noMatches')}
-               </Text>
-             </View>
-            ) : (
-              sortedLeagues.map(([leagueKey, league]) => {
-                const filteredMatches = getFilteredMatches(league.matches, league);
-                if (filteredMatches.length === 0) return null;
-
-                return (
-                  <View key={leagueKey} style={styles.leagueSection}>
-                    <TouchableOpacity
-                      style={styles.leagueHeader}
-                      onPress={() => toggleLeague(leagueKey)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.bultenLeagueInfo}>
-                        <View style={styles.bultenFlagContainer}>
-                          {(league.flag || league.logo) ? (
-                            <Image
-                              source={{ uri: league.flag || league.logo }}
-                              style={styles.bultenFlag}
-                              resizeMode="cover"
-                            />
-                          ) : (
-                            <Ionicons name="football" size={16} color={COLORS.gray500} />
-                          )}
-                        </View>
-                        <Text style={styles.bultenLeagueName} numberOfLines={1}>
-                          {league.country ? `${league.country} - ${league.name}` : league.name}
-                        </Text>
-                      </View>
-                      <View style={styles.leagueRight}>
-                        <Text style={styles.matchCount}>{filteredMatches.length}</Text>
-                        <Ionicons
-                          name={expandedLeagues[leagueKey] ? 'chevron-up' : 'chevron-down'}
-                          size={20}
-                          color={COLORS.gray500}
-                        />
-                      </View>
-                    </TouchableOpacity>
-
-                    {expandedLeagues[leagueKey] && (
-                      <View style={styles.matchesList}>
-                        {filteredMatches.map((match) => (
-                          <TouchableOpacity
-                            key={match.id}
-                            style={styles.matchCard}
-                            activeOpacity={0.7}
-                            onPress={() => navigation.navigate('MatchAnalysis', { match })}
-                          >
-                            <View style={[styles.matchTimeCol, match.isLive && styles.matchTimeColLive]}>
-                              {match.isLive ? (
-                                <View style={styles.liveTimeBadge}>
-                                  <View style={styles.liveBadgeTop}>
-                                    <View style={styles.liveDotPulse} />
-                                    <Text style={styles.liveLabel}>{t('home.liveLabel')}</Text>
-                                  </View>
-                                  <Text style={styles.liveMinuteText}>{match.minute}'</Text>
-                                </View>
-                              ) : (
-                                <Text style={styles.matchTimeText}>{match.time}</Text>
-                              )}
-                            </View>
-
-                            <View style={styles.teamsCol}>
-                              <View style={styles.teamRow}>
-                                <View style={styles.teamLogoContainer}>
-                                  {match.home?.logo ? (
-                                    <Image source={{ uri: match.home.logo }} style={styles.teamLogoSmall} resizeMode="contain" />
-                                  ) : (
-                                    <Ionicons name="shirt-outline" size={14} color={COLORS.gray600} />
-                                  )}
-                                </View>
-                                <Text style={styles.teamNameText} numberOfLines={1}>
-                                  {match.home?.name || t('home.homeTeam')}
-                                </Text>
-                              </View>
-                              <View style={styles.teamRow}>
-                                <View style={styles.teamLogoContainer}>
-                                  {match.away?.logo ? (
-                                    <Image source={{ uri: match.away.logo }} style={styles.teamLogoSmall} resizeMode="contain" />
-                                  ) : (
-                                    <Ionicons name="shirt-outline" size={14} color={COLORS.gray600} />
-                                  )}
-                                </View>
-                                <Text style={styles.teamNameText} numberOfLines={1}>
-                                  {match.away?.name || t('home.awayTeam')}
-                                </Text>
-                              </View>
-                            </View>
-
-                            {match.prediction !== null && (
-                              <View style={styles.predictionCol}>
-                                <Text style={[styles.predictionPercent, { color: COLORS.gray500 }]}>%</Text>
-                                <Text style={[styles.predictionValue, { color: getPredictionColor(match.prediction) }]}>
-                                  {match.prediction}
-                                </Text>
-                              </View>
-                            )}
-
-                            <TouchableOpacity
-                              style={styles.favoriteBtn}
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                toggleFavorite(match);
-                              }}
-                            >
-                              <Ionicons
-                                name={favoriteMatchIds.includes(match.id) ? "heart" : "heart-outline"}
-                                size={20}
-                                color={favoriteMatchIds.includes(match.id) ? COLORS.danger : COLORS.gray500}
-                              />
-                            </TouchableOpacity>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                );
-              })
-            )}
-            <View style={{ height: 120 }} />
-          </Animated.View>
-        </ScrollView>
+        <Animated.View style={[styles.matchesScroll, { opacity: fadeAnim }]}>
+          <SectionList
+            sections={sectionData}
+            keyExtractor={keyExtractor}
+            renderItem={renderMatchItem}
+            renderSectionHeader={renderSectionHeader}
+            ListEmptyComponent={ListEmptyComponent}
+            ListFooterComponent={ListFooterComponent}
+            stickySectionHeadersEnabled={false}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.sectionListContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => fetchData(selectedDateOffset)}
+                tintColor={COLORS.accent}
+              />
+            }
+            // Performance optimizations
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            removeClippedSubviews={Platform.OS === 'android'}
+            getItemLayout={(data, index) => ({
+              length: 76, // Approximate match card height
+              offset: 76 * index,
+              index,
+            })}
+          />
+        </Animated.View>
       )}
 
     </View>
@@ -777,7 +773,10 @@ const styles = StyleSheet.create({
   // Content
   matchesScroll: {
     flex: 1,
+  },
+  sectionListContent: {
     paddingHorizontal: 16,
+    paddingBottom: TAB_BAR_TOTAL_HEIGHT,
   },
   loadingContainer: {
     flex: 1,

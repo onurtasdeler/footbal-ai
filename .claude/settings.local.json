@@ -5,7 +5,12 @@
       "WebFetch(domain:ls.nesine.com)",
       "Bash(dir:*)",
       "WebSearch",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(cat:*)",
+      "WebFetch(domain:community.revenuecat.com)",
+      "WebFetch(domain:stackoverflow.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.expo.dev)"
     ],
     "deny": [],
     "ask": []

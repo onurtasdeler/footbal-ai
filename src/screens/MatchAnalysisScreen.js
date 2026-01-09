@@ -887,6 +887,15 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const tabIndicatorAnim = useRef(new Animated.Value(0)).current;
 
+  // ⭐ Mount tracking to prevent state updates after unmount (crash fix)
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // State
   const [activeTab, setActiveTab] = useState('tahminler');
   const [loading, setLoading] = useState(true);
@@ -897,8 +906,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
   const [aiLoading, setAiLoading] = useState(false);
   const [cachedData, setCachedData] = useState(false);
   const [rateLimitError, setRateLimitError] = useState(null);
-  const [showRateLimitPaywall, setShowRateLimitPaywall] = useState(false);
-  const [showRateLimitInfo, setShowRateLimitInfo] = useState(false);
+  const [showRateLimitInfo, setShowRateLimitInfo] = useState(false); // PRO 50 limit aşımı mesajı için
   const [showDisclaimerModal, setShowDisclaimerModal] = useState(false);
 
   // Dil değişikliği için state
@@ -963,7 +971,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
 
       // Check cache first (for fast UI display, but rate limit will be checked separately)
       const cached = await cacheService.getAnalysis(fixtureId);
-      if (cached) {
+      if (cached && isMountedRef.current) {
         setAiAnalysis(cached);
         // NOT setting cachedData=true here - rate limit check will happen in fetchAiAnalysis
         // cachedData will be set after rate limit is verified
@@ -972,7 +980,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
       // Fetch prediction
       try {
         const predData = await footballApi.getPredictions(fixtureId);
-        if (predData && predData.length > 0) {
+        if (predData && predData.length > 0 && isMountedRef.current) {
           const formatted = footballApi.formatPrediction(predData[0]);
           setPrediction(formatted);
         }
@@ -980,11 +988,14 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
         // Silent fail
       }
 
+      // ⭐ CRASH FIX: Early return if unmounted
+      if (!isMountedRef.current) return;
+
       // Fetch H2H
       if (homeTeamId && awayTeamId) {
         try {
           const h2h = await footballApi.getHeadToHead(homeTeamId, awayTeamId, 10);
-          if (h2h && h2h.length > 0) {
+          if (h2h && h2h.length > 0 && isMountedRef.current) {
             let homeWins = 0, draws = 0, awayWins = 0;
             let totalHomeGoals = 0, totalAwayGoals = 0;
 
@@ -1030,10 +1041,13 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
         }
       }
 
+      // ⭐ CRASH FIX: Early return if unmounted
+      if (!isMountedRef.current) return;
+
       // Fetch match stats
       try {
         const statsData = await footballApi.getFixtureStats(fixtureId);
-        if (statsData && statsData.length >= 2) {
+        if (statsData && statsData.length >= 2 && isMountedRef.current) {
           const homeStats = statsData.find(s => s.team.id === homeTeamId) || statsData[0];
           const awayStats = statsData.find(s => s.team.id === awayTeamId) || statsData[1];
 
@@ -1057,7 +1071,10 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
     } catch (error) {
       // Silent fail
     } finally {
-      setLoading(false);
+      // ⭐ CRASH FIX: Check if component is still mounted
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -1066,22 +1083,33 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
   }, [fixtureId]);
 
   // Auto-start analysis when match details are loaded
-  // Always verify rate limit with server, even if we have cached data
+  // FREE kullanıcılar için paywall zaten useState'de açık
   useEffect(() => {
-    // Only auto-analyze if not already loading and rate limit not yet verified
+    // ⭐ LOOP FIX: Wait for RevenueCat to finish loading before checking isPro
+    if (subscriptionLoading) return;
+
+    // FREE kullanıcılar için paywall zaten açık (useState başlangıç değeri)
+    if (!isPro) return;
+
+    // PRO kullanıcılar için normal akış
     if (!loading && !aiLoading && !cachedData) {
-      // Small delay to ensure prediction data is available
       const timer = setTimeout(() => {
         fetchAiAnalysis();
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [loading, cachedData, aiLoading]);
+  }, [loading, cachedData, aiLoading, isPro, subscriptionLoading]);
 
   // Analysis handler - Edge Function handles Supabase caching with language support
-  // IMPORTANT: Always calls server to verify rate limit, even if we have local cache
+  // Sadece PRO kullanıcılar için çalışır (FREE için render'da paywall açık)
   const fetchAiAnalysis = async () => {
     if (aiLoading) return;
+
+    // ⭐ LOOP FIX: Wait for RevenueCat to finish loading
+    if (subscriptionLoading) return;
+
+    // FREE kullanıcılar bu noktaya ulaşamaz (render'da paywall açık)
+    if (!isPro) return;
 
     // If rate limit already verified (cachedData=true), don't fetch again
     if (cachedData) {
@@ -1095,7 +1123,7 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
 
     try {
       // Call Edge Function - it handles:
-      // 1. Rate limiting (IP-based, FREE: 3/day, PRO: 50/day)
+      // 1. Rate limiting (IP-based, PRO: 50/day)
       // 2. Same match = no rate limit increment (isNewMatch: false)
       // 3. Supabase cache check (with language parameter)
       // 4. Claude API call if not cached
@@ -1117,14 +1145,29 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
 
       // ⭐ isPro parametresi: PRO kullanıcılar günlük 50 maç, ücretsiz 3 maç
       const result = await claudeAi.analyzeMatch(analysisData, isPro);
+
+      // ⭐ CRASH FIX: Check if component is still mounted before updating state
+      if (!isMountedRef.current) return;
+
       if (result) {
+        // ⭐ FIX: Check for PRO only feature error (403)
+        if (result.proOnlyFeature) {
+          // FREE user somehow triggered this - stop the loop
+          setCachedData(true); // ⭐ LOOP FIX: Prevent useEffect from re-triggering
+          setAiLoading(false);
+          return; // Exit early - paywall will show in render
+        }
+
         // Check for rate limit error
         if (result.rateLimitExceeded) {
-          // Rate limit exceeded - show paywall, don't use cached data
+          // Rate limit exceeded - handle based on subscription status
           setRateLimitError(result.rateLimitMessage);
-          setShowRateLimitInfo(true); // Önce info modal göster, paywall sonra
-          setAiAnalysis(null); // Clear any cached analysis - force paywall
+          setAiAnalysis(null); // Clear any cached analysis
           setCachedData(true); // ⭐ LOOP FIX: Prevent useEffect from re-triggering fetchAiAnalysis
+
+          // PRO kullanıcı (50 limit) - sadece mesaj göster, paywall yok
+          // FREE kullanıcılar zaten bu noktaya ulaşamaz (render'da paywall açık)
+          setShowRateLimitInfo(true);
         } else {
           // Rate limit OK - mark as verified
           setRateLimitError(null);
@@ -1139,14 +1182,19 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
             await cacheService.saveAnalysis(fixtureId, result, match.date, match.status || 'NS');
           }
 
-          // Trigger in-app review prompt
-          await reviewService.checkAndPromptReview();
+          // Trigger in-app review prompt (only if still mounted)
+          if (isMountedRef.current) {
+            await reviewService.checkAndPromptReview();
+          }
         }
       }
     } catch (error) {
       // Silent fail - don't log to console
     } finally {
-      setAiLoading(false);
+      // ⭐ CRASH FIX: Check if component is still mounted
+      if (isMountedRef.current) {
+        setAiLoading(false);
+      }
     }
   };
 
@@ -1314,14 +1362,11 @@ const MatchAnalysisScreen = ({ route, navigation }) => {
         </View>
       </Modal>
 
-      {/* Rate Limit Paywall - Info modal kapandıktan sonra açılır */}
-      {showRateLimitPaywall && (
+      {/* Paywall - Sadece FREE kullanıcılar için (PRO için rate limit mesajı gösterilir) */}
+      {!subscriptionLoading && !isPro && (
         <PaywallScreen
-          visible={showRateLimitPaywall}
-          onClose={() => {
-            setShowRateLimitPaywall(false);
-            navigation.goBack();
-          }}
+          visible={true}
+          onClose={() => navigation.goBack()}
         />
       )}
 
