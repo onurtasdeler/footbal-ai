@@ -309,18 +309,22 @@ serve(async (req) => {
     // Validate language parameter
     const lang = ['tr', 'en'].includes(language) ? language : 'tr'
 
+    // ⭐ FIX: Normalize isPro to handle string/number/boolean values
+    // Client may send "true" (string), 1 (number), or true (boolean)
+    const isProUser = isPro === true || isPro === 'true' || isPro === 1
+
     // Dinamik rate limit: PRO kullanıcılar 50, ücretsiz kullanıcılar 0 (PRO only)
-    const dailyLimit = isPro === true ? PRO_DAILY_LIMIT : FREE_DAILY_LIMIT
+    const dailyLimit = isProUser ? PRO_DAILY_LIMIT : FREE_DAILY_LIMIT
 
     // FREE kullanıcılar için erken çıkış - AI analiz PRO only
-    if (!isPro) {
+    if (!isProUser) {
       return new Response(
         JSON.stringify({
           error: 'pro_only_feature',
           message: lang === 'en'
             ? 'AI Match Analysis is a PRO feature. Upgrade to access detailed predictions.'
             : 'AI Maç Analizi PRO özelliğidir. Detaylı tahminlere erişmek için PRO\'ya yükseltin.',
-          isPro: false,
+          isPro: isProUser,
           requiresPro: true
         }),
         {
@@ -362,7 +366,7 @@ serve(async (req) => {
     const rateLimit = await checkRateLimit(supabase, clientIP, fixtureId, 'claude-analysis', dailyLimit)
 
     if (!rateLimit.allowed) {
-      console.log(`Rate limit exceeded for IP ${clientIP} (isPro: ${isPro}, limit: ${dailyLimit})`)
+      console.log(`Rate limit exceeded for IP ${clientIP} (isPro: ${isProUser}, limit: ${dailyLimit})`)
       return new Response(
         JSON.stringify({
           error: 'rate_limit_exceeded',
@@ -371,7 +375,7 @@ serve(async (req) => {
             : `Günlük maç analizi limitinize ulaştınız (${dailyLimit} farklı maç/gün)`,
           remaining: 0,
           resetAt: rateLimit.resetAt,
-          isPro: isPro,
+          isPro: isProUser,
           dailyLimit: dailyLimit
         }),
         {

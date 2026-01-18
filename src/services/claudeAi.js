@@ -47,7 +47,7 @@ export const analyzeMatch = async (matchData, isPro = false) => {
           },
           fixtureId: matchData.fixtureId,
           language: getLanguage(),
-          isPro: isPro, // ⭐ PRO kullanıcılar için yüksek rate limit (50 vs 3)
+          isPro: isPro === true, // ⭐ Ensure strict boolean for PRO rate limit (50 vs 0)
         },
       });
 
@@ -146,7 +146,7 @@ export const quickAnalyze = async (homeName, awayName, leagueName, isPro = false
         },
         fixtureId: `quick_${Date.now()}`, // Temporary ID for quick analysis
         language: getLanguage(),
-        isPro: isPro, // PRO kullanıcılar için yüksek rate limit
+        isPro: isPro === true, // ⭐ Ensure strict boolean for PRO rate limit (50 vs 0)
       },
     });
 
